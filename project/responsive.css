@@ -1,0 +1,204 @@
+/* =========================================================
+   WealthWise · Responsive Layer
+   Load AFTER page styles and motion.css.
+   Breakpoints: mobile <768, tablet 768-1024, desktop >1024
+   ========================================================= */
+
+/* ---------- Prevent iOS auto-zoom (min 16px inputs) ----- */
+input, select, textarea, .input, .select, .amount-input, .date-input {
+  font-size: max(16px, 1rem);
+}
+
+/* ---------- Touch targets (min 44px) -------------------- */
+@media (max-width: 1024px) {
+  button, .btn, a.btn, input[type="checkbox"], input[type="radio"],
+  .goal, .radio-card, .option-card, .tab, .segmented button {
+    min-height: 44px;
+  }
+  .input, .select, .amount-input, .date-input {
+    min-height: 48px;
+    padding: 12px 16px;
+  }
+  /* Bigger slider thumb for touch */
+  input[type=range].range::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -11px; }
+  input[type=range].range::-moz-range-thumb { width: 28px; height: 28px; }
+  input[type=range].range { height: 36px; }
+}
+
+/* ---------- Tablet (≤1024px) ---------------------------- */
+@media (max-width: 1024px) {
+  main { padding: 32px 24px 140px !important; }
+  .topbar, .progress-wrap, .footer { padding-left: 24px !important; padding-right: 24px !important; }
+
+  /* Landing */
+  .hero { grid-template-columns: 1fr !important; padding: 48px 24px !important; gap: 40px !important; }
+  .hero h1 { font-size: 44px !important; }
+  .hero-art { max-width: 420px; margin: 0 auto; }
+  .trust-inner { grid-template-columns: repeat(2, 1fr) !important; padding: 22px 24px !important; }
+  .features-inner { padding: 0 24px !important; }
+
+  /* Grids collapse to 1-2 */
+  .goal-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .feat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .steps-grid { grid-template-columns: 1fr !important; }
+  .steps-grid::before { display: none; }
+  .compare { grid-template-columns: 1fr !important; }
+}
+
+/* ---------- Mobile (≤767px) ----------------------------- */
+@media (max-width: 767px) {
+  body { font-size: 15px; }
+
+  /* ---- NAV ---- */
+  .topbar, .nav-inner { padding: 14px 18px !important; }
+  .nav-links a:not(.nav-cta) { display: none; }
+  .brand { font-size: 16px !important; }
+
+  main { padding: 24px 18px 180px !important; }
+  .progress-wrap { padding: 18px 18px 6px !important; }
+
+  /* ---- Progress: numbers only ---- */
+  .step-meta b { font-size: 0 !important; }
+  .step-meta b::before {
+    content: attr(data-num);
+    font-size: 14px;
+    display: inline-block;
+  }
+  .step-meta { font-size: 0 !important; }
+  .step-meta b::before { font-size: 14px !important; }
+  /* Fallback: hide labels, show numbers inline */
+  .step-meta { gap: 0 !important; }
+  .step-label { display: none !important; }
+
+  /* ---- Typography ---- */
+  h1.title, .hero h1 { font-size: 28px !important; line-height: 1.15 !important; }
+  .subtitle, .hero p.lead { font-size: 15px !important; }
+  h2.sec-title { font-size: 26px !important; }
+  .block-title { font-size: 17px !important; }
+
+  /* ---- Grids → single column ---- */
+  .goal-grid, .form-grid, .slider-grid, .feat-grid,
+  .option-grid-3, .option-grid-2, .compare,
+  .pillar-grid, .kpi-grid, .actions-row {
+    grid-template-columns: 1fr !important;
+    display: grid !important;
+  }
+  .form-grid .field.span-2 { grid-column: span 1 !important; }
+
+  /* ---- Cards ---- */
+  .person-card, .pillar-card, .slider-card, .block, .compare-col {
+    padding: 20px 18px !important;
+  }
+  .result-hero {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 22px !important;
+    gap: 14px !important;
+  }
+  .result-title { font-size: 22px !important; }
+  .state-switcher { align-self: stretch; }
+
+  /* ---- Tabs: horizontal scroll ---- */
+  .tabs {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; padding: 12px 14px !important; }
+
+  /* ---- Tables → horizontal scroll ---- */
+  .ww-table-wrap, table.responsive {
+    display: block; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  /* ---- Sliders ---- */
+  .retire-value .num { font-size: 40px !important; }
+
+  /* ---- Footer: sticky Weiter ---- */
+  .footer {
+    padding: 12px 18px !important;
+    gap: 10px;
+  }
+  .footer-meta { display: none; }
+  .footer .btn {
+    flex: 1; justify-content: center;
+    padding: 14px 18px !important;
+    font-size: 15px !important;
+  }
+
+  /* ---- Landing ---- */
+  .hero { padding: 32px 18px !important; gap: 28px !important; }
+  .hero h1 { font-size: 32px !important; }
+  .hero-ctas { flex-direction: column; align-items: stretch; }
+  .hero-ctas .btn-primary { justify-content: center; }
+  .hero-badge { display: none; } /* too cluttered on mobile */
+  .trust-inner { grid-template-columns: 1fr 1fr !important; gap: 14px !important; padding: 18px !important; }
+  .trust-item { font-size: 13px; }
+  .feat { padding: 18px !important; }
+  section { padding: 56px 18px !important; }
+  .features { padding: 56px 0 !important; }
+  .features-inner { padding: 0 18px !important; }
+
+  /* ---- FAQ ---- */
+  details.faq summary { padding: 18px 20px !important; font-size: 15px !important; }
+
+  /* ---- Footer brand ---- */
+  .ww-footer-inner { flex-direction: column; align-items: flex-start !important; gap: 16px; padding: 24px 18px !important; }
+  .ww-footer-links { flex-wrap: wrap; gap: 14px 20px; }
+
+  /* ---- Tweaks panel → bottom sheet ---- */
+  .tweaks {
+    right: 12px !important; left: 12px !important; bottom: 84px !important;
+    width: auto !important;
+  }
+
+  /* ---- Hero illustration smaller ---- */
+  .hero-art { max-width: 280px; }
+
+  /* Prevent horizontal scroll */
+  html, body { overflow-x: hidden; }
+}
+
+/* ---------- Chatbot: desktop side-panel → mobile overlay --- */
+.ww-chatbot-fab {
+  display: none;
+  position: fixed; right: 16px; bottom: 84px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #1a2b4a; color: #fff;
+  border: none; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(17,31,58,.3);
+  z-index: 50;
+  align-items: center; justify-content: center;
+}
+@media (max-width: 767px) {
+  .ww-chatbot-fab { display: flex; }
+  .ww-chatbot-panel {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    width: 100% !important; height: 100% !important;
+    border-radius: 0 !important;
+    z-index: 100;
+  }
+}
+
+/* ---------- Swipeable card rail ------------------------- */
+.ww-swipe-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+  scrollbar-width: none;
+}
+.ww-swipe-rail::-webkit-scrollbar { display: none; }
+.ww-swipe-rail > * {
+  flex: 0 0 85%;
+  scroll-snap-align: start;
+}
+@media (min-width: 768px) {
+  .ww-swipe-rail { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+  .ww-swipe-rail > * { flex: none; }
+}

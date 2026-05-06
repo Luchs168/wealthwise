@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Datenschutz · WealthWise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="analytics.js"></script>
+<script defer src="footer.js"></script>
+<style>
+  :root {
+    --navy-900:#111f3a; --navy-800:#1a2b4a; --navy-700:#2a3e63; --navy-50:#f1f4fa;
+    --ink-900:#0f172a; --ink-700:#334155; --ink-500:#64748b; --ink-200:#e2e8f0;
+    --bg:#f8fafc; --surface:#fff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--ink-900);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .nav{background:var(--surface);border-bottom:1px solid var(--ink-200);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+  .nav-inner{max-width:1200px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;font-family:"Inter Tight",sans-serif;font-weight:600;font-size:18px;color:var(--navy-900);text-decoration:none}
+  .brand-mark{width:26px;height:26px;border-radius:7px;background:var(--navy-800);display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px}
+  .nav-back{color:var(--ink-700);text-decoration:none;font-size:14px}
+  .nav-back:hover{color:var(--navy-900)}
+  main{max-width:760px;margin:0 auto;padding:64px 40px 96px}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--navy-700);margin-bottom:14px}
+  h1{font-family:"Inter Tight",sans-serif;font-weight:600;font-size:44px;line-height:1.1;letter-spacing:-.02em;color:var(--navy-900);margin:0 0 12px}
+  .lead{font-size:18px;color:var(--ink-500);margin:0 0 40px}
+  h2{font-family:"Inter Tight",sans-serif;font-weight:600;font-size:22px;letter-spacing:-.01em;color:var(--navy-900);margin:40px 0 12px}
+  h3{font-family:"Inter Tight",sans-serif;font-weight:600;font-size:17px;color:var(--navy-900);margin:24px 0 8px}
+  p{color:var(--ink-700);margin:0 0 14px}
+  .callout{background:var(--navy-50);border:1px solid #d9e0ee;border-radius:12px;padding:20px 22px;margin:18px 0;font-size:15px;color:var(--navy-800)}
+  .callout b{color:var(--navy-900)}
+  ul{padding-left:22px;color:var(--ink-700);margin:0 0 14px}
+  ul li{margin-bottom:6px}
+  .meta{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-500);letter-spacing:.04em;margin-top:48px;padding-top:24px;border-top:1px solid var(--ink-200)}
+  a{color:var(--navy-700)}
+  @media (max-width:720px){ main{padding:40px 20px 64px} h1{font-size:32px} .nav-inner{padding:14px 20px} }
+</style>
+<link rel="stylesheet" href="responsive.css">
+</head>
+<body>
+
+<nav class="nav"><div class="nav-inner">
+  <a class="brand" href="WealthWise - Landing.html"><div class="brand-mark">W</div><span>WealthWise</span></a>
+  <a class="nav-back" href="WealthWise - Landing.html">← Zurück zur Startseite</a>
+</div></nav>
+
+<main>
+  <div class="eyebrow">Rechtliches</div>
+  <h1>Datenschutzerklärung</h1>
+  <p class="lead">Wir nehmen den Schutz deiner Daten ernst. Diese Erklärung beschreibt transparent, welche Daten verarbeitet werden – und welche nicht.</p>
+
+  <div class="callout">
+    <b>Zero-Storage-Prinzip:</b> WealthWise verarbeitet deine Vorsorgedaten ausschliesslich in deinem Browser. Es werden <b>keine personenbezogenen Daten auf unseren Servern gespeichert</b>.
+  </div>
+
+  <h2>1. Verantwortliche Stelle</h2>
+  <p>
+    WealthWise<br/>
+    8808 Pfäffikon SZ<br/>
+    Schweiz<br/>
+    E-Mail: <a href="mailto:info@wealthwise.ch">info@wealthwise.ch</a>
+  </p>
+
+  <h2>2. Welche Daten verarbeitet werden</h2>
+  <p>Wir verarbeiten die von dir eingegebenen Vorsorgedaten (Alter, Einkommen, PK-Kapital, 3a-Guthaben, Ausgaben etc.) ausschliesslich <b>clientseitig im Browser</b>. Diese Daten verlassen dein Gerät nicht und werden von WealthWise weder gespeichert noch an Dritte übermittelt.</p>
+
+  <h3>PK-Ausweis Upload</h3>
+  <p>Hochgeladene Dokumente (PDF, JPG, PNG) werden ausschliesslich zur automatischen Datenextraktion temporär im Browser verarbeitet und sofort nach der Extraktion gelöscht. Es werden <b>keine Dokumente gespeichert</b>.</p>
+
+  <h3>Chatbot-Assistent</h3>
+  <p>Wenn du den Chatbot nutzt, werden deine Nachrichten an die Anthropic API (Claude) übermittelt, um eine Antwort zu generieren. Es werden <b>keine Chat-Verläufe</b> gespeichert. Die Übermittlung erfolgt verschlüsselt (TLS). Siehe auch die <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Anthropic</a>.</p>
+
+  <h2>3. Cookies</h2>
+  <p>Wir verwenden <b>keine Tracking-Cookies</b>. Lediglich technisch notwendige Cookies (z.B. zur Speicherung deiner Eingaben im Local Storage deines Browsers) können eingesetzt werden. Diese verlassen dein Gerät nicht.</p>
+
+  <h2>4. Analytics</h2>
+  <p>Zur Verbesserung unseres Angebots setzen wir <b>Plausible Analytics</b> ein – ein datenschutzfreundliches, EU-gehostetes Analyse-Tool ohne Cookies. Es werden ausschliesslich anonyme, aggregierte Nutzungsdaten erhoben (z.B. besuchte Seiten, Geräteklasse). <b>Keine persönlichen Daten, keine Eingabewerte</b>, keine IP-Speicherung.</p>
+
+  <h2>5. Hosting</h2>
+  <p>Die Website wird bei einem Schweizer bzw. EU-basierten Hosting-Anbieter betrieben. Server-Standort: Schweiz/EU. Es gelten die strengen Datenschutzstandards nach DSG (CH) und DSGVO (EU).</p>
+
+  <h2>6. Deine Rechte</h2>
+  <ul>
+    <li>Auskunft über verarbeitete Daten</li>
+    <li>Berichtigung oder Löschung deiner Daten</li>
+    <li>Einschränkung der Verarbeitung</li>
+    <li>Widerspruch gegen die Verarbeitung</li>
+  </ul>
+  <p>Da wir keine personenbezogenen Daten speichern, ist ein Löschbegehren in den meisten Fällen bereits erfüllt. Für Rückfragen: <a href="mailto:info@wealthwise.ch">info@wealthwise.ch</a>.</p>
+
+  <h2>7. Kontakt für Auskunftsbegehren</h2>
+  <p>WealthWise<br/>8808 Pfäffikon SZ<br/><a href="mailto:info@wealthwise.ch">info@wealthwise.ch</a></p>
+
+  <div class="meta">Stand: 2026 · Version 1.0</div>
+</main>
+
+<div id="ww-footer"></div>
+</body>
+</html>

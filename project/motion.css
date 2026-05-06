@@ -1,0 +1,139 @@
+/* =========================================================
+   WealthWise · Motion & Loading
+   Load AFTER page-specific stylesheets.
+   ========================================================= */
+
+/* ---------- Page transitions ---------------------------- */
+@keyframes ww-fade-in   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ww-slide-in  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes ww-scale-in  { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes ww-grow-x    { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ww-draw      { from { stroke-dashoffset: var(--len,1000); } to { stroke-dashoffset: 0; } }
+@keyframes ww-pulse-dot { 0%,80%,100% { opacity:.3; transform: scale(.8);} 40%{ opacity:1; transform: scale(1);} }
+@keyframes ww-shimmer   { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+@keyframes ww-spin      { to { transform: rotate(360deg); } }
+
+/* Page-level entry */
+main, .hero {
+  animation: ww-fade-in .4s ease both;
+}
+
+/* Card / block entry */
+.block, .person-card, .result-hero, .compare-col, .step, .feat {
+  animation: ww-fade-in .5s ease both;
+}
+.result-hero { animation: ww-scale-in .5s cubic-bezier(.2,.7,.2,1) both; }
+
+/* Stagger children if wrapped in .ww-stagger */
+.ww-stagger > * { animation: ww-fade-in .5s ease both; }
+.ww-stagger > *:nth-child(1){ animation-delay: .05s }
+.ww-stagger > *:nth-child(2){ animation-delay: .12s }
+.ww-stagger > *:nth-child(3){ animation-delay: .20s }
+.ww-stagger > *:nth-child(4){ animation-delay: .28s }
+.ww-stagger > *:nth-child(5){ animation-delay: .36s }
+.ww-stagger > *:nth-child(6){ animation-delay: .44s }
+
+/* ---------- Bars grow on load --------------------------- */
+.bar-fill {
+  transform-origin: left center;
+  animation: ww-grow-x .9s cubic-bezier(.2,.7,.2,1) both;
+  animation-delay: .2s;
+}
+
+/* ---------- Circular score fill ------------------------- */
+.ww-score-ring { transform: rotate(-90deg); }
+.ww-score-ring .track { stroke: #e2e8f0; }
+.ww-score-ring .fill {
+  stroke-dasharray: var(--circ, 339);
+  stroke-dashoffset: var(--circ, 339);
+  animation: ww-draw 1.2s cubic-bezier(.2,.7,.2,1) forwards;
+  animation-delay: .3s;
+}
+
+/* ---------- Line chart draw ----------------------------- */
+.ww-draw-line {
+  stroke-dasharray: var(--len, 1000);
+  stroke-dashoffset: var(--len, 1000);
+  animation: ww-draw 1.6s ease-out forwards;
+  animation-delay: .4s;
+}
+
+/* ---------- Skeleton loader ----------------------------- */
+.ww-skel {
+  display: inline-block;
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 40%, #f1f5f9 80%);
+  background-size: 400px 100%;
+  border-radius: 6px;
+  animation: ww-shimmer 1.4s linear infinite;
+  color: transparent !important;
+  user-select: none;
+}
+.ww-skel-line { height: 14px; width: 100%; }
+.ww-skel-line.sm { height: 10px; width: 60%; }
+.ww-skel-line.lg { height: 22px; width: 80%; }
+.ww-skel-card { height: 140px; width: 100%; border-radius: 14px; }
+.ww-skel-circle { width: 120px; height: 120px; border-radius: 50%; }
+
+/* ---------- Typing indicator (chat) --------------------- */
+.ww-typing {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 10px 14px; background: #f1f5f9;
+  border-radius: 14px; width: fit-content;
+}
+.ww-typing i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #64748b;
+  animation: ww-pulse-dot 1.3s infinite ease-in-out both;
+}
+.ww-typing i:nth-child(2){ animation-delay: .15s }
+.ww-typing i:nth-child(3){ animation-delay: .3s  }
+
+/* ---------- Progress bar (upload, pdf) ----------------- */
+.ww-progress {
+  height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;
+}
+.ww-progress > i {
+  display: block; height: 100%; width: 0%;
+  background: #1a2b4a;
+  transition: width .3s ease;
+}
+.ww-progress.indeterminate > i {
+  width: 30%;
+  animation: ww-indet 1.4s ease-in-out infinite;
+}
+@keyframes ww-indet {
+  0%   { margin-left: -30%; }
+  50%  { margin-left: 70%; }
+  100% { margin-left: 100%; }
+}
+
+/* ---------- Spinner ------------------------------------- */
+.ww-spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid #cbd5e1; border-top-color: #1a2b4a;
+  animation: ww-spin .8s linear infinite;
+  display: inline-block; vertical-align: middle;
+}
+
+/* ---------- Error state panel --------------------------- */
+.ww-error {
+  background: #fef2f2; border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 14px; padding: 18px 22px;
+  display: flex; gap: 14px; align-items: flex-start;
+  font-family: "Inter", sans-serif;
+  animation: ww-fade-in .3s ease both;
+}
+.ww-error b { color: #7f1d1d; }
+
+/* ---------- Button click feedback ----------------------- */
+.btn:active, button:active { transform: translateY(1px); }
+
+/* ---------- Respect motion preferences ------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
