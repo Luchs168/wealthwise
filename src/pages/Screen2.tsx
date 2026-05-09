@@ -23,7 +23,9 @@ function CHFField({ label, value, onChange, hint, max }: {
       <label>{label}</label>
       <div className="amount-wrap">
         <span className="prefix">CHF</span>
-        <input type="text" inputMode="numeric"
+        <input
+          type="text"
+          inputMode="numeric"
           value={display}
           onFocus={() => { setFocused(true); setRaw(value ? String(value) : '') }}
           onBlur={() => { setFocused(false); onChange(parseNum(raw)) }}
@@ -58,7 +60,6 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
     }
     setFileName(file.name)
     setStatus('loading')
-    // Simulate extraction with demo values after a brief delay
     setTimeout(() => {
       const demoCapital = 280000 + Math.floor(Math.random() * 120000)
       const demoRate = 5.0 + Math.random() * 0.8
@@ -121,10 +122,15 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
           >×</button>
         )}
       </div>
-      <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
+      />
       <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 4 }}>
-        🔒 Wird nur lokal verarbeitet – verlässt deinen Browser nicht
+        🔒 Wird nur lokal verarbeitet – verlässt Ihren Browser nicht
       </div>
     </div>
   )
@@ -135,6 +141,8 @@ export default function Screen2() {
   const { persons, updatePerson, hasPartner, person1, person2, civilStatus } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [ahvExpanded, setAhvExpanded] = useState(false)
+  const [ahvBezug1, setAhvBezug1] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
+  const [ahvBezug2, setAhvBezug2] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -171,6 +179,20 @@ export default function Screen2() {
     (p1.hasPK ? (p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0) : 0) +
     (isPaar && p2.hasPK ? (p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0) : 0)
 
+  // Completion tracking
+  const completedSections = [
+    p1.income > 0,
+    p1.hasPK && p1.pkCapital > 0,
+    p1.has3a && p1.balance3a > 0,
+    useStore.getState().freeAssets > 0,
+  ].filter(Boolean).length
+
+  const AHV_BEZUG_OPTIONS = [
+    { id: 'vorbezug', label: 'Vorbezug', hint: 'Ab 62–64 · Kürzung ca. −6.8% pro Jahr', color: '#d97706' },
+    { id: 'ordentlich', label: 'Ordentlich', hint: 'Mit 65 Jahren (Referenzalter)', color: 'var(--navy-800)' },
+    { id: 'aufschub', label: 'Aufschub', hint: 'Ab 66–70 · Zuschlag ca. +5.2% pro Jahr', color: '#16a34a' },
+  ] as const
+
   return (
     <div className="app">
       <TopBar screenLabel="Vorsorgeplanung" />
@@ -179,60 +201,98 @@ export default function Screen2() {
       <main>
         <div className="page-head">
           <div className="eyebrow">Schritt 2 · Vorsorge</div>
-          <h1 className="title">{isPaar ? 'Eure Vorsorge' : 'Deine Vorsorge'}</h1>
-          <p className="subtitle">AHV, Pensionskasse und Säule 3a – die drei Pfeiler {isPaar ? 'eurer' : 'deiner'} Rente.</p>
+          <h1 className="title">Ihre finanzielle Ausgangslage</h1>
+          <p className="subtitle">
+            AHV, Pensionskasse und Säule 3a – Ihre drei Vorsorgesäulen auf einen Blick.
+          </p>
+        </div>
+
+        {/* Completion indicator */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+          background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10,
+          marginBottom: 4,
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-600)', fontWeight: 500 }}>
+              {completedSections} von 4 Bereichen ausgefüllt
+            </div>
+            <div style={{ height: 4, background: 'var(--ink-100)', borderRadius: 4, marginTop: 6, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                background: completedSections === 4 ? 'var(--green-500)' : 'var(--navy-600)',
+                width: `${(completedSections / 4) * 100}%`,
+                transition: 'width .4s',
+              }} />
+            </div>
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18,
+            color: completedSections === 4 ? 'var(--green-600)' : 'var(--navy-700)',
+          }}>
+            {Math.round((completedSections / 4) * 100)}%
+          </div>
         </div>
 
         {/* Person tabs */}
         {isPaar && (
           <div className="tabs" style={{ marginBottom: 0 }}>
-            <button className={`tab ${activeTab === 1 ? 'active' : ''}`} onClick={() => setActiveTab(1)}>
+            <button
+              className={`tab ${activeTab === 1 ? 'active' : ''}`}
+              onClick={() => setActiveTab(1)}
+            >
               <span className="tab-dot">1</span>
               <span>{person1.name || 'Person 1'}</span>
             </button>
-            <button className={`tab ${activeTab === 2 ? 'active' : ''}`} onClick={() => setActiveTab(2)}>
+            <button
+              className={`tab ${activeTab === 2 ? 'active' : ''}`}
+              onClick={() => setActiveTab(2)}
+            >
               <span className="tab-dot">2</span>
               <span>{person2.name || 'Person 2'}</span>
             </button>
           </div>
         )}
 
-        {/* A · Einkommen */}
+        {/* A · AHV */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">A</span>Einkommen
-            </h2>
-          </div>
-
-          <div className="form-grid">
-            <CHFField label="Brutto-Jahreseinkommen"
-              value={cur.income}
-              onChange={(v) => updatePerson(activeTab, { income: v })} />
-            <div className="field">
-              <label>Beschäftigungsgrad</label>
-              <div className="amount-wrap">
-                <input type="text" inputMode="numeric"
-                  value={cur.employmentGrade}
-                  onChange={(e) => updatePerson(activeTab, { employmentGrade: Math.min(100, parseInt(e.target.value.replace(/\D/g, '')) || 0) })}
-                  style={{ textAlign: 'right', paddingRight: 32 }}
-                />
-                <span className="suffix">%</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-500)' }}>
-            = CHF {fmtCHF(cur.income / 12)} / Monat
-          </div>
-        </section>
-
-        {/* B · AHV */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title">
-              <span className="block-num">B</span>AHV – 1. Säule
+              <span className="block-num">A</span>AHV – 1. Säule
             </h2>
             <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>Rentenskala 44 · BSV 2026</span>
+          </div>
+
+          {/* AHV Bezugszeitpunkt */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 10 }}>
+              AHV-Bezugszeitpunkt {isPaar ? `(${activeTab === 1 ? person1.name || 'Person 1' : person2.name || 'Person 2'})` : ''}
+            </div>
+            <div className="option-grid-3">
+              {AHV_BEZUG_OPTIONS.map((opt) => {
+                const current = activeTab === 1 ? ahvBezug1 : ahvBezug2
+                const setCurrent = activeTab === 1 ? setAhvBezug1 : setAhvBezug2
+                return (
+                  <button
+                    key={opt.id}
+                    className={`option-card ${current === opt.id ? 'active' : ''}`}
+                    onClick={() => setCurrent(opt.id)}
+                  >
+                    <div className="option-card-label" style={{ color: current === opt.id ? 'white' : opt.color }}>
+                      {opt.label}
+                    </div>
+                    <div className="option-card-hint">{opt.hint}</div>
+                  </button>
+                )
+              })}
+            </div>
+            {(activeTab === 1 ? ahvBezug1 : ahvBezug2) !== 'ordentlich' && (
+              <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--ink-500)', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                {(activeTab === 1 ? ahvBezug1 : ahvBezug2) === 'vorbezug'
+                  ? '⚠ Vorbezug reduziert Ihre AHV-Rente dauerhaft – lebenslang um ca. 6.8% pro vorbezogenem Jahr.'
+                  : '✓ Aufschub erhöht Ihre AHV-Rente dauerhaft – um ca. 5.2% pro aufgeschobenem Jahr.'}
+              </div>
+            )}
           </div>
 
           <div className="ahv-card">
@@ -265,7 +325,9 @@ export default function Screen2() {
                   <div className="ahv-row-sub">Max. 150% der Maximalrente</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--amber-500)' }}>− CHF {fmtCHF(ahv.plafonReduction)}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--amber-500)' }}>
+                    − CHF {fmtCHF(ahv.plafonReduction)}
+                  </div>
                 </div>
               </div>
             )}
@@ -276,14 +338,27 @@ export default function Screen2() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="ahv-row-val">CHF {fmtCHF(ahv.combinedMonthly)}</div>
-                <div className="ahv-row-sub" style={{ color: 'rgba(255,255,255,.6)' }}>CHF {fmtCHF(ahv.combinedYearlyInkl13)} / Jahr</div>
+                <div className="ahv-row-sub" style={{ color: 'rgba(255,255,255,.6)' }}>
+                  CHF {fmtCHF(ahv.combinedYearlyInkl13)} / Jahr
+                </div>
               </div>
             </div>
           </div>
 
-          <button className="link-toggle" style={{ marginTop: 12 }} onClick={() => setAhvExpanded(!ahvExpanded)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              style={{ transform: ahvExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>
+          <button
+            className="link-toggle"
+            style={{ marginTop: 12 }}
+            onClick={() => setAhvExpanded(!ahvExpanded)}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{ transform: ahvExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}
+            >
               <polyline points="9 18 15 12 9 6"/>
             </svg>
             Details anpassen
@@ -294,29 +369,49 @@ export default function Screen2() {
               <div className="form-grid">
                 <div className="field">
                   <label>Beitragsjahre {isPaar ? `(${person1.name || 'P1'})` : ''}</label>
-                  <input className="input" type="number" min={0} max={44}
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={44}
                     value={p1.ahvContributionYears}
-                    onChange={(e) => updatePerson(1, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })} />
+                    onChange={(e) => updatePerson(1, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })}
+                  />
                 </div>
                 <div className="field">
                   <label>Beitragslücken {isPaar ? `(${person1.name || 'P1'})` : ''} (Jahre)</label>
-                  <input className="input" type="number" min={0} max={10}
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={10}
                     value={p1.ahvContributionGaps}
-                    onChange={(e) => updatePerson(1, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })} />
+                    onChange={(e) => updatePerson(1, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })}
+                  />
                 </div>
                 {isPaar && (
                   <>
                     <div className="field">
                       <label>Beitragsjahre ({person2.name || 'P2'})</label>
-                      <input className="input" type="number" min={0} max={44}
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        max={44}
                         value={p2.ahvContributionYears}
-                        onChange={(e) => updatePerson(2, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })} />
+                        onChange={(e) => updatePerson(2, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })}
+                      />
                     </div>
                     <div className="field">
                       <label>Beitragslücken ({person2.name || 'P2'})</label>
-                      <input className="input" type="number" min={0} max={10}
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        max={10}
                         value={p2.ahvContributionGaps}
-                        onChange={(e) => updatePerson(2, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })} />
+                        onChange={(e) => updatePerson(2, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })}
+                      />
                     </div>
                   </>
                 )}
@@ -328,44 +423,62 @@ export default function Screen2() {
           )}
         </section>
 
-        {/* C · Pensionskasse */}
+        {/* B · Pensionskasse */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">C</span>Pensionskasse – 2. Säule
+              <span className="block-num">B</span>Pensionskasse – 2. Säule
             </h2>
           </div>
 
           {isPaar && (
             <div className="tabs" style={{ marginBottom: 20 }}>
-              <button className={`tab ${activeTab === 1 ? 'active' : ''}`} onClick={() => setActiveTab(1)}>
+              <button
+                className={`tab ${activeTab === 1 ? 'active' : ''}`}
+                onClick={() => setActiveTab(1)}
+              >
                 <span className="tab-dot">1</span><span>{person1.name || 'P1'}</span>
               </button>
-              <button className={`tab ${activeTab === 2 ? 'active' : ''}`} onClick={() => setActiveTab(2)}>
+              <button
+                className={`tab ${activeTab === 2 ? 'active' : ''}`}
+                onClick={() => setActiveTab(2)}
+              >
                 <span className="tab-dot">2</span><span>{person2.name || 'P2'}</span>
               </button>
             </div>
           )}
 
           <div className="toggle-row">
-            <Switch on={cur.hasPK} onToggle={() => updatePerson(activeTab, { hasPK: !cur.hasPK })}
-              label="Ich bin in einer Pensionskasse versichert" />
+            <Switch
+              on={cur.hasPK}
+              onToggle={() => updatePerson(activeTab, { hasPK: !cur.hasPK })}
+              label="Ich bin in einer Pensionskasse versichert"
+            />
           </div>
 
           {cur.hasPK && (
             <>
               <PkUpload onExtract={(capital, rate) => updatePerson(activeTab, { pkCapital: capital, pkRate: rate })} />
               <div className="form-grid" style={{ marginBottom: 14 }}>
-                <CHFField label="PK-Kapital bei Pensionierung"
+                <CHFField
+                  label="PK-Kapital bei Pensionierung"
                   value={cur.pkCapital}
-                  onChange={(v) => updatePerson(activeTab, { pkCapital: v })} />
+                  onChange={(v) => updatePerson(activeTab, { pkCapital: v })}
+                />
                 <div className="field">
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     Umwandlungssatz (%)
-                    <span title="Der Umwandlungssatz bestimmt, welcher Prozentsatz Ihres angesparten PK-Kapitals jährlich als Rente ausbezahlt wird. Bei CHF 400'000 und 5.4% ergibt das CHF 21'600/Jahr = CHF 1'800/Monat." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>?</span>
+                    <span
+                      title="Der Umwandlungssatz bestimmt, welcher Prozentsatz Ihres angesparten PK-Kapitals jährlich als Rente ausbezahlt wird. Bei CHF 400'000 und 5.4% ergibt das CHF 21'600/Jahr = CHF 1'800/Monat."
+                      style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0, fontFamily: 'var(--font-mono)' }}
+                    >?</span>
                   </label>
                   <div className="amount-wrap">
-                    <input type="number" min={3} max={8} step={0.1}
+                    <input
+                      type="number"
+                      min={3}
+                      max={8}
+                      step={0.1}
                       value={cur.pkRate}
                       onChange={(e) => updatePerson(activeTab, { pkRate: parseFloat(e.target.value) || 5.4 })}
                       style={{ textAlign: 'right', paddingRight: 32 }}
@@ -378,17 +491,19 @@ export default function Screen2() {
                 </div>
               </div>
 
-              {/* Bezugsart */}
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>Bezugsart</label>
                 <div className="option-grid-3">
                   {[
-                    { id: 'rente', label: 'Rente', hint: 'Lebenslang, sicher' },
+                    { id: 'rente', label: 'Rente', hint: 'Lebenslang, planbar' },
                     { id: 'kapital', label: 'Kapital', hint: 'Flexibel, steuerpflichtig' },
                     { id: 'mix', label: '50/50 Mix', hint: 'Kombiniert' },
                   ].map((opt) => (
-                    <button key={opt.id} className={`option-card ${cur.pkBezugsart === opt.id ? 'active' : ''}`}
-                      onClick={() => updatePerson(activeTab, { pkBezugsart: opt.id as 'rente' | 'kapital' | 'mix' })}>
+                    <button
+                      key={opt.id}
+                      className={`option-card ${cur.pkBezugsart === opt.id ? 'active' : ''}`}
+                      onClick={() => updatePerson(activeTab, { pkBezugsart: opt.id as 'rente' | 'kapital' | 'mix' })}
+                    >
                       <div className="option-card-label">{opt.label}</div>
                       <div className="option-card-hint">{opt.hint}</div>
                     </button>
@@ -399,7 +514,11 @@ export default function Screen2() {
               <div className="result-card">
                 <div style={{ fontSize: 13, color: 'var(--ink-500)', marginBottom: 4 }}>Monatliche PK-Rente</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--navy-800)' }}>
-                  CHF {fmtCHF(cur.pkBezugsart === 'kapital' ? 0 : cur.pkBezugsart === 'mix' ? (activeTab === 1 ? pk1.monthlyRente : pk2.monthlyRente) / 2 : (activeTab === 1 ? pk1.monthlyRente : pk2.monthlyRente))}
+                  CHF {fmtCHF(
+                    cur.pkBezugsart === 'kapital' ? 0
+                    : cur.pkBezugsart === 'mix' ? (activeTab === 1 ? pk1.monthlyRente : pk2.monthlyRente) / 2
+                    : (activeTab === 1 ? pk1.monthlyRente : pk2.monthlyRente)
+                  )}
                 </div>
                 {cur.pkBezugsart === 'kapital' && (
                   <div style={{ fontSize: 13, color: 'var(--amber-500)', marginTop: 4 }}>
@@ -413,43 +532,56 @@ export default function Screen2() {
           {!cur.hasPK && (
             <div className="info-callout">
               <span className="info-callout-icon">i</span>
-              <span>Ohne PK ist das 3a-Maximum höher (CHF 36'288/Jahr statt CHF 7'258). Du kannst dich auch freiwillig bei der Auffangeinrichtung versichern.</span>
+              <span>Ohne PK ist das 3a-Maximum höher (CHF 36'288/Jahr statt CHF 7'258). Sie können sich auch freiwillig bei der Auffangeinrichtung versichern.</span>
             </div>
           )}
         </section>
 
-        {/* D · 3a */}
+        {/* C · 3a */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">D</span>Säule 3a – Gebundene Vorsorge</h2>
+            <h2 className="block-title"><span className="block-num">C</span>Säule 3a – Gebundene Vorsorge</h2>
           </div>
 
           {isPaar && (
             <div className="tabs" style={{ marginBottom: 20 }}>
-              <button className={`tab ${activeTab === 1 ? 'active' : ''}`} onClick={() => setActiveTab(1)}>
+              <button
+                className={`tab ${activeTab === 1 ? 'active' : ''}`}
+                onClick={() => setActiveTab(1)}
+              >
                 <span className="tab-dot">1</span><span>{person1.name || 'P1'}</span>
               </button>
-              <button className={`tab ${activeTab === 2 ? 'active' : ''}`} onClick={() => setActiveTab(2)}>
+              <button
+                className={`tab ${activeTab === 2 ? 'active' : ''}`}
+                onClick={() => setActiveTab(2)}
+              >
                 <span className="tab-dot">2</span><span>{person2.name || 'P2'}</span>
               </button>
             </div>
           )}
 
           <div className="toggle-row">
-            <Switch on={cur.has3a} onToggle={() => updatePerson(activeTab, { has3a: !cur.has3a })}
-              label="Ich habe ein 3a-Konto" />
+            <Switch
+              on={cur.has3a}
+              onToggle={() => updatePerson(activeTab, { has3a: !cur.has3a })}
+              label="Ich habe ein 3a-Konto"
+            />
           </div>
 
           {cur.has3a && (
             <>
               <div className="form-grid">
-                <CHFField label="Aktuelles 3a-Guthaben"
+                <CHFField
+                  label="Aktuelles 3a-Guthaben"
                   value={cur.balance3a}
-                  onChange={(v) => updatePerson(activeTab, { balance3a: v })} />
-                <CHFField label="Jährliche Einzahlung"
+                  onChange={(v) => updatePerson(activeTab, { balance3a: v })}
+                />
+                <CHFField
+                  label="Jährliche Einzahlung"
                   value={cur.yearly3a}
                   onChange={(v) => updatePerson(activeTab, { yearly3a: v })}
-                  max={cur.hasPK ? CONSTANTS.PK_3A_MAX_WITH_PK : CONSTANTS.PK_3A_MAX_WITHOUT_PK} />
+                  max={cur.hasPK ? CONSTANTS.PK_3A_MAX_WITH_PK : CONSTANTS.PK_3A_MAX_WITHOUT_PK}
+                />
               </div>
 
               <div className="proj-card" style={{ marginTop: 14 }}>
@@ -464,29 +596,31 @@ export default function Screen2() {
 
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
-                <span>Tipp: Mit 3–5 separaten 3a-Konten kannst du den Bezug staffeln und damit die Kapitalbezugssteuer deutlich reduzieren.</span>
+                <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>
               </div>
             </>
           )}
         </section>
 
-        {/* E · Vermögen */}
+        {/* D · Vermögen */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">E</span>Freies Vermögen</h2>
+            <h2 className="block-title"><span className="block-num">D</span>Freies Vermögen</h2>
           </div>
           <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 16px' }}>
             Barvermögen, Wertschriften und sonstige Ersparnisse (ohne 3a, PK und selbstgenutztes Wohneigentum).
           </p>
-          <CHFField label={`Freies Vermögen ${isPaar ? '(Haushalt)' : ''}`}
+          <CHFField
+            label={`Freies Vermögen ${isPaar ? '(Haushalt)' : ''}`}
             value={useStore.getState().freeAssets}
-            onChange={(v) => useStore.getState().setFreeAssets(v)} />
+            onChange={(v) => useStore.getState().setFreeAssets(v)}
+          />
         </section>
 
-        {/* Summary */}
+        {/* E · Zusammenfassung */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">F</span>Zusammenfassung</h2>
+            <h2 className="block-title"><span className="block-num">E</span>Gesamtübersicht Vorsorge</h2>
           </div>
           <div className="ahv-card">
             <div className="ahv-row">

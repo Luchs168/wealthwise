@@ -5,6 +5,7 @@ import ProgressBar from '../components/ProgressBar'
 import LocationField from '../components/LocationField'
 import ChatPanel from '../components/ChatPanel'
 import { useStore, CivilStatus } from '../store'
+import { fmtCHF } from '../lib/calc'
 
 /* ---- Icons ---- */
 const Icons = {
@@ -44,12 +45,46 @@ function calcAge(dob: string): number | null {
   return age < 0 ? null : age
 }
 
+function WhyBox({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ marginTop: 6 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', color: 'var(--navy-600)',
+          fontSize: 12, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 5,
+        }}
+      >
+        <span style={{
+          width: 15, height: 15, borderRadius: '50%', background: 'var(--navy-100)',
+          color: 'var(--navy-700)', fontSize: 9, fontWeight: 700, display: 'inline-grid',
+          placeItems: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0,
+        }}>?</span>
+        Warum fragen wir das?
+      </button>
+      {open && (
+        <div style={{
+          marginTop: 6, padding: '10px 12px', background: 'var(--navy-50)',
+          border: '1px solid var(--navy-100)', borderRadius: 8,
+          fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.6,
+        }}>
+          {text}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Screen1() {
   const navigate = useNavigate()
   const store = useStore()
-  const { person1, person2, hasPartner, location, hasChildren, children,
+  const {
+    person1, person2, hasPartner, location, hasChildren, children,
     setHasPartner, setPerson1, setPerson2, setLocation, setHasChildren, setChildren,
-    selectedGoal, setGoal } = store
+    selectedGoal, setGoal, persons, updatePerson,
+  } = store
 
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const isCouple = person1.civil === 'verheiratet' || person1.civil === 'partnerschaft'
@@ -64,9 +99,11 @@ export default function Screen1() {
   }, [hasPartner])
 
   const isPaar = hasPartner && isCouple
-  const t = (s: string, p: string) => isPaar ? p : s
   const age1 = calcAge(person1.dob)
   const age2 = calcAge(person2.dob)
+  const p1 = persons.find(p => p.id === 1)!
+  const p2 = persons.find(p => p.id === 2)!
+  const curP = activeTab === 1 ? p1 : p2
 
   const handleAddPartner = () => {
     setPerson1({ civil: 'verheiratet' })
@@ -82,16 +119,17 @@ export default function Screen1() {
       <main>
         <div className="page-head">
           <div className="eyebrow">Schritt 1 · Situation</div>
-          <h1 className="title">{t('Was möchtest du erreichen?', 'Was möchtet ihr erreichen?')}</h1>
-          <p className="subtitle">{t('Wir passen die Analyse auf deine Ziele an.', 'Wir passen die Analyse auf eure Ziele an.')}</p>
+          <h1 className="title">Persönliche Ausgangslage</h1>
+          <p className="subtitle">
+            Für eine fundierte Vorsorgeanalyse benötigen wir zunächst einige Angaben zu Ihrer Lebenssituation.
+          </p>
         </div>
 
-        {/* Block A – Goals */}
+        {/* Block A – Analyseziel */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">A</span>
-              {t('Was möchtest du erreichen?', 'Was möchtet ihr erreichen?')}
+              <span className="block-num">A</span>Ihr Analyseziel
             </h2>
             <span className="block-hint">Weitere Ziele folgen demnächst</span>
           </div>
@@ -119,24 +157,30 @@ export default function Screen1() {
           </div>
         </section>
 
-        {/* Block B – Persons */}
+        {/* Block B – Persönliche Angaben */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">B</span>Zu wem gehören diese Angaben?
+              <span className="block-num">B</span>Persönliche Angaben
             </h2>
-            <span className="block-hint">{t('Du kannst die Planung auch als Paar machen.', 'Ihr könnt die Planung als Paar machen.')}</span>
+            <span className="block-hint">Sie können die Planung auch als Paar durchführen.</span>
           </div>
 
           <div className="tabs" role="tablist">
-            <button className={`tab ${activeTab === 1 ? 'active' : ''}`}
-              onClick={() => setActiveTab(1)} role="tab">
+            <button
+              className={`tab ${activeTab === 1 ? 'active' : ''}`}
+              onClick={() => setActiveTab(1)}
+              role="tab"
+            >
               <span className="tab-dot">1</span>
               <span>{person1.name || 'Person 1'}</span>
             </button>
             {hasPartner && (
-              <button className={`tab ${activeTab === 2 ? 'active' : ''}`}
-                onClick={() => setActiveTab(2)} role="tab">
+              <button
+                className={`tab ${activeTab === 2 ? 'active' : ''}`}
+                onClick={() => setActiveTab(2)}
+                role="tab"
+              >
                 <span className="tab-dot">2</span>
                 <span>{person2.name || 'Person 2'}</span>
               </button>
@@ -148,16 +192,29 @@ export default function Screen1() {
             <div className="person-card">
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="name1">Name</label>
-                  <input id="name1" className="input" placeholder="z. B. Andrea"
+                  <label htmlFor="name1">
+                    Vorname <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    id="name1"
+                    className="input"
+                    placeholder="z. B. Andrea"
                     value={person1.name}
-                    onChange={(e) => setPerson1({ name: e.target.value })} />
+                    onChange={(e) => setPerson1({ name: e.target.value })}
+                  />
                 </div>
                 <div className="field">
-                  <label htmlFor="dob1">Geburtsdatum</label>
-                  <input id="dob1" type="date" className="date-input"
+                  <label htmlFor="dob1">
+                    Geburtsdatum <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    id="dob1"
+                    type="date"
+                    className="date-input"
                     value={person1.dob}
-                    onChange={(e) => setPerson1({ dob: e.target.value })} />
+                    onChange={(e) => setPerson1({ dob: e.target.value })}
+                  />
+                  <WhyBox text="Ihr Geburtsdatum bestimmt Ihr aktuelles Alter und die verbleibenden Beitragsjahre bis zur Pensionierung – beides massgebend für die Höhe Ihrer AHV-Rente." />
                 </div>
               </div>
 
@@ -165,28 +222,39 @@ export default function Screen1() {
                 <div className="field">
                   <label>Geschlecht</label>
                   <div className="segmented">
-                    <button className={person1.sex === 'm' ? 'active' : ''}
-                      onClick={() => setPerson1({ sex: 'm' })}>Männlich</button>
-                    <button className={person1.sex === 'f' ? 'active' : ''}
-                      onClick={() => setPerson1({ sex: 'f' })}>Weiblich</button>
+                    <button
+                      className={person1.sex === 'm' ? 'active' : ''}
+                      onClick={() => setPerson1({ sex: 'm' })}
+                    >Männlich</button>
+                    <button
+                      className={person1.sex === 'f' ? 'active' : ''}
+                      onClick={() => setPerson1({ sex: 'f' })}
+                    >Weiblich</button>
                   </div>
                 </div>
                 <div className="field">
                   <label htmlFor="civil1">Zivilstand</label>
-                  <select id="civil1" className="select" value={person1.civil}
-                    onChange={(e) => setPerson1({ civil: e.target.value as CivilStatus })}>
+                  <select
+                    id="civil1"
+                    className="select"
+                    value={person1.civil}
+                    onChange={(e) => setPerson1({ civil: e.target.value as CivilStatus })}
+                  >
                     <option value="ledig">Ledig</option>
                     <option value="verheiratet">Verheiratet</option>
                     <option value="partnerschaft">Eingetragene Partnerschaft</option>
                     <option value="geschieden">Geschieden</option>
                     <option value="verwitwet">Verwitwet</option>
                   </select>
+                  <WhyBox text="Der Zivilstand ist relevant für die AHV-Plafonierung (Ehepaare: max. 150% der Maximalrente) sowie allfällige Hinterlassenenrenten." />
                   {isCouple && !hasPartner && (
                     <div className="partner-hint">
                       <div className="ph-ico">💡</div>
                       <div className="ph-body">
-                        <div className="ph-text">{t('Möchtest du die Planung als Paar machen? So können wir die AHV-Plafonierung korrekt berücksichtigen.', 'Möchtet ihr die Planung als Paar machen?')}</div>
-                        <button type="button" className="ph-btn" onClick={handleAddPartner}>+ Partner:in hinzufügen</button>
+                        <div className="ph-text">Möchten Sie die Planung als Paar durchführen? So können wir die AHV-Plafonierung korrekt berücksichtigen.</div>
+                        <button type="button" className="ph-btn" onClick={handleAddPartner}>
+                          + Partner:in hinzufügen
+                        </button>
                       </div>
                     </div>
                   )}
@@ -199,10 +267,9 @@ export default function Screen1() {
                   : <>Alter: <span style={{ color: 'var(--ink-400)' }}>–</span></>}
               </div>
 
-              {/* Location inline */}
               <div style={{ marginTop: 22 }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, color: 'var(--ink-900)', margin: '0 0 12px' }}>
-                  Wo wohn{isPaar ? 't ihr' : 'st du'}?
+                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 16, color: 'var(--ink-700)', margin: '0 0 10px' }}>
+                  Wohnort
                 </h3>
                 <LocationField value={location} onChange={setLocation} />
               </div>
@@ -214,16 +281,24 @@ export default function Screen1() {
             <div className="person-card">
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="name2">Name</label>
-                  <input id="name2" className="input" placeholder="z. B. Thomas"
+                  <label htmlFor="name2">Vorname</label>
+                  <input
+                    id="name2"
+                    className="input"
+                    placeholder="z. B. Thomas"
                     value={person2.name}
-                    onChange={(e) => setPerson2({ name: e.target.value })} />
+                    onChange={(e) => setPerson2({ name: e.target.value })}
+                  />
                 </div>
                 <div className="field">
                   <label htmlFor="dob2">Geburtsdatum</label>
-                  <input id="dob2" type="date" className="date-input"
+                  <input
+                    id="dob2"
+                    type="date"
+                    className="date-input"
                     value={person2.dob}
-                    onChange={(e) => setPerson2({ dob: e.target.value })} />
+                    onChange={(e) => setPerson2({ dob: e.target.value })}
+                  />
                 </div>
               </div>
 
@@ -231,16 +306,23 @@ export default function Screen1() {
                 <div className="field">
                   <label>Geschlecht</label>
                   <div className="segmented">
-                    <button className={person2.sex === 'm' ? 'active' : ''}
-                      onClick={() => setPerson2({ sex: 'm' })}>Männlich</button>
-                    <button className={person2.sex === 'f' ? 'active' : ''}
-                      onClick={() => setPerson2({ sex: 'f' })}>Weiblich</button>
+                    <button
+                      className={person2.sex === 'm' ? 'active' : ''}
+                      onClick={() => setPerson2({ sex: 'm' })}
+                    >Männlich</button>
+                    <button
+                      className={person2.sex === 'f' ? 'active' : ''}
+                      onClick={() => setPerson2({ sex: 'f' })}
+                    >Weiblich</button>
                   </div>
                 </div>
                 <div className="field">
                   <label>Zivilstand</label>
-                  <select className="select" value={person2.civil}
-                    onChange={(e) => setPerson2({ civil: e.target.value as CivilStatus })}>
+                  <select
+                    className="select"
+                    value={person2.civil}
+                    onChange={(e) => setPerson2({ civil: e.target.value as CivilStatus })}
+                  >
                     <option value="ledig">Ledig</option>
                     <option value="verheiratet">Verheiratet</option>
                     <option value="partnerschaft">Eingetragene Partnerschaft</option>
@@ -258,12 +340,78 @@ export default function Screen1() {
           )}
         </section>
 
-        {/* Block C – Children */}
+        {/* Block C – Erwerbssituation */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">C</span>
-              {t('Hast du Kinder?', 'Habt ihr Kinder?')}
+              <span className="block-num">C</span>Erwerbssituation
+            </h2>
+            <span className="block-hint">Basis für AHV- und BVG-Berechnung</span>
+          </div>
+
+          {isPaar && (
+            <div className="tabs" style={{ marginBottom: 16 }}>
+              <button
+                className={`tab ${activeTab === 1 ? 'active' : ''}`}
+                onClick={() => setActiveTab(1)}
+              >
+                <span className="tab-dot">1</span>
+                <span>{person1.name || 'Person 1'}</span>
+              </button>
+              <button
+                className={`tab ${activeTab === 2 ? 'active' : ''}`}
+                onClick={() => setActiveTab(2)}
+              >
+                <span className="tab-dot">2</span>
+                <span>{person2.name || 'Person 2'}</span>
+              </button>
+            </div>
+          )}
+
+          <div className="form-grid">
+            <div className="field">
+              <label>
+                Brutto-Jahreseinkommen <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <div className="amount-wrap">
+                <span className="prefix">CHF</span>
+                <IncomeInput
+                  value={curP.income}
+                  onChange={(v) => updatePerson(activeTab, { income: v })}
+                />
+              </div>
+              <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />
+            </div>
+            <div className="field">
+              <label>Beschäftigungsgrad</label>
+              <div className="amount-wrap">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={curP.employmentGrade}
+                  onChange={(e) => updatePerson(activeTab, {
+                    employmentGrade: Math.min(100, parseInt(e.target.value.replace(/\D/g, '')) || 0),
+                  })}
+                  style={{ textAlign: 'right', paddingRight: 32 }}
+                />
+                <span className="suffix">%</span>
+              </div>
+            </div>
+          </div>
+
+          {curP.income > 0 && (
+            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-500)' }}>
+              = CHF {fmtCHF(Math.round(curP.income / 12))}/Monat
+              {isPaar && ` · Haushalt gesamt: CHF ${fmtCHF(Math.round((p1.income + p2.income) / 12))}/Monat`}
+            </div>
+          )}
+        </section>
+
+        {/* Block D – Familiäre Situation */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title">
+              <span className="block-num">D</span>Familiäre Situation
             </h2>
           </div>
 
@@ -272,13 +420,23 @@ export default function Screen1() {
             <span>Erziehungsgutschriften erhöhen das massgebende Durchschnittseinkommen und damit die AHV-Rente.</span>
           </div>
 
+          <div style={{ marginBottom: 14, fontSize: 14, color: 'var(--ink-700)', fontWeight: 500 }}>
+            Haben Sie Kinder?
+          </div>
+
           <div className="child-radio-row">
-            <button className={`child-radio ${!hasChildren ? 'active' : ''}`}
-              onClick={() => { setHasChildren(false); setChildren([]) }}>
+            <button
+              className={`child-radio ${!hasChildren ? 'active' : ''}`}
+              onClick={() => { setHasChildren(false); setChildren([]) }}
+            >
               <span className="child-radio-dot" /> Nein
             </button>
-            <button className={`child-radio ${hasChildren ? 'active' : ''}`}
-              onClick={() => { if (!hasChildren) { setHasChildren(true); if (!children.length) setChildren([{ year: '' }]) } }}>
+            <button
+              className={`child-radio ${hasChildren ? 'active' : ''}`}
+              onClick={() => {
+                if (!hasChildren) { setHasChildren(true); if (!children.length) setChildren([{ year: '' }]) }
+              }}
+            >
               <span className="child-radio-dot" /> Ja
             </button>
           </div>
@@ -289,33 +447,49 @@ export default function Screen1() {
                 {children.map((c, i) => (
                   <div className="child-row" key={i}>
                     <label htmlFor={`child-${i}`}>Kind {i + 1} · Geburtsjahr</label>
-                    <input id={`child-${i}`} className="child-year" type="text" inputMode="numeric"
-                      placeholder="z.B. 2005" value={c.year}
+                    <input
+                      id={`child-${i}`}
+                      className="child-year"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="z.B. 2005"
+                      value={c.year}
                       onChange={(e) => {
                         const next = [...children]
                         next[i] = { year: e.target.value.replace(/[^0-9]/g, '').slice(0, 4) }
                         setChildren(next)
-                      }} />
-                    <button type="button" className="child-remove"
-                      onClick={() => { const next = children.filter((_, j) => j !== i); setChildren(next); if (!next.length) setHasChildren(false) }}>
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="child-remove"
+                      onClick={() => {
+                        const next = children.filter((_, j) => j !== i)
+                        setChildren(next)
+                        if (!next.length) setHasChildren(false)
+                      }}
+                    >
                       entfernen
                     </button>
                   </div>
                 ))}
               </div>
-              <button type="button" className="child-add"
-                onClick={() => setChildren([...children, { year: '' }])}>
+              <button
+                type="button"
+                className="child-add"
+                onClick={() => setChildren([...children, { year: '' }])}
+              >
                 <Icons.Plus /> Kind hinzufügen
               </button>
             </>
           )}
         </section>
 
-        {/* Block D – Retire slider */}
+        {/* Block E – Pensionierungswunsch */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">D</span>Wann soll es soweit sein?
+              <span className="block-num">E</span>Pensionierungswunsch
             </h2>
             <span className="block-hint">AHV-Referenzalter liegt bei 65 Jahren.</span>
           </div>
@@ -338,6 +512,40 @@ export default function Screen1() {
           </div>
         </section>
 
+        {/* Summary card */}
+        {(person1.name || age1 !== null || p1.income > 0) && (
+          <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>
+            <div className="block-head">
+              <h2 className="block-title" style={{ color: 'var(--navy-800)' }}>
+                <span className="block-num" style={{ background: 'var(--navy-700)', color: 'white' }}>✓</span>
+                Zusammenfassung – Schritt 1
+              </h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
+              {[
+                { label: 'Name', value: person1.name || '—' },
+                { label: 'Alter', value: age1 !== null ? `${age1} Jahre` : '—' },
+                { label: 'Bruttoeinkommen', value: p1.income > 0 ? `CHF ${fmtCHF(p1.income)}/Jahr` : '—' },
+                { label: 'Pensionierungsalter', value: `mit ${person1.retireAge} Jahren` },
+                ...(isPaar ? [
+                  { label: person2.name || 'Partner:in', value: age2 !== null ? `${age2} Jahre` : '—' },
+                  { label: 'Pensionierungsalter P2', value: `mit ${person2.retireAge} Jahren` },
+                ] : []),
+              ].map((item) => (
+                <div key={item.label}>
+                  <div style={{
+                    fontSize: 10.5, color: 'var(--ink-400)', textTransform: 'uppercase',
+                    letterSpacing: '.06em', marginBottom: 2, fontFamily: 'var(--font-mono)',
+                  }}>{item.label}</div>
+                  <div style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--navy-800)',
+                  }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)', textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
           <Link to="/impressum" style={{ color: 'var(--ink-400)' }}>Impressum</Link>
           {' · '}
@@ -346,7 +554,6 @@ export default function Screen1() {
         </div>
       </main>
 
-      {/* Footer nav */}
       <div className="footer">
         <div className="footer-meta">Schritt 1 von 4 · Situation</div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -359,6 +566,25 @@ export default function Screen1() {
 
       <ChatPanel currentStep="situation" />
     </div>
+  )
+}
+
+/* ---- Income input with CHF formatting ---- */
+function IncomeInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState('')
+  const [focused, setFocused] = useState(false)
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={focused ? raw : (value > 0 ? fmtCHF(value) : '')}
+      onFocus={() => { setFocused(true); setRaw(value > 0 ? String(value) : '') }}
+      onBlur={() => { setFocused(false); onChange(parseInt(raw.replace(/[^0-9]/g, '')) || 0) }}
+      onChange={(e) => setRaw(e.target.value.replace(/[^0-9]/g, ''))}
+      placeholder="z. B. 100'000"
+      style={{ paddingLeft: 48 }}
+    />
   )
 }
 
@@ -379,7 +605,9 @@ function RetireSlider({ name, dob, value, onChange }: SliderProps) {
   return (
     <div className="slider-card">
       <div className="who">{name}</div>
-      <h4>Wann möchtest du in Pension gehen?</h4>
+      <h4 style={{ fontSize: 14, color: 'var(--ink-700)', margin: '4px 0 10px', fontWeight: 500 }}>
+        Gewünschtes Pensionierungsalter
+      </h4>
       <div className="retire-value">
         <div className="num">{value}</div>
         <div className="unit">Jahre</div>
@@ -387,18 +615,28 @@ function RetireSlider({ name, dob, value, onChange }: SliderProps) {
       <div className="retire-remain">
         {remain !== null
           ? remain === 0
-            ? <><b>Jetzt</b> in Pension gehen</>
-            : <>Noch <b>{remain} {remain === 1 ? 'Jahr' : 'Jahre'}</b> · Pensionierung im Jahr {new Date().getFullYear() + remain}</>
-          : <>Geburtsdatum eingeben, um verbleibende Jahre zu sehen.</>}
+            ? <><b>Jetzt</b> pensionieren</>
+            : <>Noch <b>{remain} {remain === 1 ? 'Jahr' : 'Jahre'}</b> · Pensionierung {new Date().getFullYear() + remain}</>
+          : <>Bitte Geburtsdatum eingeben, um verbleibende Jahre zu sehen.</>}
       </div>
       <div className="range-wrap">
-        <input type="range" className="range" min={min} max={max} step={1} value={value}
+        <input
+          type="range"
+          className="range"
+          min={min}
+          max={max}
+          step={1}
+          value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          style={{ '--val': `${pct}%` } as React.CSSProperties} />
+          style={{ '--val': `${pct}%` } as React.CSSProperties}
+        />
         <div className="range-marks">
           {[58, 62, 65, 68, 70].map((m) => (
-            <span key={m} className={m === value ? 'mark-hit' : ''}
-              style={{ left: `${((m - min) / (max - min)) * 100}%` }}>
+            <span
+              key={m}
+              className={m === value ? 'mark-hit' : ''}
+              style={{ left: `${((m - min) / (max - min)) * 100}%` }}
+            >
               {m}
             </span>
           ))}
