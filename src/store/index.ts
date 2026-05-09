@@ -35,6 +35,7 @@ export interface PersonVorsorge {
   fzBalance: number
   ahvContributionYears: number
   ahvContributionGaps: number
+  ahvBezugAge: number
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }
@@ -148,6 +149,7 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     fzBalance: 0,
     ahvContributionYears: 44,
     ahvContributionGaps: 0,
+    ahvBezugAge: 65,
   }
 }
 

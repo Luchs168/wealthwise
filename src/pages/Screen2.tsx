@@ -4,7 +4,8 @@ import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
 import ChatPanel from '../components/ChatPanel'
 import { useStore } from '../store'
-import { fmtCHF, calculateAhvHousehold, calculatePkRente, project3a, CONSTANTS } from '../lib/calc'
+import { fmtCHF, calculatePkRente, project3a, CONSTANTS } from '../lib/calc'
+import { calculateAHVPension, applyPlafonierung, AHV_2026 } from '../utils/ahvCalculation'
 
 function TransitionOverlay2({
   onContinue,
@@ -218,8 +219,6 @@ export default function Screen2() {
   const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [ahvExpanded, setAhvExpanded] = useState(false)
-  const [ahvBezug1, setAhvBezug1] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
-  const [ahvBezug2, setAhvBezug2] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
   const [showTransition, setShowTransition] = useState(false)
 
   const p1 = persons.find(p => p.id === 1)!
@@ -228,20 +227,35 @@ export default function Screen2() {
 
   const isPaar = hasPartner
 
-  // AHV calculation
-  const ahvInput1 = {
-    grossIncome: p1.income,
-    retirementAge: person1.retireAge,
-    ahvContributionYears: p1.ahvContributionYears,
-    ahvContributionGaps: p1.ahvContributionGaps,
-  }
-  const ahvInput2 = isPaar ? {
-    grossIncome: p2.income,
-    retirementAge: person2.retireAge,
-    ahvContributionYears: p2.ahvContributionYears,
-    ahvContributionGaps: p2.ahvContributionGaps,
-  } : null
-  const ahv = useMemo(() => calculateAhvHousehold(ahvInput1, ahvInput2, civilStatus), [p1, p2, isPaar, civilStatus])
+  // Auto-compute contribution years from DOB (start at 20, capped at 44)
+  const autoYears1 = useMemo(() => {
+    const age = calcAge(person1.dob)
+    return age ? Math.min(44, Math.max(0, age - 20)) : p1.ahvContributionYears
+  }, [person1.dob, p1.ahvContributionYears])
+  const autoYears2 = useMemo(() => {
+    const age = calcAge(person2.dob)
+    return age ? Math.min(44, Math.max(0, age - 20)) : p2.ahvContributionYears
+  }, [person2.dob, p2.ahvContributionYears])
+
+  // AHV calculation using precise 2026 factors
+  const ahvResult1 = useMemo(() => calculateAHVPension({
+    avgIncome: p1.income,
+    bezugAge: p1.ahvBezugAge ?? 65,
+    effectiveContributionYears: Math.max(0, (autoYears1) - (p1.ahvContributionGaps || 0)),
+  }), [p1.income, p1.ahvBezugAge, autoYears1, p1.ahvContributionGaps])
+
+  const ahvResult2 = useMemo(() => isPaar ? calculateAHVPension({
+    avgIncome: p2.income,
+    bezugAge: p2.ahvBezugAge ?? 65,
+    effectiveContributionYears: Math.max(0, (autoYears2) - (p2.ahvContributionGaps || 0)),
+  }) : null, [isPaar, p2.income, p2.ahvBezugAge, autoYears2, p2.ahvContributionGaps])
+
+  const plafonierung = useMemo(() => {
+    if (!ahvResult2) return { monthly1: ahvResult1.monthlyRente, monthly2: 0, plafonReduction: 0 }
+    return applyPlafonierung(ahvResult1.monthlyRente, ahvResult2.monthlyRente, civilStatus)
+  }, [ahvResult1, ahvResult2, civilStatus])
+
+  const ahvCombinedMonthly = plafonierung.monthly1 + plafonierung.monthly2
 
   // PK rente
   const pk1 = useMemo(() => calculatePkRente({ pkCapitalAt65: p1.pkCapital, pkConversionRate: p1.pkRate }), [p1])
@@ -253,7 +267,7 @@ export default function Screen2() {
   const proj3a1 = useMemo(() => project3a(p1.balance3a, p1.yearly3a, years1), [p1, years1])
   const proj3a2 = useMemo(() => project3a(p2.balance3a, p2.yearly3a, years2), [p2, years2])
 
-  const totalMonthly = (ahv.combinedMonthly) +
+  const totalMonthly = ahvCombinedMonthly +
     (p1.hasPK ? (p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0) : 0) +
     (isPaar && p2.hasPK ? (p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0) : 0)
 
@@ -265,11 +279,16 @@ export default function Screen2() {
     useStore.getState().freeAssets > 0,
   ].filter(Boolean).length
 
-  const AHV_BEZUG_OPTIONS = [
-    { id: 'vorbezug', label: 'Vorbezug', hint: 'Ab 62–64 · Kürzung ca. −6.8% pro Jahr', color: '#d97706' },
-    { id: 'ordentlich', label: 'Ordentlich', hint: 'Mit 65 Jahren (Referenzalter)', color: 'var(--navy-800)' },
-    { id: 'aufschub', label: 'Aufschub', hint: 'Ab 66–70 · Zuschlag ca. +5.2% pro Jahr', color: '#16a34a' },
-  ] as const
+  const AHV_BEZUG_LABELS: Record<number, string> = {
+    63: 'Vorbezug 2 Jahre · Faktor 0.864 (−13.6%)',
+    64: 'Vorbezug 1 Jahr · Faktor 0.932 (−6.8%)',
+    65: 'Ordentlich (Referenzalter)',
+    66: 'Aufschub 1 Jahr · Faktor 1.052 (+5.2%)',
+    67: 'Aufschub 2 Jahre · Faktor 1.106 (+10.6%)',
+    68: 'Aufschub 3 Jahre · Faktor 1.163 (+16.3%)',
+    69: 'Aufschub 4 Jahre · Faktor 1.224 (+22.4%)',
+    70: 'Aufschub 5 Jahre · Faktor 1.313 (+31.3%)',
+  }
 
   const pkMonthly1 = p1.hasPK && p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0
   const pkMonthly2 = isPaar && p2.hasPK && p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0
@@ -280,7 +299,7 @@ export default function Screen2() {
         <TransitionOverlay2
           onContinue={() => navigate('/schritt/3')}
           totalMonthly={totalMonthly}
-          ahvMonthly={ahv.combinedMonthly}
+          ahvMonthly={ahvCombinedMonthly}
           pkMonthly={pkMonthly1 + pkMonthly2}
         />
       )}
@@ -328,7 +347,7 @@ export default function Screen2() {
           {/* Section status pills */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
-              { label: 'AHV', done: p1.income > 0, hint: p1.income > 0 ? `CHF ${fmtCHF(ahv.person1.monthlyRente)}/Mt.` : null },
+              { label: 'AHV', done: p1.income > 0, hint: p1.income > 0 ? `CHF ${fmtCHF(ahvResult1.monthlyRente)}/Mt.` : null },
               { label: 'Pensionskasse', done: p1.hasPK && p1.pkCapital > 0, hint: p1.hasPK && p1.pkCapital > 0 ? `CHF ${fmtCHF(pk1.monthlyRente)}/Mt.` : null },
               { label: 'Säule 3a', done: p1.has3a && p1.balance3a > 0, hint: p1.has3a && p1.balance3a > 0 ? `CHF ${fmtCHF(p1.balance3a)}` : null },
               { label: 'Vermögen', done: useStore.getState().freeAssets > 0, hint: useStore.getState().freeAssets > 0 ? `CHF ${fmtCHF(useStore.getState().freeAssets)}` : null },
@@ -377,70 +396,99 @@ export default function Screen2() {
             <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>Rentenskala 44 · BSV 2026</span>
           </div>
 
-          {/* AHV Bezugszeitpunkt */}
+          {/* AHV Bezugszeitpunkt – Slider */}
+          {isPaar && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              {[1, 2].map((n) => (
+                <button
+                  key={n}
+                  className={`tab ${activeTab === n ? 'active' : ''}`}
+                  onClick={() => setActiveTab(n as 1 | 2)}
+                  style={{ flex: 1 }}
+                >
+                  <span className="tab-dot">{n}</span>
+                  <span>{n === 1 ? person1.name || 'Person 1' : person2.name || 'Person 2'}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 10 }}>
-              AHV-Bezugszeitpunkt {isPaar ? `(${activeTab === 1 ? person1.name || 'Person 1' : person2.name || 'Person 2'})` : ''}
-            </div>
-            <div className="option-grid-3">
-              {AHV_BEZUG_OPTIONS.map((opt) => {
-                const current = activeTab === 1 ? ahvBezug1 : ahvBezug2
-                const setCurrent = activeTab === 1 ? setAhvBezug1 : setAhvBezug2
-                return (
-                  <button
-                    key={opt.id}
-                    className={`option-card ${current === opt.id ? 'active' : ''}`}
-                    onClick={() => setCurrent(opt.id)}
-                  >
-                    <div className="option-card-label" style={{ color: current === opt.id ? 'white' : opt.color }}>
-                      {opt.label}
-                    </div>
-                    <div className="option-card-hint">{opt.hint}</div>
-                  </button>
-                )
-              })}
-            </div>
-            {(activeTab === 1 ? ahvBezug1 : ahvBezug2) !== 'ordentlich' && (
-              <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--ink-500)', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
-                {(activeTab === 1 ? ahvBezug1 : ahvBezug2) === 'vorbezug'
-                  ? '⚠ Vorbezug reduziert Ihre AHV-Rente dauerhaft – lebenslang um ca. 6.8% pro vorbezogenem Jahr.'
-                  : '✓ Aufschub erhöht Ihre AHV-Rente dauerhaft – um ca. 5.2% pro aufgeschobenem Jahr.'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)' }}>
+                AHV-Bezugsbeginn
               </div>
-            )}
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--navy-800)' }}>
+                Alter {activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)}
+              </div>
+            </div>
+            <input
+              type="range"
+              min={63}
+              max={70}
+              step={1}
+              value={activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)}
+              onChange={(e) => updatePerson(activeTab, { ahvBezugAge: parseInt(e.target.value) })}
+              style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              {[63,64,65,66,67,68,69,70].map(a => <span key={a}>{a}</span>)}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)', padding: '6px 10px', background: 'var(--navy-50)', borderRadius: 6 }}>
+              {AHV_BEZUG_LABELS[activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)]}
+            </div>
+            {(() => {
+              const age = activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)
+              if (age < 65) return (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: '#92400e', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                  ⚠ Der Vorbezug reduziert Ihre AHV-Rente dauerhaft und lebenslang. Alle 5 Varianten finden Sie in der Analyse (Schritt 4).
+                </div>
+              )
+              if (age > 65) return (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: '#14532d', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                  ✓ Der Aufschub erhöht Ihre AHV-Rente dauerhaft. Je länger die Lebenserwartung, desto vorteilhafter.
+                </div>
+              )
+              return null
+            })()}
           </div>
 
           <div className="ahv-card">
             <div className="ahv-row">
               <div>
                 <div className="ahv-row-label">{person1.name || 'Person 1'}</div>
-                <div className="ahv-row-sub">Geschätzte Monatsrente</div>
+                <div className="ahv-row-sub">
+                  Ø-Einkommen CHF {fmtCHF(p1.income)} · {Math.max(0, autoYears1 - (p1.ahvContributionGaps || 0))} Beitragsjahre
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">CHF {fmtCHF(ahv.person1.monthlyRente)}</div>
-                <div className="ahv-row-sub">CHF {fmtCHF(ahv.person1.monthlyRente * 13)} / Jahr inkl. 13.</div>
+                <div className="ahv-row-val">CHF {fmtCHF(plafonierung.monthly1 > 0 && isPaar ? plafonierung.monthly1 : ahvResult1.monthlyRente)}</div>
+                <div className="ahv-row-sub">CHF {fmtCHF(ahvResult1.monthlyRente * 13)} / Jahr inkl. 13.</div>
               </div>
             </div>
-            {isPaar && ahv.person2 && (
+            {isPaar && ahvResult2 && (
               <div className="ahv-row">
                 <div>
                   <div className="ahv-row-label">{person2.name || 'Person 2'}</div>
-                  <div className="ahv-row-sub">Geschätzte Monatsrente</div>
+                  <div className="ahv-row-sub">
+                    Ø-Einkommen CHF {fmtCHF(p2.income)} · {Math.max(0, autoYears2 - (p2.ahvContributionGaps || 0))} Beitragsjahre
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div className="ahv-row-val">CHF {fmtCHF(ahv.person2.monthlyRente)}</div>
-                  <div className="ahv-row-sub">CHF {fmtCHF(ahv.person2.monthlyRente * 13)} / Jahr inkl. 13.</div>
+                  <div className="ahv-row-val">CHF {fmtCHF(plafonierung.monthly2)}</div>
+                  <div className="ahv-row-sub">CHF {fmtCHF(ahvResult2.monthlyRente * 13)} / Jahr inkl. 13.</div>
                 </div>
               </div>
             )}
-            {ahv.plafonReduction > 0 && (
+            {plafonierung.plafonReduction > 0 && (
               <div className="ahv-row" style={{ background: 'var(--amber-50)' }}>
                 <div>
                   <div className="ahv-row-label">Ehepaar-Plafonierung</div>
-                  <div className="ahv-row-sub">Max. 150% der Maximalrente</div>
+                  <div className="ahv-row-sub">Max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. (150% der Maximalrente)</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--amber-500)' }}>
-                    − CHF {fmtCHF(ahv.plafonReduction)}
+                    − CHF {fmtCHF(plafonierung.plafonReduction)}
                   </div>
                 </div>
               </div>
@@ -451,9 +499,9 @@ export default function Screen2() {
                 <div className="ahv-row-sub">inkl. 13. AHV-Rente (ab Dez. 2026)</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">CHF {fmtCHF(ahv.combinedMonthly)}</div>
+                <div className="ahv-row-val">CHF {fmtCHF(ahvCombinedMonthly)}</div>
                 <div className="ahv-row-sub" style={{ color: 'rgba(255,255,255,.6)' }}>
-                  CHF {fmtCHF(ahv.combinedYearlyInkl13)} / Jahr
+                  CHF {fmtCHF(ahvCombinedMonthly * 13)} / Jahr
                 </div>
               </div>
             </div>
@@ -480,58 +528,48 @@ export default function Screen2() {
 
           {ahvExpanded && (
             <div className="link-expand">
-              <div className="form-grid">
-                <div className="field">
-                  <label>Beitragsjahre {isPaar ? `(${person1.name || 'P1'})` : ''}</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    max={44}
-                    value={p1.ahvContributionYears}
-                    onChange={(e) => updatePerson(1, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })}
-                  />
-                </div>
-                <div className="field">
-                  <label>Beitragslücken {isPaar ? `(${person1.name || 'P1'})` : ''} (Jahre)</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={p1.ahvContributionGaps}
-                    onChange={(e) => updatePerson(1, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })}
-                  />
-                </div>
-                {isPaar && (
-                  <>
+              {[
+                { id: 1 as const, name: person1.name || 'Person 1', autoY: autoYears1, gaps: p1.ahvContributionGaps },
+                ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2', autoY: autoYears2, gaps: p2.ahvContributionGaps }] : []),
+              ].map(({ id, name, autoY, gaps }) => (
+                <div key={id} style={{ marginBottom: 16 }}>
+                  {isPaar && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-700)', marginBottom: 8 }}>{name}</div>}
+                  <div className="form-grid">
                     <div className="field">
-                      <label>Beitragsjahre ({person2.name || 'P2'})</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min={0}
-                        max={44}
-                        value={p2.ahvContributionYears}
-                        onChange={(e) => updatePerson(2, { ahvContributionYears: Math.min(44, parseInt(e.target.value) || 0) })}
-                      />
+                      <label>Erwerbsjahre (automatisch)</label>
+                      <div style={{
+                        padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
+                        borderRadius: 8, fontFamily: 'var(--font-display)', fontWeight: 600,
+                        fontSize: 15, color: 'var(--navy-800)',
+                      }}>
+                        {autoY} Jahre
+                        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-500)', marginLeft: 8, fontFamily: 'inherit' }}>
+                          (Alter − 20)
+                        </span>
+                      </div>
                     </div>
                     <div className="field">
-                      <label>Beitragslücken ({person2.name || 'P2'})</label>
-                      <input
+                      <label>Beitragslücken</label>
+                      <select
                         className="input"
-                        type="number"
-                        min={0}
-                        max={10}
-                        value={p2.ahvContributionGaps}
-                        onChange={(e) => updatePerson(2, { ahvContributionGaps: Math.min(10, parseInt(e.target.value) || 0) })}
-                      />
+                        value={gaps}
+                        onChange={(e) => updatePerson(id, { ahvContributionGaps: parseInt(e.target.value) })}
+                        style={{ appearance: 'auto' }}
+                      >
+                        <option value={0}>Keine Lücken (0 Jahre)</option>
+                        <option value={1}>1–2 Jahre Lücken</option>
+                        <option value={3}>3–5 Jahre Lücken</option>
+                        <option value={6}>Mehr als 5 Jahre Lücken</option>
+                      </select>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 4 }}>
+                    Effektive Beitragsjahre: <strong>{Math.max(0, autoY - gaps)}</strong> von 44 · Rentenkürzung: {gaps > 0 ? `−${(gaps / 44 * 100).toFixed(1)}%` : 'keine'}
+                  </div>
+                </div>
+              ))}
               <p style={{ fontSize: 12, color: 'var(--ink-400)', margin: '8px 0 0' }}>
-                Max. 44 Beitragsjahre für volle Rente. Jedes fehlende Jahr kürzt die Rente um ca. 2.3%.
+                Max. 44 Beitragsjahre für die volle Rente. Jedes fehlende Jahr kürzt die Rente um ca. 2.3% (lebenslang).
                 {' '}→ Bestellen Sie Ihren IK-Auszug kostenlos unter{' '}
                 <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
               </p>
@@ -762,7 +800,7 @@ export default function Screen2() {
                 <div className="ahv-row-sub">{isPaar ? 'Haushalt inkl. 13. AHV-Rente' : 'inkl. 13. AHV-Rente'}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">CHF {fmtCHF(ahv.combinedMonthly)}/Mt.</div>
+                <div className="ahv-row-val">CHF {fmtCHF(ahvCombinedMonthly)}/Mt.</div>
               </div>
             </div>
             <div className="ahv-row">

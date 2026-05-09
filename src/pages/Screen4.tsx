@@ -16,6 +16,7 @@ import {
 } from '../lib/tax'
 import type { TaxCivilStatus } from '../lib/tax'
 import { applyEventsToProjection, getEventImpactSummary } from '../utils/lifeEventCalculation'
+import { calculateAllVariants, calculateBreakEven, buildBreakEvenChartData, AHV_2026 } from '../utils/ahvCalculation'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
@@ -653,39 +654,182 @@ export default function Screen4() {
         {/* AHV Detail */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">E</span>AHV-Details</h2>
+            <h2 className="block-title"><span className="block-num">E</span>AHV-Detailanalyse</h2>
+            <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>Skala 44 · BSV 2026</span>
           </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {[
-              { name: person1.name || 'Person 1', data: analysis.ahv.person1 },
-              ...(hasPartner && analysis.ahv.person2 ? [{ name: person2.name || 'Person 2', data: analysis.ahv.person2 }] : []),
-            ].map((item) => (
-              <div key={item.name} style={{
-                padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
-                borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-              }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>{item.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>
-                    Ø-Einkommen: CHF {fmtCHF(item.data.avgIncomeUsed || 0)} · 44 Beitragsjahre
+
+          {(() => {
+            const p1stored = state.persons.find(p => p.id === 1)!
+            const p2stored = state.persons.find(p => p.id === 2)!
+            const effectiveYears1 = Math.max(0,
+              Math.min(44, Math.max(0, (p1.dob ? calculateAge(p1.dob) - 20 : p1stored.ahvContributionYears || 44))) -
+              (p1stored.ahvContributionGaps || 0)
+            )
+            const variants1 = calculateAllVariants(p1.grossIncome || p1.income || 0, effectiveYears1)
+            const breakEvenData = buildBreakEvenChartData(variants1)
+
+            // Break-even between ordentlich and vorbezug 2J
+            const v63 = variants1.find(v => v.bezugAge === 63)!
+            const v65 = variants1.find(v => v.bezugAge === 65)!
+            const v67 = variants1.find(v => v.bezugAge === 67)!
+            const be63vs65 = calculateBreakEven(v63.monthlyRente, 63, v65.monthlyRente, 65)
+            const be65vs67 = calculateBreakEven(v65.monthlyRente, 65, v67.monthlyRente, 67)
+
+            return (
+              <>
+                {/* Person cards */}
+                <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+                  {[
+                    { name: person1.name || 'Person 1', result: analysis.ahv.person1, effectiveYears: effectiveYears1, income: p1.grossIncome || p1.income || 0 },
+                    ...(hasPartner && analysis.ahv.person2 ? [{
+                      name: person2.name || 'Person 2',
+                      result: analysis.ahv.person2,
+                      effectiveYears: Math.max(0,
+                        Math.min(44, Math.max(0, (p2?.dob ? calculateAge(p2.dob) - 20 : p2stored.ahvContributionYears || 44))) -
+                        (p2stored.ahvContributionGaps || 0)
+                      ),
+                      income: p2?.grossIncome || p2?.income || 0,
+                    }] : []),
+                  ].map((item) => (
+                    <div key={item.name} style={{
+                      padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
+                      borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>{item.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>
+                          Ø-Einkommen: CHF {fmtCHF(item.income)} · {item.effectiveYears} effektive Beitragsjahre
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--navy-800)' }}>
+                          CHF {fmtCHF(item.result.monthlyRente)}/Mt.
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
+                          CHF {fmtCHF(item.result.yearlyInkl13)}/Jahr (inkl. 13.)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {analysis.ahv.plafonReduction > 0 && (
+                    <div style={{ padding: '10px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: 'var(--ink-600)' }}>
+                      Ehepaar-Plafonierung: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt.)
+                    </div>
+                  )}
+                </div>
+
+                {/* Comparison table – Person 1 */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 10 }}>
+                    Bezugsvarianten {hasPartner ? `(${person1.name || 'Person 1'})` : ''} – alle 5 Möglichkeiten
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--navy-800)', color: '#fff' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, borderRadius: '8px 0 0 0' }}>Variante</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>Rente/Mt.</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>Rente/Jahr</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>Kumuliert 10J</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, borderRadius: '0 8px 0 0' }}>Kumuliert 20J</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {variants1.map((v, i) => {
+                          const isSelected = (p1stored.ahvBezugAge ?? 65) === v.bezugAge
+                          const isOrdentlich = v.bezugAge === 65
+                          return (
+                            <tr key={v.bezugAge} style={{
+                              background: isSelected ? 'var(--navy-50)' : i % 2 === 0 ? 'var(--surface)' : '#fafafa',
+                              borderBottom: '1px solid var(--ink-100)',
+                            }}>
+                              <td style={{ padding: '9px 12px', fontWeight: isSelected || isOrdentlich ? 600 : 400, color: 'var(--ink-800)' }}>
+                                {v.shortLabel}
+                                {isSelected && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', background: 'var(--navy-800)', color: '#fff', borderRadius: 10 }}>Ihre Wahl</span>}
+                                {!isSelected && isOrdentlich && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', background: 'var(--ink-100)', color: 'var(--ink-600)', borderRadius: 10 }}>Standard</span>}
+                              </td>
+                              <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: isSelected ? 700 : 400, color: isSelected ? 'var(--navy-800)' : 'var(--ink-700)' }}>
+                                {fmtCHF(v.monthlyRente)}
+                              </td>
+                              <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--ink-600)' }}>
+                                {fmtCHF(v.yearlyInkl13)}
+                              </td>
+                              <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--ink-600)' }}>
+                                {fmtCHF(v.cumulative10y)}
+                              </td>
+                              <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--ink-600)' }}>
+                                {fmtCHF(v.cumulative20y)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
+                    Kumuliert ab jeweiligem Bezugsbeginn · inkl. 13. AHV-Rente
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--navy-800)' }}>
-                    CHF {fmtCHF(item.data.monthlyRente)}/Mt.
+
+                {/* Break-even chart */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 6 }}>
+                    Kumulierte AHV-Rente nach Alter
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
-                    CHF {fmtCHF(item.data.yearlyInkl13)}/Jahr (inkl. 13.)
-                  </div>
+                  {(be63vs65 || be65vs67) && (
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+                      {be63vs65 && (
+                        <div style={{ fontSize: 12, padding: '6px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, color: '#92400e' }}>
+                          ⚖ Break-even Vorbezug 2J vs. Ordentlich: <strong>Alter {be63vs65.toFixed(1)}</strong>
+                        </div>
+                      )}
+                      {be65vs67 && (
+                        <div style={{ fontSize: 12, padding: '6px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, color: '#14532d' }}>
+                          ⚖ Break-even Ordentlich vs. Aufschub 2J: <strong>Alter {be65vs67.toFixed(1)}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={breakEvenData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                      <XAxis dataKey="age" tick={{ fontSize: 11 }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                      <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        formatter={(v: number, name: string) => {
+                          const labels: Record<string, string> = { v63: 'Vorbezug 2J', v64: 'Vorbezug 1J', v65: 'Ordentlich', v66: 'Aufschub 1J', v67: 'Aufschub 2J' }
+                          return [`CHF ${fmtCHF(v)}`, labels[name] || name]
+                        }}
+                        labelFormatter={(l) => `Alter ${l}`}
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => {
+                        const labels: Record<string, string> = { v63: 'Vorbezug 2J', v64: 'Vorbezug 1J', v65: 'Ordentlich', v66: 'Aufschub 1J', v67: 'Aufschub 2J' }
+                        return labels[v] || v
+                      }} />
+                      <Line type="monotone" dataKey="v63" stroke="#dc2626" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                      <Line type="monotone" dataKey="v64" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                      <Line type="monotone" dataKey="v65" stroke="#1a2b4a" strokeWidth={2.5} dot={false} />
+                      <Line type="monotone" dataKey="v66" stroke="#0ea5e9" strokeWidth={1.5} dot={false} />
+                      <Line type="monotone" dataKey="v67" stroke="#16a34a" strokeWidth={1.5} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-              </div>
-            ))}
-            {analysis.ahv.plafonReduction > 0 && (
-              <div style={{ padding: '10px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: 'var(--ink-600)' }}>
-                Ehepaar-Plafonierung: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. 150% der Maximalrente)
-              </div>
-            )}
-          </div>
+
+                {/* Notes */}
+                <div style={{ padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>Wichtige Hinweise zur AHV-Berechnung</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    <li>Berechnungsbasis: Rentenskala 44 (BSV 2026), lineare Interpolation zwischen CHF {fmtCHF(AHV_2026.MIN_AVG_INCOME)} und CHF {fmtCHF(AHV_2026.MAX_AVG_INCOME)} Ø-Einkommen</li>
+                    <li>Faktoren gemäss BSV: Vorbezug 2J = 0.864, 1J = 0.932 · Aufschub 1J = 1.052, 2J = 1.106</li>
+                    <li>Ehepaar-Plafonierung: Summe beider Renten max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. (150% der Maximalrente)</li>
+                    <li>13. AHV-Rente gilt ab Dezember 2026 (Volksinitiative angenommen)</li>
+                    <li>Der Break-even-Alter gibt an, ab wann der spätere Bezug mehr Gesamtrente ergibt</li>
+                  </ul>
+                </div>
+              </>
+            )
+          })()}
         </section>
 
         {/* Recommendations */}
