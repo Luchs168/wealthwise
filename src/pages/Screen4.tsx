@@ -26,6 +26,11 @@ import {
   calculateBreakEvenAge, buildRvKChartData, calculateSurvivorBenefits, buildScenarios,
   calculateMixedVariant, LIFE_EXPECTANCY_MALE_65, LIFE_EXPECTANCY_FEMALE_65,
 } from '../utils/capitalVsRentCalculation'
+import {
+  calculateBridgingGap, calculateAHVContributionNonEmployed, calculateAHVEarlyWithdrawalImpact,
+  calculateBridgingFromCapital, calculatePartTimeImpact, calculateOptimalBridgingStrategy,
+  buildBridgingChartData,
+} from '../utils/bridgingCalculation'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
@@ -235,6 +240,14 @@ export default function Screen4() {
   const [rvkKapitalPct, setRvkKapitalPct] = useState(50)
   const [rvkReturnRate, setRvkReturnRate] = useState(0.02)
 
+  // Bridging state
+  const [bridgingRetireAge, setBridgingRetireAge] = useState(ra1)
+  const [useAHVVorbezug, setUseAHVVorbezug] = useState(false)
+  const [usePKBridging, setUsePKBridging] = useState(false)
+  const [pkBridgingMonthly, setPkBridgingMonthly] = useState(0)
+  const [partTimePct, setPartTimePct] = useState(0)
+  const [bridgingCompareMode, setBridgingCompareMode] = useState(false)
+
   // Kapital vs Rente computed values
   const rvkCapitalRaw = p1.hasPK && p1.pkCapital ? p1.pkCapital : 0
   const rvkConversionRate = (p1.pkRate || 5.4) / 100
@@ -267,6 +280,67 @@ export default function Screen4() {
       rvkAnnualPension, rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, yearsToExpectancy,
     )
   }, [rvkAnnualPension, rvkCapitalAfterTax, rvkReturnRate, ra1, p1.sex])
+
+  // Bridging computed values
+  const isEarlyRetirement = bridgingRetireAge < 65
+  const pkMonthlyAtEarlyRetirement = useMemo(() => {
+    if (!p1.hasPK || !p1.pkCapital) return 0
+    return Math.round(p1.pkCapital * ((p1.pkRate || 5.4) / 100) / 12)
+  }, [p1.hasPK, p1.pkCapital, p1.pkRate])
+
+  const bridgingGap = useMemo(() =>
+    calculateBridgingGap(bridgingRetireAge, p1.income || 0, pkMonthlyAtEarlyRetirement, monthlyBudget)
+  , [bridgingRetireAge, p1.income, pkMonthlyAtEarlyRetirement, monthlyBudget])
+
+  const ahvNonEmployed = useMemo(() => {
+    const annual = pkMonthlyAtEarlyRetirement * 12
+    const result = calculateAHVContributionNonEmployed(freeAssets || 0, annual)
+    return { ...result, totalForGapYears: result.annualContribution * bridgingGap.gapYears }
+  }, [freeAssets, pkMonthlyAtEarlyRetirement, bridgingGap.gapYears])
+
+  const ahvEarlyImpact = useMemo(() => {
+    if (!useAHVVorbezug) return null
+    const base = ahvMonthly1
+    const yearsEarly = Math.max(0, 65 - bridgingRetireAge)
+    const lifeExp = p1.sex === 'm' ? LIFE_EXPECTANCY_MALE_65 : LIFE_EXPECTANCY_FEMALE_65
+    return calculateAHVEarlyWithdrawalImpact(base, yearsEarly, lifeExp, 65)
+  }, [useAHVVorbezug, ahvMonthly1, bridgingRetireAge, p1.sex])
+
+  const bridgingCapitalNeeds = useMemo(() => {
+    const pkBridgingDeduction = usePKBridging ? pkBridgingMonthly * bridgingGap.gapMonths : 0
+    const ahvVorbezugHelp = useAHVVorbezug && ahvEarlyImpact
+      ? ahvEarlyImpact.reducedMonthlyPension * bridgingGap.gapMonths
+      : 0
+    const adjustedGap = Math.max(0, bridgingGap.monthlyNetGap
+      - (usePKBridging ? pkBridgingMonthly : 0)
+      - (useAHVVorbezug && ahvEarlyImpact ? ahvEarlyImpact.reducedMonthlyPension : 0))
+    return calculateBridgingFromCapital(
+      adjustedGap, bridgingGap.gapMonths, ahvNonEmployed.annualContribution, freeAssets || 0
+    )
+  }, [bridgingGap, usePKBridging, pkBridgingMonthly, useAHVVorbezug, ahvEarlyImpact, ahvNonEmployed, freeAssets])
+
+  const partTimeImpact = useMemo(() => {
+    if (partTimePct === 0) return null
+    return calculatePartTimeImpact(
+      p1.income || 0, partTimePct, bridgingGap.gapMonths,
+      monthlyBudget, pkMonthlyAtEarlyRetirement, ahvNonEmployed.annualContribution,
+    )
+  }, [partTimePct, p1.income, bridgingGap.gapMonths, monthlyBudget, pkMonthlyAtEarlyRetirement, ahvNonEmployed])
+
+  const optimalStrategy = useMemo(() =>
+    calculateOptimalBridgingStrategy(
+      freeAssets || 0, p1.balance3a || 0, usePKBridging ? pkBridgingMonthly : 0,
+      bridgingGap.monthlyNetGap, bridgingGap.gapMonths,
+      ahvNonEmployed.annualContribution, incomeTax1?.marginalRate ?? 0.25,
+    )
+  , [freeAssets, p1.balance3a, usePKBridging, pkBridgingMonthly, bridgingGap, ahvNonEmployed, incomeTax1?.marginalRate])
+
+  const bridgingChartData = useMemo(() =>
+    buildBridgingChartData(
+      currentAge1, bridgingRetireAge, 65, p1.income || 0,
+      pkMonthlyAtEarlyRetirement, ahvMonthly1, bridgingGap.monthlyNetGap, monthlyBudget,
+    )
+  , [currentAge1, bridgingRetireAge, p1.income, pkMonthlyAtEarlyRetirement, ahvMonthly1, bridgingGap.monthlyNetGap, monthlyBudget])
 
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
@@ -409,6 +483,445 @@ export default function Screen4() {
             </button>
           </div>
         </section>
+
+        {/* Frühpensionierungs-Überbrückungsanalyse */}
+        {ra1 < 65 && (() => {
+          const compareAges = [ra1, Math.min(ra1 + 1, 64), Math.min(ra1 + 2, 64)].filter((a, i, arr) => a < 65 && arr.indexOf(a) === i)
+          return (
+            <section className="block" style={{ border: '2px solid #fde68a', background: '#fffbeb' }}>
+              <div className="block-head">
+                <h2 className="block-title" style={{ color: '#92400e' }}>
+                  <span className="block-num" style={{ background: '#f59e0b', color: 'white' }}>!</span>
+                  Frühpensionierung – Überbrückungsanalyse
+                </h2>
+                <span className="block-hint">Nur sichtbar wenn Pensionierungsalter unter 65</span>
+              </div>
+
+              {/* Intro text */}
+              <div style={{ padding: '14px 16px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, marginBottom: 20, fontSize: 14, color: '#7c2d12', lineHeight: 1.7 }}>
+                Sie möchten mit <strong>{ra1} Jahren</strong> in Pension gehen. Das bedeutet: Zwischen Ihrem gewünschten Pensionierungsalter und dem ordentlichen AHV-Alter (65) entsteht eine <strong>Einkommenslücke von {65 - ra1} {65 - ra1 === 1 ? 'Jahr' : 'Jahren'}</strong>, die Sie selbst finanzieren müssen.
+              </div>
+
+              {/* Timeline visual */}
+              <div style={{ marginBottom: 20, padding: '16px', background: 'white', borderRadius: 10, border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#92400e', marginBottom: 12 }}>Einkommens-Zeitstrahl</div>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, borderRadius: 8, overflow: 'hidden', fontSize: 11.5, fontWeight: 600 }}>
+                  <div style={{ flex: 1, background: '#ecfdf5', padding: '10px 8px', textAlign: 'center', color: '#15803d' }}>
+                    Heute<br /><span style={{ fontSize: 10, fontWeight: 400 }}>Erwerbseinkommen</span>
+                  </div>
+                  <div style={{ width: 2, background: '#d1d5db' }} />
+                  <div style={{ flex: 1, background: '#fef2f2', padding: '10px 8px', textAlign: 'center', color: '#dc2626' }}>
+                    Frühp. Alter {ra1}<br /><span style={{ fontSize: 10, fontWeight: 400 }}>Lücke beginnt</span>
+                  </div>
+                  <div style={{ width: 2, background: '#d1d5db' }} />
+                  <div style={{ flex: 0.7, background: '#fef2f2', padding: '10px 4px', textAlign: 'center', color: '#dc2626', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#dc2626' }}>
+                      ← LÜCKE {65 - ra1}J →
+                    </div>
+                  </div>
+                  <div style={{ width: 2, background: '#d1d5db' }} />
+                  <div style={{ flex: 1, background: '#eff6ff', padding: '10px 8px', textAlign: 'center', color: '#1d4ed8' }}>
+                    AHV ab 65<br /><span style={{ fontSize: 10, fontWeight: 400 }}>Rente + PK</span>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10, fontSize: 11 }}>
+                  <div style={{ color: '#dc2626', textAlign: 'center' }}>✗ Kein Erwerbseinkommen</div>
+                  <div style={{ color: '#dc2626', textAlign: 'center' }}>✗ Keine AHV (bis 65)</div>
+                  <div style={{ color: '#d97706', textAlign: 'center' }}>⚠ PK evtl. gekürzt</div>
+                </div>
+              </div>
+
+              {/* Slider for retirement age */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <span style={{ color: '#92400e', fontWeight: 600 }}>Gewünschtes Pensionierungsalter</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#dc2626' }}>Alter {bridgingRetireAge}</span>
+                </div>
+                <input
+                  type="range" min={58} max={65} step={1}
+                  value={bridgingRetireAge}
+                  onChange={e => setBridgingRetireAge(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#f59e0b' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-400)' }}>
+                  <span>Alter 58</span><span>Alter 65 (ordentlich)</span>
+                </div>
+              </div>
+
+              {/* Hero cost box */}
+              {bridgingGap.gapYears > 0 && (
+                <div style={{ background: '#dc2626', color: 'white', borderRadius: 14, padding: '18px 22px', marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>Geschätzte Gesamtkosten der Frühpensionierung mit {bridgingRetireAge}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
+                    CHF {fmtCHF(bridgingGap.monthlyNetGap * bridgingGap.gapMonths + ahvNonEmployed.totalForGapYears)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5 }}>
+                    <div>Einkommenslücke total: <strong>CHF {fmtCHF(bridgingGap.monthlyNetGap * bridgingGap.gapMonths)}</strong></div>
+                    <div>AHV-Beiträge Nichterwerbst.: <strong>CHF {fmtCHF(ahvNonEmployed.totalForGapYears)}</strong></div>
+                    <div>Monatliche Lücke: <strong>CHF {fmtCHF(bridgingGap.monthlyNetGap)}/Mt.</strong></div>
+                    <div>Dauer: <strong>{bridgingGap.gapYears} {bridgingGap.gapYears === 1 ? 'Jahr' : 'Jahre'} ({bridgingGap.gapMonths} Monate)</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Income loss breakdown */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Was fällt weg?</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                    <thead>
+                      <tr style={{ background: '#fef3c7' }}>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, border: '1px solid #fde68a' }}>Position</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, border: '1px solid #fde68a' }}>Betrag/Jahr</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, border: '1px solid #fde68a' }}>Erklärung</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ background: 'white' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a' }}>Erwerbseinkommen</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', color: '#dc2626', fontWeight: 600 }}>–CHF {fmtCHF(p1.income || 0)}</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a', color: 'var(--ink-500)', fontSize: 11.5 }}>Fällt komplett weg</td>
+                      </tr>
+                      <tr style={{ background: '#fafafa' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a' }}>AHV-Rente</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', color: '#dc2626', fontWeight: 600 }}>CHF 0</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a', color: 'var(--ink-500)', fontSize: 11.5 }}>Noch kein Anspruch bis 65</td>
+                      </tr>
+                      <tr style={{ background: 'white' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a' }}>PK-Rente (ab Frühp.)</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', color: '#16a34a', fontWeight: 600 }}>+CHF {fmtCHF(pkMonthlyAtEarlyRetirement * 12)}</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a', color: 'var(--ink-500)', fontSize: 11.5 }}>Kompensiert teilweise</td>
+                      </tr>
+                      <tr style={{ background: '#fef3c7', fontWeight: 600 }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a' }}>Netto-Lücke/Jahr</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', color: '#dc2626' }}>CHF {fmtCHF(bridgingGap.monthlyNetGap * 12)}</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid #fde68a' }}></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* AHV non-employed warning */}
+                <div style={{ marginTop: 12, padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5 }}>
+                  <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>WICHTIG: AHV-Beiträge als Nichterwerbstätige</div>
+                  <div style={{ color: '#7f1d1d', lineHeight: 1.65 }}>
+                    Als frühpensionierte Person MÜSSEN Sie weiterhin AHV-Beiträge bezahlen bis Alter 65.
+                    Basierend auf Ihrem Vermögen (CHF {fmtCHF(freeAssets || 0)}) + PK-Rente × 20:
+                    Berechnungsbasis CHF {fmtCHF(ahvNonEmployed.assessmentBase)} → ca.{' '}
+                    <strong>CHF {fmtCHF(ahvNonEmployed.annualContribution)}/Jahr ({bridgingGap.gapYears} Jahre = CHF {fmtCHF(ahvNonEmployed.totalForGapYears)} total)</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comparison table across ages */}
+              {compareAges.length > 1 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Vergleich – verschiedene Pensionierungszeitpunkte</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: '#fef3c7' }}>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #fde68a', fontWeight: 600 }}>Position</th>
+                          {compareAges.map(age => (
+                            <th key={age} style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', fontWeight: 600 }}>
+                              Alter {age} {age === 65 ? '(ordentl.)' : `(${65 - age}J früher)`}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          {
+                            label: 'Lücken-Dauer',
+                            values: compareAges.map(age => `${65 - age} Jahre`),
+                          },
+                          {
+                            label: 'Monatliche Lücke',
+                            values: compareAges.map(age => {
+                              const gap = calculateBridgingGap(age, p1.income || 0, pkMonthlyAtEarlyRetirement, monthlyBudget)
+                              return `CHF ${fmtCHF(gap.monthlyNetGap)}`
+                            }),
+                          },
+                          {
+                            label: 'Überbrückungskapital nötig',
+                            values: compareAges.map(age => {
+                              const gap = calculateBridgingGap(age, p1.income || 0, pkMonthlyAtEarlyRetirement, monthlyBudget)
+                              const ahv = calculateAHVContributionNonEmployed(freeAssets || 0, pkMonthlyAtEarlyRetirement * 12)
+                              const totalAHV = ahv.annualContribution * (65 - age)
+                              return `CHF ${fmtCHF(gap.monthlyNetGap * gap.gapMonths + totalAHV)}`
+                            }),
+                          },
+                        ].map((row, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                            <td style={{ padding: '8px 10px', border: '1px solid #fde68a', fontWeight: 500 }}>{row.label}</td>
+                            {row.values.map((v, j) => (
+                              <td key={j} style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #fde68a', fontWeight: j === 0 ? 700 : 400, color: j === 0 ? '#dc2626' : 'inherit' }}>{v}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Financing options */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 12 }}>Wie finanzieren Sie die Überbrückung?</div>
+
+                {/* Option 1: AHV Vorbezug */}
+                <div style={{ marginBottom: 10, padding: '14px 16px', background: 'white', border: '1px solid #fde68a', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: '#92400e' }}>Option 1: AHV-Vorbezug</div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={useAHVVorbezug} onChange={e => setUseAHVVorbezug(e.target.checked)} />
+                      Verwenden
+                    </label>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                    Möglich ab 63 (ab 2027: schrittweise auch früher). Kürzung: <strong>6.8% pro Vorbezugsjahr – lebenslang.</strong>
+                    {ahvMonthly1 > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        Ordentliche AHV: <strong>CHF {fmtCHF(ahvMonthly1)}/Mt.</strong> →{' '}
+                        Bei {65 - bridgingRetireAge}J Vorbezug: <strong style={{ color: '#dc2626' }}>CHF {fmtCHF(Math.round(ahvMonthly1 * (1 - (65 - bridgingRetireAge) * 0.068)))}/Mt.</strong>{' '}
+                        (Verlust: CHF {fmtCHF(Math.round(ahvMonthly1 * (65 - bridgingRetireAge) * 0.068))}/Mt. lebenslang)
+                      </div>
+                    )}
+                    {ahvEarlyImpact && (
+                      <div style={{ marginTop: 6, padding: '8px 10px', background: '#fef2f2', borderRadius: 6, fontSize: 11.5, color: '#dc2626' }}>
+                        Break-even: {ahvEarlyImpact.breakEvenAge ? `Alter ${ahvEarlyImpact.breakEvenAge}` : 'Nie'} ·
+                        Lebenszeit-Verlust: CHF {fmtCHF(ahvEarlyImpact.totalLifetimeLoss)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 8, padding: '8px 10px', background: '#fef2f2', borderRadius: 6, fontSize: 12, color: '#7f1d1d' }}>
+                    Empfehlung: AHV-Vorbezug lohnt sich meist NICHT, ausser bei tiefer Lebenserwartung.
+                  </div>
+                </div>
+
+                {/* Option 2: PK Überbrückungsrente */}
+                <div style={{ marginBottom: 10, padding: '14px 16px', background: 'white', border: '1px solid #fde68a', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: '#92400e' }}>Option 2: PK-Überbrückungsrente</div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={usePKBridging} onChange={e => setUsePKBridging(e.target.checked)} />
+                      Verfügbar
+                    </label>
+                  </div>
+                  {usePKBridging && (
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 12.5, color: 'var(--ink-600)' }}>Überbrückungsrente der PK (CHF/Monat):</label>
+                      <input
+                        type="number" min={0} step={100}
+                        value={pkBridgingMonthly || ''}
+                        onChange={e => setPkBridgingMonthly(Number(e.target.value))}
+                        style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #fde68a', borderRadius: 6, fontSize: 13 }}
+                        placeholder="z.B. 2000"
+                      />
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                    {usePKBridging
+                      ? `Kompensiert CHF ${fmtCHF(pkBridgingMonthly)}/Mt. bis 65 · Reduziert Altersguthaben um ca. CHF ${fmtCHF(pkBridgingMonthly * bridgingGap.gapMonths)}`
+                      : 'Eine PK-Überbrückungsrente kompensiert die fehlende AHV bis 65. Fragen Sie Ihre Pensionskasse – viele Kassen bieten diese Möglichkeit an.'}
+                  </div>
+                </div>
+
+                {/* Option 3: Vermögensverzehr */}
+                <div style={{ marginBottom: 10, padding: '14px 16px', background: 'white', border: '1px solid #fde68a', borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: '#92400e', marginBottom: 8 }}>Option 3: Vermögensverzehr</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.75 }}>
+                    <div>Monatlicher Bedarf: CHF {fmtCHF(monthlyBudget)}</div>
+                    <div>Minus PK-Rente: –CHF {fmtCHF(pkMonthlyAtEarlyRetirement)}</div>
+                    {usePKBridging && pkBridgingMonthly > 0 && <div>Minus PK-Überbrückung: –CHF {fmtCHF(pkBridgingMonthly)}</div>}
+                    {useAHVVorbezug && ahvEarlyImpact && <div>Minus AHV-Vorbezug: –CHF {fmtCHF(ahvEarlyImpact.reducedMonthlyPension)}</div>}
+                    <div style={{ marginTop: 4, fontWeight: 700, color: '#dc2626' }}>
+                      = Monatliche Lücke: CHF {fmtCHF(bridgingCapitalNeeds.monthlyGap)} ×{' '}
+                      {bridgingGap.gapMonths} Monate + AHV CHF {fmtCHF(ahvNonEmployed.totalForGapYears)}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 14, fontWeight: 700, padding: '8px 10px', background: bridgingCapitalNeeds.isCovered ? '#ecfdf5' : '#fef2f2', borderRadius: 6, color: bridgingCapitalNeeds.isCovered ? '#15803d' : '#dc2626' }}>
+                      Benötigtes Kapital: CHF {fmtCHF(bridgingCapitalNeeds.capitalNeeded)} ·
+                      Verfügbar: CHF {fmtCHF(freeAssets || 0)} ·{' '}
+                      {bridgingCapitalNeeds.isCovered ? '✓ Gedeckt' : `✗ Fehlend: CHF ${fmtCHF(bridgingCapitalNeeds.shortfall)}`}
+                    </div>
+                    {!bridgingCapitalNeeds.isCovered && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: '#dc2626' }}>
+                        Ihr Vermögen reicht nicht für die Überbrückung. Erwägen Sie eine Teilpensionierung oder einen späteren Zeitpunkt.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Option 4: 3a Staffelung */}
+                {p1.balance3a > 0 && (
+                  <div style={{ marginBottom: 10, padding: '14px 16px', background: 'white', border: '1px solid #fde68a', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: '#92400e', marginBottom: 8 }}>Option 4: Gestaffelter 3a-Bezug</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                      3a-Konten in den Überbrückungsjahren gestaffelt beziehen – Progressionsvorteil nutzen.
+                      <div style={{ marginTop: 4 }}>
+                        Ihr 3a-Guthaben: <strong>CHF {fmtCHF(p1.balance3a)}</strong>{' '}
+                        kann CHF {fmtCHF(Math.min(p1.balance3a, bridgingCapitalNeeds.capitalNeeded))} der Überbrückung finanzieren.
+                      </div>
+                      <div style={{ marginTop: 4, padding: '6px 8px', background: '#eff6ff', borderRadius: 6, fontSize: 11.5 }}>
+                        Tipp: Verteilen Sie den 3a-Bezug auf {bridgingGap.gapYears} separate Steuerjahre. Jeder Bezug wird separat besteuert.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Option 5: Teilzeit */}
+                <div style={{ marginBottom: 10, padding: '14px 16px', background: 'white', border: '1px solid #fde68a', borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: '#92400e', marginBottom: 8 }}>Option 5: Teilpensionierung / Teilzeitarbeit</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                      <span style={{ color: 'var(--ink-600)' }}>Weiterarbeiten mit</span>
+                      <span style={{ fontWeight: 700, color: '#92400e' }}>{partTimePct}%</span>
+                    </div>
+                    <input
+                      type="range" min={0} max={80} step={20}
+                      value={partTimePct}
+                      onChange={e => setPartTimePct(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: '#f59e0b' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-400)' }}>
+                      <span>0% (voll pensioniert)</span><span>80% Teilzeit</span>
+                    </div>
+                  </div>
+                  {partTimePct > 0 && partTimeImpact && (
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                      <div>Resteinkommen ({partTimePct}%): <strong style={{ color: '#15803d' }}>+CHF {fmtCHF(partTimeImpact.monthlyPartTimeIncome)}/Mt.</strong></div>
+                      <div>Verbleibende Lücke: <strong>CHF {fmtCHF(partTimeImpact.reducedMonthlyGap)}/Mt.</strong></div>
+                      <div style={{ marginTop: 4, fontWeight: 600, color: '#15803d' }}>
+                        Benötigtes Kapital: CHF {fmtCHF(partTimeImpact.capitalNeededPartTime)}{' '}
+                        (spart CHF {fmtCHF(partTimeImpact.capitalSaved)} gegenüber voller Frühpensionierung)
+                      </div>
+                    </div>
+                  )}
+                  {partTimePct === 0 && (
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-500)' }}>
+                      Bei 40% Pensum bis 65 reduzieren Sie den Kapitalbedarf erheblich. Bewegen Sie den Slider.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Options comparison table */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Optionen-Vergleich</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
+                    <thead>
+                      <tr style={{ background: '#fef3c7' }}>
+                        <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #fde68a', fontWeight: 600 }}></th>
+                        <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontWeight: 600 }}>AHV-Vorbezug</th>
+                        <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontWeight: 600 }}>PK-Überbrückung</th>
+                        <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontWeight: 600 }}>Vermögen</th>
+                        <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontWeight: 600 }}>3a-Bezug</th>
+                        <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontWeight: 600 }}>Teilzeit 40%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        {
+                          label: 'Überbrückt/Mt.',
+                          values: [
+                            ahvMonthly1 > 0 ? `CHF ${fmtCHF(Math.round(ahvMonthly1 * (1 - (65 - bridgingRetireAge) * 0.068)))}` : '–',
+                            usePKBridging && pkBridgingMonthly > 0 ? `CHF ${fmtCHF(pkBridgingMonthly)}` : 'Je nach PK',
+                            `CHF ${fmtCHF(Math.min(freeAssets || 0, bridgingCapitalNeeds.capitalNeeded) / bridgingGap.gapMonths || 0)}`,
+                            p1.balance3a > 0 ? `CHF ${fmtCHF(Math.round(p1.balance3a / bridgingGap.gapMonths))}` : '–',
+                            `CHF ${fmtCHF(Math.round((p1.income || 0) / 12 * 0.4))}`,
+                          ],
+                        },
+                        {
+                          label: 'Folgen',
+                          values: [
+                            `–${((65 - bridgingRetireAge) * 6.8).toFixed(1)}% Rente lebenslang`,
+                            'Tiefere PK-Rente ab 65',
+                            `Vermögen –CHF ${fmtCHF(bridgingCapitalNeeds.capitalNeeded)}`,
+                            `Kapital –CHF ${fmtCHF(Math.min(p1.balance3a || 0, bridgingCapitalNeeds.capitalNeeded))}`,
+                            'Weniger Freizeit',
+                          ],
+                        },
+                        {
+                          label: 'Steuer',
+                          values: ['Rente besteuert', 'Neutral', 'Steuerfrei', 'Kapitalbezugssteuer', 'Einkommen besteuert'],
+                        },
+                        {
+                          label: 'Empfehlung',
+                          values: ['⚠️ Meist ungünstig', '✓ Prüfen', '✓ Falls vorhanden', '✓ Optimal staffeln', '✓ Guter Kompromiss'],
+                        },
+                      ].map((row, i) => (
+                        <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                          <td style={{ padding: '8px', border: '1px solid #fde68a', fontWeight: 500 }}>{row.label}</td>
+                          {row.values.map((v, j) => (
+                            <td key={j} style={{ padding: '8px', textAlign: 'center', border: '1px solid #fde68a', fontSize: 11 }}>{v}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Optimal strategy */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Empfohlene Überbrückungsstrategie</div>
+                <div style={{ padding: '16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                  {optimalStrategy.steps.length === 0 ? (
+                    <div style={{ fontSize: 12.5, color: '#15803d' }}>Keine Überbrückung notwendig (ordentliches Pensionierungsalter).</div>
+                  ) : (
+                    <>
+                      {optimalStrategy.steps.map((step, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8, fontSize: 12.5, alignItems: 'flex-start' }}>
+                          <div style={{ background: '#15803d', color: 'white', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                          <div style={{ color: '#15803d' }}>
+                            <strong>{step.source}:</strong> CHF {fmtCHF(step.amount)} · <span style={{ fontSize: 11.5, opacity: 0.85 }}>{step.note}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #bbf7d0', fontSize: 12.5 }}>
+                        <div style={{ color: optimalStrategy.remainingGap > 0 ? '#dc2626' : '#15803d', fontWeight: 600 }}>
+                          {optimalStrategy.remainingGap > 0
+                            ? `Verbleibende Lücke: CHF ${fmtCHF(optimalStrategy.remainingGap)} – weitere Massnahmen nötig`
+                            : `Überbrückung vollständig gedeckt · Kein AHV-Vorbezug nötig`}
+                        </div>
+                        {optimalStrategy.pillar3aTax > 0 && (
+                          <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginTop: 4 }}>
+                            Geschätzte Bezugssteuer 3a: CHF {fmtCHF(optimalStrategy.pillar3aTax)} (gestaffelt reduziert)
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bridging income chart */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Einkommensverlauf (monatlich)</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={bridgingChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                    <XAxis dataKey="age" tick={{ fontSize: 11 }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                    <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={46} />
+                    <Tooltip formatter={(v: number) => `CHF ${fmtCHF(v)}`} labelFormatter={l => `Alter ${l}`} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="erwerbseinkommen" name="Erwerbseinkommen" stackId="a" fill="#22c55e" />
+                    <Bar dataKey="pkRente" name="PK-Rente" stackId="a" fill="#3b82f6" />
+                    <Bar dataKey="ahvRente" name="AHV-Rente" stackId="a" fill="#6366f1" />
+                    <Bar dataKey="ueberbrueckung" name="Überbrückung" stackId="a" fill="#94a3b8" />
+                    <Line type="monotone" dataKey="bedarf" name="Monatsbedarf" stroke="#ef4444" strokeWidth={2} dot={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Disclaimer */}
+              <div style={{ padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
+                <strong>Hinweis:</strong> Die Frühpensionierung ist eine komplexe Entscheidung mit langfristigen Folgen. Diese Analyse zeigt die finanziellen Auswirkungen auf. AHV-Beiträge für Nichterwerbstätige werden individuell durch die Ausgleichskasse berechnet – die Werte sind Schätzungen. Für eine verbindliche Planung empfehlen wir ein Gespräch mit Ihrer Pensionskasse und einem Finanzplaner.
+              </div>
+            </section>
+          )
+        })()}
 
         {/* Income pillars */}
         <section className="block">
