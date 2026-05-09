@@ -95,6 +95,7 @@ export interface WealthWiseState {
   setFreeAssets: (v: number) => void
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
+  resetStore: () => void
 }
 
 const defaultPerson1Base: PersonBase & { id: 1 } = {
@@ -181,6 +182,23 @@ export const useStore = create<WealthWiseState>()(
       setFreeAssets: (v) => set({ freeAssets: v }),
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
+      resetStore: () => set({
+        selectedGoal: 'rente',
+        civilStatus: 'ledig',
+        person1: { ...defaultPerson1Base },
+        person2: { ...defaultPerson2Base },
+        hasPartner: false,
+        location: null,
+        hasChildren: false,
+        children: [],
+        persons: [
+          { ...defaultPerson1Base, ...defaultVorsorge(1) },
+          { ...defaultPerson2Base, ...defaultVorsorge(2) },
+        ],
+        freeAssets: 0,
+        property: { has: false, value: 0, mortgage: 0 },
+        expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0 },
+      }),
     }),
     {
       name: 'wealthwise.v1',
