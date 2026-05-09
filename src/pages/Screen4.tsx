@@ -17,6 +17,11 @@ import {
 import type { TaxCivilStatus } from '../lib/tax'
 import { applyEventsToProjection, getEventImpactSummary } from '../utils/lifeEventCalculation'
 import { calculateAllVariants, calculateBreakEven, buildBreakEvenChartData, AHV_2026 } from '../utils/ahvCalculation'
+import {
+  projectPKCapital, calculatePKPension, estimateContribution,
+  calculateEarlyRetirementImpact, calculateBuyInImpact, buildPKProjectionChartData,
+} from '../utils/pkCalculation'
+import { PK_CONSTANTS } from '../constants/pkConstants'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
@@ -832,10 +837,245 @@ export default function Screen4() {
           })()}
         </section>
 
+        {/* PK Projektion */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title"><span className="block-num">F</span>Pensionskassen-Projektion</h2>
+            <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>BVG 2026 · Kapitalprojektion</span>
+          </div>
+          {(() => {
+            const p1stored = state.persons.find(p => p.id === 1)!
+            const p2stored = state.persons.find(p => p.id === 2)!
+            const yearsToRetirement1 = Math.max(0, ra1 - currentAge1)
+            const effectiveContrib1 = p1stored.pkAnnualContribution || estimateContribution(p1stored.income, currentAge1)
+            const interestRate1 = p1stored.pkInterestRate || PK_CONSTANTS.BVG_MIN_INTEREST_RATE
+            const convRate1 = (p1stored.pkRate || 5.4) / 100
+            const einkaufspotenzial1 = p1stored.pkMaxGuthaben > p1stored.pkCurrentCapital
+              ? p1stored.pkMaxGuthaben - p1stored.pkCurrentCapital : 0
+
+            // If no current capital entered, show simplified view
+            const hasProjectionData = p1stored.pkCurrentCapital > 0
+
+            const projectedCapital1 = hasProjectionData
+              ? projectPKCapital(p1stored.pkCurrentCapital, effectiveContrib1, interestRate1, yearsToRetirement1)
+              : p1stored.pkCapital
+
+            const pension1 = calculatePKPension(projectedCapital1, convRate1)
+            const chartData = hasProjectionData
+              ? buildPKProjectionChartData(p1stored.pkCurrentCapital, effectiveContrib1, interestRate1, currentAge1, ra1)
+              : []
+
+            // Retirement timing variants (ra1-2 to ra1+2)
+            const retirementVariants = hasProjectionData ? [-2, -1, 0, 1, 2].map(delta => {
+              const age = ra1 + delta
+              if (age < 58 || age > 70) return null
+              const years = Math.max(0, age - currentAge1)
+              const capital = projectPKCapital(p1stored.pkCurrentCapital, effectiveContrib1, interestRate1, years)
+              const reducedConvRate = delta < 0
+                ? Math.max(0, convRate1 + delta * PK_CONSTANTS.EARLY_RETIREMENT_CONVERSION_REDUCTION_PER_YEAR)
+                : convRate1
+              const pension = calculatePKPension(capital, reducedConvRate)
+              return { age, capital, convRate: reducedConvRate, pension }
+            }).filter(Boolean) : []
+
+            // Early retirement impact (vs 2 years earlier)
+            const earlyImpact = hasProjectionData && ra1 > 60
+              ? calculateEarlyRetirementImpact(p1stored.pkCurrentCapital, effectiveContrib1, interestRate1, ra1, ra1 - 2, currentAge1, convRate1)
+              : null
+
+            // Buy-in analysis
+            const buyIn = einkaufspotenzial1 > 0 && incomeTax1
+              ? calculateBuyInImpact(einkaufspotenzial1, convRate1, incomeTax1.marginalRate)
+              : null
+
+            if (!hasProjectionData) {
+              return (
+                <div style={{ padding: '20px', textAlign: 'center', background: 'var(--navy-50)', borderRadius: 12 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>
+                    CHF {fmtCHF(pension1.monthly)}/Mt. PK-Rente
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-500)', marginBottom: 16 }}>
+                    Basierend auf CHF {fmtCHF(p1stored.pkCapital)} Kapital bei Pensionierung
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-400)' }}>
+                    💡 Geben Sie in Schritt 2 Ihr <strong>aktuelles Altersguthaben</strong> ein, um eine präzise Projektion mit Beiträgen und Zinsen zu erhalten.
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <>
+                {/* Summary cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+                  {[
+                    { label: 'Heutiges Guthaben', val: p1stored.pkCurrentCapital, sub: `Alter ${currentAge1}` },
+                    { label: `Guthaben bei ${ra1}`, val: projectedCapital1, sub: `${yearsToRetirement1}J Projektion` },
+                    { label: 'Monatliche Rente', val: pension1.monthly, sub: `UWS ${(convRate1 * 100).toFixed(1)}%` },
+                  ].map(card => (
+                    <div key={card.label} style={{
+                      padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 12,
+                    }}>
+                      <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--navy-800)' }}>
+                        CHF {fmtCHF(card.val)}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Projection chart */}
+                {chartData.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
+                      Altersguthaben-Entwicklung
+                    </div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                        <defs>
+                          <linearGradient id="pkGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1a2b4a" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#1a2b4a" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                        <XAxis dataKey="age" tick={{ fontSize: 11 }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                        <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={60} />
+                        <Tooltip
+                          formatter={(v: number, name: string) => {
+                            const labels: Record<string, string> = { kapital: 'Guthaben total', beitraege: 'Kumulierte Beiträge', verzinsung: 'Kumulierte Zinsen' }
+                            return [`CHF ${fmtCHF(v)}`, labels[name] || name]
+                          }}
+                          labelFormatter={(l) => `Alter ${l}`}
+                          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                        />
+                        <Area type="monotone" dataKey="kapital" stroke="#1a2b4a" strokeWidth={2.5} fill="url(#pkGrad)" name="kapital" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Retirement timing comparison table */}
+                {retirementVariants.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
+                      Vergleich: Pensionierungsalter
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                        <thead>
+                          <tr style={{ background: 'var(--navy-800)', color: '#fff' }}>
+                            <th style={{ padding: '8px 12px', textAlign: 'left', borderRadius: '8px 0 0 0' }}>Alter</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'right' }}>Guthaben</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'right' }}>UWS</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'right', borderRadius: '0 8px 0 0' }}>Rente/Mt.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {retirementVariants.map((v, i) => {
+                            if (!v) return null
+                            const isSelected = v.age === ra1
+                            return (
+                              <tr key={v.age} style={{
+                                background: isSelected ? 'var(--navy-50)' : i % 2 === 0 ? 'var(--surface)' : '#fafafa',
+                                borderBottom: '1px solid var(--ink-100)',
+                              }}>
+                                <td style={{ padding: '9px 12px', fontWeight: isSelected ? 700 : 400, color: 'var(--ink-800)' }}>
+                                  {v.age}
+                                  {isSelected && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', background: 'var(--navy-800)', color: '#fff', borderRadius: 10 }}>Ihre Planung</span>}
+                                </td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--ink-700)' }}>
+                                  {fmtCHF(v.capital)}
+                                </td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--ink-600)' }}>
+                                  {(v.convRate * 100).toFixed(2)}%
+                                </td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: isSelected ? 700 : 400, color: isSelected ? 'var(--navy-800)' : 'var(--ink-700)' }}>
+                                  {fmtCHF(v.pension.monthly)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {earlyImpact && (
+                      <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                        ⚠ <strong>2 Jahre früher:</strong> CHF {fmtCHF(earlyImpact.capitalDifference)} weniger Guthaben +
+                        tieferer Umwandlungssatz ({(earlyImpact.earlyConversionRate * 100).toFixed(2)}% statt {(earlyImpact.normalConversionRate * 100).toFixed(2)}%)
+                        → <strong>CHF {fmtCHF(earlyImpact.monthlyPensionLoss)}/Monat weniger Rente – lebenslang</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Calculation breakdown */}
+                <details style={{ marginBottom: 16 }}>
+                  <summary style={{ fontSize: 13, fontWeight: 500, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    Details zur Berechnung anzeigen
+                  </summary>
+                  <div style={{ marginTop: 10, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.8 }}>
+                    <div>Heutiges Guthaben: <strong>CHF {fmtCHF(p1stored.pkCurrentCapital)}</strong> (Alter {currentAge1})</div>
+                    <div>Jährlicher Beitrag (AN+AG): <strong>CHF {fmtCHF(effectiveContrib1)}</strong>{!p1stored.pkAnnualContribution ? ' (BVG-Schätzung)' : ''}</div>
+                    <div>Verzinsung: <strong>{(interestRate1 * 100).toFixed(2)}%</strong> p.a. über {yearsToRetirement1} Jahre</div>
+                    <div>Beiträge total: <strong>CHF {fmtCHF(effectiveContrib1 * yearsToRetirement1)}</strong></div>
+                    <div>Verzinsung total: <strong>CHF {fmtCHF(projectedCapital1 - p1stored.pkCurrentCapital - effectiveContrib1 * yearsToRetirement1)}</strong></div>
+                    <div style={{ borderTop: '1px solid var(--navy-100)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+                      Guthaben bei {ra1}: CHF {fmtCHF(projectedCapital1)}
+                    </div>
+                    <div>Umwandlungssatz: {(convRate1 * 100).toFixed(1)}%</div>
+                    <div style={{ fontWeight: 600 }}>Jahresrente: CHF {fmtCHF(pension1.yearly)} → CHF {fmtCHF(pension1.monthly)}/Monat</div>
+                  </div>
+                </details>
+
+                {/* Buy-in analysis */}
+                {buyIn && (
+                  <div style={{ marginBottom: 16, padding: '14px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, color: '#14532d', marginBottom: 8 }}>
+                      Einkaufspotenzial: CHF {fmtCHF(einkaufspotenzial1)}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 2 }}>+Rente/Mt.</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#14532d' }}>+CHF {fmtCHF(buyIn.additionalMonthlyPension)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 2 }}>Steuerersparnis</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#14532d' }}>CHF {fmtCHF(buyIn.taxSaving)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 2 }}>Nettokosten</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#14532d' }}>CHF {fmtCHF(buyIn.netCost)}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#166534', marginTop: 10 }}>
+                      Bei Grenzsteuersatz {((incomeTax1?.marginalRate ?? 0) * 100).toFixed(0)}% · PK-Einkäufe sind steuerlich vollständig abzugsfähig
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div style={{ padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>Wichtige Hinweise zur PK-Projektion</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    <li>Projektion basiert auf konstanten Beiträgen und gleichbleibendem Zinssatz. Lohnerhöhungen sind nicht berücksichtigt.</li>
+                    <li>Der Umwandlungssatz kann sich bis zur Pensionierung ändern. Viele Kassen haben Senkungen angekündigt.</li>
+                    <li>Überobligatorisches Guthaben: Kasse kann den Umwandlungssatz jederzeit für diesen Teil anpassen.</li>
+                    <li>Koordinationsabzug 2026: CHF {fmtCHF(PK_CONSTANTS.COORDINATION_DEDUCTION_2026)} · Eintrittsschwelle: CHF {fmtCHF(PK_CONSTANTS.ENTRY_THRESHOLD_2026)}</li>
+                    <li>Tipp: Lassen Sie sich von Ihrer PK eine verbindliche Projektion erstellen.</li>
+                  </ul>
+                </div>
+              </>
+            )
+          })()}
+        </section>
+
         {/* Recommendations */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">F</span>Handlungsempfehlungen</h2>
+            <h2 className="block-title"><span className="block-num">G</span>Handlungsempfehlungen</h2>
             <span className="block-hint">Nach Priorität geordnet</span>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>

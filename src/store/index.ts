@@ -36,6 +36,12 @@ export interface PersonVorsorge {
   ahvContributionYears: number
   ahvContributionGaps: number
   ahvBezugAge: number
+  // PK enhanced fields
+  pkCurrentCapital: number      // today's actual balance (0 = not entered)
+  pkAnnualContribution: number  // total annual contribution AN+AG (0 = auto-estimate)
+  pkInterestRate: number        // PK interest rate (default 0.0125)
+  pkObligatorisch: number       // mandatory portion of capital (0 = unknown)
+  pkMaxGuthaben: number         // max regulatory capital for buy-in calc (0 = unknown)
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }
@@ -150,6 +156,11 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     ahvContributionYears: 44,
     ahvContributionGaps: 0,
     ahvBezugAge: 65,
+    pkCurrentCapital: 0,
+    pkAnnualContribution: 0,
+    pkInterestRate: 0.0125,
+    pkObligatorisch: 0,
+    pkMaxGuthaben: 0,
   }
 }
 
