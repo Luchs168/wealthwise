@@ -15,6 +15,8 @@ import {
   CANTONAL_TAX_URLS, CANTON_NAMES,
 } from '../lib/tax'
 import type { TaxCivilStatus } from '../lib/tax'
+import { applyEventsToProjection, getEventImpactSummary } from '../utils/lifeEventCalculation'
+import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
 
@@ -117,7 +119,7 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer } = state
+  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer, lifeEvents } = state
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
 
@@ -156,6 +158,25 @@ export default function Screen4() {
     person1: { ...p1, retireAge: altRetireAge, retirementAge: altRetireAge },
   }), [inputData, p1, altRetireAge])
   const altAnalysis = useMemo(() => calculateProAnalysis(altInputData), [altInputData])
+
+  // Life events integration
+  const retirementYear = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
+  const eventsImpact = useMemo(
+    () => getEventImpactSummary(lifeEvents, retirementYear),
+    [lifeEvents, retirementYear],
+  )
+  const adjustedCashflow = useMemo(
+    () => lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
+      ? applyEventsToProjection(analysis.yearlyCashflow, lifeEvents)
+      : null,
+    [analysis.yearlyCashflow, lifeEvents],
+  )
+  const ageWhenBrokeWithEvents = useMemo(() => {
+    if (!adjustedCashflow) return analysis.ageWhenBroke
+    const broke = adjustedCashflow.find(r => r.wealthEndOfYear <= 0)
+    return broke ? broke.age : null
+  }, [adjustedCashflow, analysis.ageWhenBroke])
+  const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
 
   // Tax section
   const canton = location?.kanton ?? 'ZH'
@@ -215,15 +236,17 @@ export default function Screen4() {
   const coveragePct = monthlyBudget > 0 ? Math.round((analysis.monthlyIncome.total / monthlyBudget) * 100) : 0
 
   const chartData = useMemo(() => {
-    return analysis.yearlyCashflow
-      .filter(r => r.age >= ra1)
-      .map(r => ({
-        age: r.age,
-        vermoegen: Math.max(0, r.wealthEndOfYear),
-        einnahmen: Math.round((r.ahvIncome + r.pkRenteIncome) / 12),
-        ausgaben: Math.round(r.livingExpenses / 12),
-      }))
-  }, [analysis, ra1])
+    const base = analysis.yearlyCashflow.filter(r => r.age >= ra1)
+    const adj = adjustedCashflow ? adjustedCashflow.filter(r => r.age >= ra1) : null
+    return base.map((r, i) => ({
+      age: r.age,
+      vermoegen: Math.max(0, adj ? (adj[i]?.wealthEndOfYear ?? r.wealthEndOfYear) : r.wealthEndOfYear),
+      vermoegenBase: adjustedCashflow ? Math.max(0, r.wealthEndOfYear) : undefined,
+      eventAmount: adj ? (adj[i]?.eventAmount ?? 0) : 0,
+      einnahmen: Math.round((r.ahvIncome + r.pkRenteIncome) / 12),
+      ausgaben: Math.round(r.livingExpenses / 12),
+    }))
+  }, [analysis, adjustedCashflow, ra1])
 
   const scenarioChartData = useMemo(() => {
     const ages = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1).map(r => r.age)
@@ -303,14 +326,33 @@ export default function Screen4() {
                   {' '}{analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
                 </span>
               </div>
-              {analysis.ageWhenBroke && (
+              {analysis.ageWhenBroke && !hasEnabledEvents && (
                 <div style={{ marginTop: 6, fontSize: 13, color: 'var(--red-500)' }}>
                   ⚠ Vermögen reicht bis ca. Alter {analysis.ageWhenBroke}
                 </div>
               )}
-              {!analysis.ageWhenBroke && (
+              {!analysis.ageWhenBroke && !hasEnabledEvents && (
                 <div style={{ marginTop: 6, fontSize: 13, color: 'var(--green-600)' }}>
                   ✓ Vermögen reicht bis Alter 95+
+                </div>
+              )}
+              {hasEnabledEvents && (
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ fontSize: 13, color: analysis.ageWhenBroke ? 'var(--red-500)' : 'var(--green-600)' }}>
+                    {analysis.ageWhenBroke
+                      ? `Ohne Ereignisse: bis Alter ${analysis.ageWhenBroke}`
+                      : 'Ohne Ereignisse: bis Alter 95+'}
+                  </div>
+                  <div style={{ fontSize: 13, color: ageWhenBrokeWithEvents ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>
+                    {ageWhenBrokeWithEvents
+                      ? `Mit Ereignissen: bis Alter ${ageWhenBrokeWithEvents} ⚠`
+                      : 'Mit Ereignissen: bis Alter 95+ ✓'}
+                  </div>
+                  {ageWhenBrokeWithEvents && !analysis.ageWhenBroke && (
+                    <div style={{ fontSize: 12, color: '#dc2626' }}>
+                      Geplante Ausgaben CHF {fmtCHF(eventsImpact.totalOutflow)} verkürzen die Reichweite.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -390,8 +432,38 @@ export default function Screen4() {
         <section className="block">
           <div className="block-head">
             <h2 className="block-title"><span className="block-num">B</span>Vermögensverlauf bis Alter 95</h2>
-            <span className="block-hint">Neutrale Annahmen: 1.5% Inflation, 2.5% Rendite</span>
+            <span className="block-hint">
+              {hasEnabledEvents
+                ? `1.5% Inflation · 2.5% Rendite · ${lifeEvents.filter(e => e.enabled && e.amount > 0).length} Lebensereignis(se) eingerechnet`
+                : 'Neutrale Annahmen: 1.5% Inflation, 2.5% Rendite'}
+            </span>
           </div>
+
+          {hasEnabledEvents && (
+            <div style={{
+              display: 'flex', gap: 12, marginBottom: 14, padding: '10px 14px',
+              background: eventsImpact.netImpact < 0 ? '#fffbeb' : '#ecfdf5',
+              border: `1px solid ${eventsImpact.netImpact < 0 ? '#fde68a' : '#bbf7d0'}`,
+              borderRadius: 8, flexWrap: 'wrap',
+            }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-700)', flex: 1, minWidth: 200 }}>
+                <strong>Lebensereignisse eingerechnet:</strong>{' '}
+                CHF {fmtCHF(eventsImpact.totalOutflow)} Sonderausgaben
+                {eventsImpact.totalInflow > 0 && ` · CHF ${fmtCHF(eventsImpact.totalInflow)} Zuflüsse`}
+                {eventsImpact.beforeRetirement > 0 && ` · CHF ${fmtCHF(eventsImpact.beforeRetirement)} vor Pensionierung`}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="20" height="3"><line x1={0} y1={1.5} x2={20} y2={1.5} stroke="#1a2b4a" strokeWidth={2.5}/></svg>
+                  Mit Ereignissen
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="20" height="3"><line x1={0} y1={1.5} x2={20} y2={1.5} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3"/></svg>
+                  Ohne Ereignisse
+                </span>
+              </div>
+            </div>
+          )}
 
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -410,12 +482,32 @@ export default function Screen4() {
                   labelFormatter={(l) => `Alter ${l}`}
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--ink-200)' }}
                 />
-                {analysis.ageWhenBroke && (
+                {!hasEnabledEvents && analysis.ageWhenBroke && (
                   <ReferenceLine x={analysis.ageWhenBroke} stroke="#ef4444" strokeDasharray="4 4"
                     label={{ value: 'Vermögen aufgebraucht', fill: '#ef4444', fontSize: 10, position: 'top' }} />
                 )}
+                {hasEnabledEvents && ageWhenBrokeWithEvents && (
+                  <ReferenceLine x={ageWhenBrokeWithEvents} stroke="#ef4444" strokeDasharray="4 4"
+                    label={{ value: 'Mit Ereignissen', fill: '#ef4444', fontSize: 9, position: 'top' }} />
+                )}
+                {/* Life event markers */}
+                {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
+                  const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
+                  const evtAge = evt.year - birthYear
+                  if (evtAge < ra1 || evtAge > 95) return null
+                  const cfg = CATEGORY_CONFIG[evt.category]
+                  const color = evt.art === 'einnahme' ? '#16a34a' : '#f59e0b'
+                  return (
+                    <ReferenceLine key={evt.id} x={evtAge} stroke={color} strokeDasharray="3 3" strokeWidth={1.5}
+                      label={{ value: cfg.icon, fill: color, fontSize: 13, position: 'insideTopRight' }} />
+                  )
+                })}
                 <Area type="monotone" dataKey="vermoegen" stroke="#1a2b4a" strokeWidth={2.5}
-                  fill="url(#wealthGrad)" name="vermoegen" />
+                  fill="url(#wealthGrad)" name={hasEnabledEvents ? 'Mit Ereignissen' : 'vermoegen'} />
+                {hasEnabledEvents && (
+                  <Line type="monotone" dataKey="vermoegenBase" stroke="#94a3b8" strokeWidth={1.5}
+                    strokeDasharray="5 5" dot={false} name="Ohne Ereignisse" />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -1066,31 +1158,44 @@ export default function Screen4() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
-                    {['Alter', 'AHV/Jahr', 'PK/Jahr', 'Ausgaben/Jahr', 'Vermögen'].map((h) => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>{h}</th>
+                    {['Alter', 'AHV/Jahr', 'PK/Jahr', 'Ausgaben/Jahr', hasEnabledEvents ? 'Ereignisse' : null, 'Vermögen'].filter(Boolean).map((h) => (
+                      <th key={h!} style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {analysis.yearlyCashflow.filter(r => r.age >= ra1).map((row, i) => (
-                    <tr key={row.age} style={{ background: i % 2 === 0 ? 'white' : 'var(--navy-50)', borderBottom: '1px solid var(--ink-100)' }}>
-                      <td style={{ padding: '6px 12px', fontWeight: row.isRetirementYear ? 700 : 400, color: 'var(--navy-800)' }}>
-                        {row.age}{row.isRetirementYear ? ' ★' : ''}
-                      </td>
-                      <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                        {row.ahvIncome > 0 ? `CHF ${fmtCHF(row.ahvIncome)}` : '—'}
-                      </td>
-                      <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                        {row.pkRenteIncome > 0 ? `CHF ${fmtCHF(row.pkRenteIncome)}` : '—'}
-                      </td>
-                      <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                        CHF {fmtCHF(row.livingExpenses)}
-                      </td>
-                      <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600, color: row.wealthEndOfYear <= 0 ? '#ef4444' : 'var(--navy-800)' }}>
-                        CHF {fmtCHF(Math.max(0, row.wealthEndOfYear))}
-                      </td>
-                    </tr>
-                  ))}
+                  {chartData.map((row, i) => {
+                    const baseRow = analysis.yearlyCashflow.find(r => r.age === row.age)!
+                    return (
+                      <tr key={row.age} style={{
+                        background: row.eventAmount !== 0 ? '#fffbeb' : i % 2 === 0 ? 'white' : 'var(--navy-50)',
+                        borderBottom: '1px solid var(--ink-100)',
+                      }}>
+                        <td style={{ padding: '6px 12px', fontWeight: baseRow?.isRetirementYear ? 700 : 400, color: 'var(--navy-800)' }}>
+                          {row.age}{baseRow?.isRetirementYear ? ' ★' : ''}
+                        </td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
+                          {baseRow?.ahvIncome > 0 ? `CHF ${fmtCHF(baseRow.ahvIncome)}` : '—'}
+                        </td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
+                          {baseRow?.pkRenteIncome > 0 ? `CHF ${fmtCHF(baseRow.pkRenteIncome)}` : '—'}
+                        </td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
+                          CHF {fmtCHF(baseRow?.livingExpenses || 0)}
+                        </td>
+                        {hasEnabledEvents && (
+                          <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: row.eventAmount !== 0 ? 700 : 400, color: row.eventAmount > 0 ? '#16a34a' : row.eventAmount < 0 ? '#dc2626' : 'var(--ink-400)' }}>
+                            {row.eventAmount !== 0
+                              ? `${row.eventAmount > 0 ? '+' : ''}CHF ${fmtCHF(row.eventAmount)}`
+                              : '—'}
+                          </td>
+                        )}
+                        <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600, color: row.vermoegen <= 0 ? '#ef4444' : 'var(--navy-800)' }}>
+                          CHF {fmtCHF(row.vermoegen)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

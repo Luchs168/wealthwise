@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { LifeEvent } from '../types/lifeEvents'
 
 export type CivilStatus = 'ledig' | 'verheiratet' | 'partnerschaft' | 'geschieden' | 'verwitwet'
 export type Gender = 'm' | 'f'
@@ -85,6 +86,9 @@ export interface WealthWiseState {
   // Tax
   kirchensteuer: boolean
 
+  // Life events
+  lifeEvents: LifeEvent[]
+
   // Actions
   setGoal: (g: string) => void
   setCivilStatus: (s: CivilStatus) => void
@@ -99,6 +103,9 @@ export interface WealthWiseState {
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
   setKirchensteuer: (v: boolean) => void
+  addLifeEvent: (e: LifeEvent) => void
+  updateLifeEvent: (id: string, patch: Partial<LifeEvent>) => void
+  removeLifeEvent: (id: string) => void
   resetStore: () => void
 }
 
@@ -172,6 +179,7 @@ export const useStore = create<WealthWiseState>()(
       },
 
       kirchensteuer: false,
+      lifeEvents: [],
 
       setGoal: (g) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
@@ -189,6 +197,12 @@ export const useStore = create<WealthWiseState>()(
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
       setKirchensteuer: (v) => set({ kirchensteuer: v }),
+      addLifeEvent: (e) => set(state => ({ lifeEvents: [...state.lifeEvents, e] })),
+      updateLifeEvent: (id, patch) =>
+        set(state => ({
+          lifeEvents: state.lifeEvents.map(e => e.id === id ? { ...e, ...patch } : e),
+        })),
+      removeLifeEvent: (id) => set(state => ({ lifeEvents: state.lifeEvents.filter(e => e.id !== id) })),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
@@ -206,6 +220,7 @@ export const useStore = create<WealthWiseState>()(
         property: { has: false, value: 0, mortgage: 0 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0 },
         kirchensteuer: false,
+        lifeEvents: [],
       }),
     }),
     {
