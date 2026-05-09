@@ -22,6 +22,10 @@ import {
   calculateEarlyRetirementImpact, calculateBuyInImpact, buildPKProjectionChartData,
 } from '../utils/pkCalculation'
 import { PK_CONSTANTS } from '../constants/pkConstants'
+import {
+  calculateBreakEvenAge, buildRvKChartData, calculateSurvivorBenefits, buildScenarios,
+  calculateMixedVariant, LIFE_EXPECTANCY_MALE_65, LIFE_EXPECTANCY_FEMALE_65,
+} from '../utils/capitalVsRentCalculation'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
@@ -225,6 +229,44 @@ export default function Screen4() {
   }, [p1.hasPK, p1.pkBezugsart, p1.pkCapital, impliedPkMonthly1, ahvMonthly1, canton, taxStatus, ra1, kirchensteuer])
 
   const taxOptimization = (thirdPillar1?.unusedPotentialSaving ?? 0) + (pkSavingsData[pkSavingsData.length - 1]?.saving ?? 0)
+
+  // Kapital vs Rente state (must be before derived useMemo blocks)
+  const [rvkTab, setRvkTab] = useState<'rente' | 'kapital' | 'mix'>('rente')
+  const [rvkKapitalPct, setRvkKapitalPct] = useState(50)
+  const [rvkReturnRate, setRvkReturnRate] = useState(0.02)
+
+  // Kapital vs Rente computed values
+  const rvkCapitalRaw = p1.hasPK && p1.pkCapital ? p1.pkCapital : 0
+  const rvkConversionRate = (p1.pkRate || 5.4) / 100
+  const rvkCapitalTaxRate = capitalTaxResult
+    ? capitalTaxResult.result.totalTax / capitalTaxResult.result.grossAmount
+    : 0.05
+  const rvkAnnualPension = Math.round(rvkCapitalRaw * rvkConversionRate)
+  const rvkCapitalAfterTax = Math.round(rvkCapitalRaw * (1 - rvkCapitalTaxRate))
+
+  const rvkMixVariant = useMemo(() =>
+    calculateMixedVariant(rvkCapitalRaw, rvkKapitalPct, rvkConversionRate, rvkCapitalTaxRate, rvkReturnRate, ra1)
+  , [rvkCapitalRaw, rvkKapitalPct, rvkConversionRate, rvkCapitalTaxRate, rvkReturnRate, ra1])
+
+  const rvkBreakEven = useMemo(() =>
+    calculateBreakEvenAge(rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, ra1)
+  , [rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, ra1])
+
+  const rvkChartData = useMemo(() =>
+    buildRvKChartData(rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, ra1)
+  , [rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, ra1])
+
+  const rvkScenarios = useMemo(() =>
+    buildScenarios(rvkCapitalAfterTax, rvkAnnualPension, ra1)
+  , [rvkCapitalAfterTax, rvkAnnualPension, ra1])
+
+  const rvkSurvivor = useMemo(() => {
+    const lifeExp = (p1.sex === 'm' ? LIFE_EXPECTANCY_MALE_65 : LIFE_EXPECTANCY_FEMALE_65)
+    const yearsToExpectancy = lifeExp - ra1
+    return calculateSurvivorBenefits(
+      rvkAnnualPension, rvkCapitalAfterTax, rvkAnnualPension, rvkReturnRate, yearsToExpectancy,
+    )
+  }, [rvkAnnualPension, rvkCapitalAfterTax, rvkReturnRate, ra1, p1.sex])
 
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
@@ -1072,10 +1114,370 @@ export default function Screen4() {
           })()}
         </section>
 
+        {/* Kapital oder Rente? */}
+        {rvkCapitalRaw > 0 && (
+          <section className="block">
+            <div className="block-head">
+              <h2 className="block-title"><span className="block-num">G</span>Kapital oder Rente?</h2>
+              <span className="block-hint">Entscheidungshilfe für Ihre PK-Bezugsstrategie</span>
+            </div>
+
+            {/* Three variant tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+              {(['rente', 'kapital', 'mix'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setRvkTab(tab)}
+                  style={{
+                    flex: 1, minWidth: 90, padding: '10px 14px', borderRadius: 10,
+                    border: `2px solid ${rvkTab === tab ? 'var(--navy-600)' : 'var(--ink-200)'}`,
+                    background: rvkTab === tab ? 'var(--navy-600)' : 'white',
+                    color: rvkTab === tab ? 'white' : 'var(--ink-700)',
+                    fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+                  }}
+                >
+                  {tab === 'rente' ? '100% Rente' : tab === 'kapital' ? '100% Kapital' : 'Mix'}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            {rvkTab === 'rente' && (
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div style={{
+                  background: 'var(--navy-600)', color: 'white', borderRadius: 14,
+                  padding: '20px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>PK-Rente monatlich</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
+                      CHF {fmtCHF(Math.round(rvkAnnualPension / 12))}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>PK-Rente jährlich</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>
+                      CHF {fmtCHF(rvkAnnualPension)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Umwandlungssatz</div>
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>{(rvkConversionRate * 100).toFixed(2)}%</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Kapitalsteuer</div>
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>CHF 0</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 4, fontSize: 13 }}>Vorteile</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: '#166534', lineHeight: 1.6 }}>
+                      <li>Lebenslange Sicherheit</li>
+                      <li>Witwen-/Witwerrente 60%</li>
+                      <li>Kein Anlagerisiko</li>
+                      <li>Planbare Einnahmen</li>
+                    </ul>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4, fontSize: 13 }}>Nachteile</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: '#7f1d1d', lineHeight: 1.6 }}>
+                      <li>Kein Erbe möglich</li>
+                      <li>Inflationsrisiko</li>
+                      <li>Verlust bei frühem Tod</li>
+                      <li>Keine Flexibilität</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {rvkTab === 'kapital' && (
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div style={{
+                  background: 'var(--navy-600)', color: 'white', borderRadius: 14,
+                  padding: '20px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Kapital nach Steuern</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
+                      CHF {fmtCHF(rvkCapitalAfterTax)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Kapitalsteuer</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>
+                      CHF {fmtCHF(rvkCapitalRaw - rvkCapitalAfterTax)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Jährl. Entnahme (äquiv.)</div>
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>CHF {fmtCHF(rvkAnnualPension)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Break-even Alter</div>
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>
+                      {rvkBreakEven ? `Alter ${rvkBreakEven}` : 'Nie'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 4, fontSize: 13 }}>Vorteile</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: '#166534', lineHeight: 1.6 }}>
+                      <li>Vererbbares Vermögen</li>
+                      <li>Maximale Flexibilität</li>
+                      <li>Anlagerendite möglich</li>
+                      <li>Einmalige Kapitalbest.</li>
+                    </ul>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4, fontSize: 13 }}>Nachteile</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: '#7f1d1d', lineHeight: 1.6 }}>
+                      <li>Langlebigkeitsrisiko</li>
+                      <li>Anlagerisiko</li>
+                      <li>Hohe Kapitalsteuer</li>
+                      <li>Disziplin erforderlich</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {rvkTab === 'mix' && (
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                    <span style={{ color: 'var(--ink-600)' }}>Kapitalanteil</span>
+                    <span style={{ fontWeight: 700, color: 'var(--navy-700)' }}>{rvkKapitalPct}%</span>
+                  </div>
+                  <input
+                    type="range" min={10} max={90} step={5}
+                    value={rvkKapitalPct}
+                    onChange={e => setRvkKapitalPct(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: 'var(--navy-600)' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-400)' }}>
+                    <span>10% Kapital</span>
+                    <span>90% Kapital</span>
+                  </div>
+                </div>
+                <div style={{
+                  background: 'var(--navy-600)', color: 'white', borderRadius: 14,
+                  padding: '20px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Kapital nach Steuern</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>
+                      CHF {fmtCHF(rvkMixVariant.kapitalAfterTax)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Monatsrente</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>
+                      CHF {fmtCHF(rvkMixVariant.monthlyRente)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Kapital-Anteil</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>CHF {fmtCHF(rvkMixVariant.kapitalPortion)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Renten-Anteil</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>CHF {fmtCHF(rvkMixVariant.rentePortion)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Break-even chart (for Kapital and Mix tabs) */}
+            {(rvkTab === 'kapital' || rvkTab === 'mix') && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>
+                    Rückfluss-Chart: Kapital vs. Kumulierte Rente
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {[
+                      { label: '0% p.a.', rate: 0 },
+                      { label: '2% p.a.', rate: 0.02 },
+                      { label: '4% p.a.', rate: 0.04 },
+                    ].map(s => (
+                      <button
+                        key={s.rate}
+                        onClick={() => setRvkReturnRate(s.rate)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8, fontSize: 12,
+                          border: `1.5px solid ${rvkReturnRate === s.rate ? 'var(--navy-600)' : 'var(--ink-200)'}`,
+                          background: rvkReturnRate === s.rate ? 'var(--navy-50)' : 'white',
+                          color: rvkReturnRate === s.rate ? 'var(--navy-700)' : 'var(--ink-500)',
+                          fontWeight: rvkReturnRate === s.rate ? 700 : 400, cursor: 'pointer',
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={rvkChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                    <XAxis dataKey="age" tick={{ fontSize: 11 }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                    <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={52} />
+                    <Tooltip formatter={(v: number) => `CHF ${fmtCHF(v)}`} labelFormatter={l => `Alter ${l}`} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {rvkBreakEven && (
+                      <ReferenceLine x={rvkBreakEven} stroke="#ef4444" strokeDasharray="4 4"
+                        label={{ value: `Break-even Alter ${rvkBreakEven}`, fontSize: 11, fill: '#ef4444', position: 'insideTopRight' }} />
+                    )}
+                    <Line type="monotone" dataKey="kapital" name="Kapital verbleibend" stroke="var(--navy-600)" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="kumuliertRente" name="Kumulierte Rente" stroke="#22c55e" strokeWidth={2} dot={false} strokeDasharray="5 3" />
+                  </LineChart>
+                </ResponsiveContainer>
+                {rvkBreakEven && (
+                  <div style={{ marginTop: 8, padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12.5 }}>
+                    <strong>Break-even Alter {rvkBreakEven}:</strong> Ab diesem Alter hat die Rente mehr ausgezahlt als das Kapital noch wert wäre ({rvkReturnRate * 100}% Rendite angenommen).
+                  </div>
+                )}
+                {!rvkBreakEven && (
+                  <div style={{ marginTop: 8, padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5 }}>
+                    <strong>Kein Break-even bis Alter {ra1 + 40}:</strong> Das Kapital reicht bei {rvkReturnRate * 100}% Rendite auch bei hohem Alter. Kapital ist in diesem Szenario attraktiver.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Scenario comparison table */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>
+                Szenarien-Vergleich (100% Kapital-Bezug)
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--navy-50)' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Szenario</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Rendite</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Break-even</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Kapital Ø80</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Kapital Ø85</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--navy-700)', fontWeight: 600, border: '1px solid var(--ink-100)' }}>Kapital Ø90</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rvkScenarios.map((s, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--ink-50)' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontWeight: 600 }}>{s.label}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)' }}>{(s.returnRate * 100).toFixed(0)}%</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: s.breakEvenAge ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                          {s.breakEvenAge ? `Alter ${s.breakEvenAge}` : '> 110'}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: s.capitalAt80 > 0 ? 'var(--ink-700)' : '#dc2626' }}>
+                          {s.capitalAt80 > 0 ? `CHF ${fmtK(s.capitalAt80)}` : '–'}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: s.capitalAt85 > 0 ? 'var(--ink-700)' : '#dc2626' }}>
+                          {s.capitalAt85 > 0 ? `CHF ${fmtK(s.capitalAt85)}` : '–'}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: s.capitalAt90 > 0 ? 'var(--ink-700)' : '#dc2626' }}>
+                          {s.capitalAt90 > 0 ? `CHF ${fmtK(s.capitalAt90)}` : '–'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Survivor benefits */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>
+                Hinterbliebenenleistungen
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Bei Rente: Witwenrente (60%)</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--navy-700)' }}>
+                    CHF {fmtCHF(rvkSurvivor.survivorPensionMonthly)}/Mt.
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 4 }}>CHF {fmtCHF(rvkSurvivor.survivorPensionYearly)}/Jahr · Lebenslang</div>
+                </div>
+                <div style={{ padding: '14px 16px', background: 'var(--ink-50)', border: '1px solid var(--ink-200)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Bei Kapital: Erbe ca. mit Ø{(p1.sex === 'm' ? LIFE_EXPECTANCY_MALE_65 : LIFE_EXPECTANCY_FEMALE_65) - Math.round(((p1.sex === 'm' ? LIFE_EXPECTANCY_MALE_65 : LIFE_EXPECTANCY_FEMALE_65) - ra1) / 2)}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-700)' }}>
+                    CHF {fmtCHF(rvkSurvivor.inheritableCapital)}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 4 }}>Verbleibend bei {rvkReturnRate * 100}% Rendite</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tax comparison */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>
+                Steuerlicher Vergleich
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ padding: '14px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>Rente: Laufende Einkommenssteuer</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                    <div>Jährl. PK-Rente: <strong>CHF {fmtCHF(rvkAnnualPension)}</strong></div>
+                    <div>Grenzsteuersatz: <strong>{Math.round((incomeTax1?.marginalRate ?? 0.25) * 100)}%</strong></div>
+                    <div style={{ marginTop: 4, fontWeight: 600, color: '#92400e' }}>
+                      Steuer/Jahr: ~CHF {fmtCHF(Math.round(rvkAnnualPension * (incomeTax1?.marginalRate ?? 0.25)))}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ padding: '14px 16px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0c4a6e', marginBottom: 8 }}>Kapital: Einmalige Kapitalsteuer</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
+                    <div>PK-Kapital: <strong>CHF {fmtCHF(rvkCapitalRaw)}</strong></div>
+                    <div>Kapitalsteuer: <strong>CHF {fmtCHF(Math.round(rvkCapitalRaw * rvkCapitalTaxRate))}</strong></div>
+                    <div style={{ marginTop: 4, fontWeight: 600, color: '#0c4a6e' }}>
+                      Effektivsatz: {(rvkCapitalTaxRate * 100).toFixed(1)}% (einmalig)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Decision guidance */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>
+                Entscheidungshilfe
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 12.5 }}>
+                  <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 4 }}>Rente bevorzugen, wenn…</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: '#166534', lineHeight: 1.6 }}>
+                    <li>Sie eine hohe Lebenserwartung haben (Familie, Gesundheit)</li>
+                    <li>Ihr Partner/Ihre Partnerin eine eigene AHV/PK hat</li>
+                    <li>Sie kein Erbe planen oder kein Vermögen selbst managen wollen</li>
+                    <li>Sie ein tiefes Einkommen haben (niedrigere Grenzbesteuerung der Rente)</li>
+                  </ul>
+                </div>
+                <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 12.5 }}>
+                  <div style={{ fontWeight: 600, color: '#0c4a6e', marginBottom: 4 }}>Kapital bevorzugen, wenn…</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: '#0c4a6e', lineHeight: 1.6 }}>
+                    <li>Sie Erben begünstigen möchten</li>
+                    <li>Sie bereits hohe laufende Einnahmen haben (Grenzsteuersatz hoch)</li>
+                    <li>Sie eine kurze Lebenserwartung befürchten</li>
+                    <li>Sie Wohneigentum amortisieren oder eine Hypothek abbauen möchten</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Disclaimer */}
+            <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
+              <strong>Hinweis:</strong> Diese Berechnung ist eine Entscheidungshilfe und ersetzt keine individuelle Beratung. Break-even-Alter und Kapitalentwicklung sind Szenarien – tatsächliche Renditen und persönliche Umstände können abweichen. Besprechen Sie Ihre Bezugsstrategie mit Ihrer Pensionskasse und einem Vorsorgeberater.
+            </div>
+          </section>
+        )}
+
         {/* Recommendations */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">G</span>Handlungsempfehlungen</h2>
+            <h2 className="block-title"><span className="block-num">H</span>Handlungsempfehlungen</h2>
             <span className="block-hint">Nach Priorität geordnet</span>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
