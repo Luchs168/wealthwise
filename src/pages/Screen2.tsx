@@ -232,6 +232,7 @@ export default function Screen2() {
             <h2 className="block-title">
               <span className="block-num">B</span>AHV – 1. Säule
             </h2>
+            <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>Rentenskala 44 · BSV 2026</span>
           </div>
 
           <div className="ahv-card">
@@ -359,7 +360,10 @@ export default function Screen2() {
                   value={cur.pkCapital}
                   onChange={(v) => updatePerson(activeTab, { pkCapital: v })} />
                 <div className="field">
-                  <label>Umwandlungssatz (%)</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Umwandlungssatz (%)
+                    <span title="Der Umwandlungssatz bestimmt, welcher Prozentsatz Ihres angesparten PK-Kapitals jährlich als Rente ausbezahlt wird. Bei CHF 400'000 und 5.4% ergibt das CHF 21'600/Jahr = CHF 1'800/Monat." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>?</span>
+                  </label>
                   <div className="amount-wrap">
                     <input type="number" min={3} max={8} step={0.1}
                       value={cur.pkRate}
@@ -369,7 +373,7 @@ export default function Screen2() {
                     <span className="suffix">%</span>
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
-                    BVG-Minimum: 6.8% · Typisch: 5.0–5.8%
+                    BVG-Minimum (Obligatorium): 6.8% · Überobligatorium typisch: 4.5–5.8%
                   </span>
                 </div>
               </div>

@@ -7,12 +7,12 @@ const QUICK_QUESTIONS: Record<StepKey, string[]> = {
   situation: [
     'Was sind Erziehungsgutschriften?',
     'Was ist die AHV-Plafonierung?',
-    'Was bedeutet Vorbezug der AHV?',
+    'Wie wirkt sich eine Frühpensionierung auf meine AHV aus?',
     'Ab wann kann ich frühzeitig pensionieren?',
   ],
   vorsorge: [
+    'Was ist der Unterschied zwischen Rente und Kapital?',
     'Was ist ein guter Umwandlungssatz?',
-    'Soll ich PK-Kapital oder Rente beziehen?',
     'Was ist ein PK-Einkauf?',
     'Wie viel 3a kann ich einzahlen?',
   ],
@@ -23,8 +23,8 @@ const QUICK_QUESTIONS: Record<StepKey, string[]> = {
     'Muss ich Steuern auf Renten zahlen?',
   ],
   analyse: [
+    'Wie hoch ist meine voraussichtliche Vorsorgelücke?',
     'Was bedeutet dieser Score?',
-    'Wie wird das Vermögen berechnet?',
     'Was kann ich tun wenn das Geld nicht reicht?',
     'Was ist eine Überbrückungsrente?',
   ],
@@ -62,7 +62,13 @@ const PREPROGRAMMED: Record<string, string> = {
   'Was kann ich tun wenn das Geld nicht reicht?':
     'Die wirksamsten Hebel: (1) Etwas länger arbeiten (+2 Jahre = große Wirkung), (2) Ausgaben im Alter etwas reduzieren, (3) PK-Einkauf machen wenn noch Zeit ist, (4) 3a maximieren, (5) Anlagestrategie überprüfen. Kombination ist oft besser als eine Massnahme allein.',
   'Was ist eine Überbrückungsrente?':
-    'Wenn du früher pensionierst als die AHV startet, brauchst du eine Überbrückung. Viele Pensionskassen bieten eine Überbrückungsrente an (für die Zeit bis 65). Alternativ: freies Vermögen, 3a-Bezug oder Kapitalanteil aus der PK. Frage unbedingt bei deiner Pensionskasse nach diesem Angebot.',
+    'Wenn Sie früher pensioniert werden als die AHV startet, benötigen Sie eine Überbrückung. Viele Pensionskassen bieten eine Überbrückungsrente an (für die Zeit bis 65). Alternativ: freies Vermögen, 3a-Bezug oder Kapitalanteil aus der PK. Fragen Sie unbedingt bei Ihrer Pensionskasse nach diesem Angebot.',
+  'Was ist der Unterschied zwischen Rente und Kapital?':
+    'Bei der Rente erhalten Sie monatliche Zahlungen lebenslang – unabhängig davon, wie alt Sie werden. Beim Kapitalbezug erhalten Sie das angesparte Guthaben auf einmal und verwalten es selbst. Die Rente bietet Planungssicherheit, der Kapitalbezug Flexibilität. Der Break-Even liegt je nach Umwandlungssatz und Renditeerwartung bei ca. 82–86 Jahren. Für viele ist ein Mix (Teilkapitalbezug) sinnvoll.',
+  'Wie wirkt sich eine Frühpensionierung auf meine AHV aus?':
+    'Eine Frühpensionierung hat zwei Effekte auf die AHV: (1) Jedes fehlende Beitragsjahr reduziert die Rente um 1/44 = ca. 2.27%. (2) Beim AHV-Vorbezug (frühestens ab 62) wird die Rente lebenslang um 6.8% pro Vorbezugsjahr gekürzt. Bei 3 Jahren Vorbezug sind das 20.4% weniger Rente – dauerhaft. Zudem müssen Selbstständige bis 65 weiterhin AHV-Beiträge zahlen, auch wenn sie schon pensioniert sind.',
+  'Wie hoch ist meine voraussichtliche Vorsorgelücke?':
+    'Ihre Vorsorgelücke ist die Differenz zwischen Ihren monatlichen Renteneinnahmen (AHV + PK + 3a) und Ihrem geplanten Budget im Alter. In der Analyse auf Schritt 4 sehen Sie diese Lücke konkret ausgewiesen. Ist sie negativ, wird sie in der Regel aus freiem Vermögen gedeckt – daher ist es wichtig zu prüfen, wie lange dieses Vermögen reicht.',
 }
 
 function getAutoResponse(question: string): string {
@@ -72,17 +78,20 @@ function getAutoResponse(question: string): string {
   const q = question.toLowerCase()
   if (q.includes('ahv') && q.includes('plafon')) return PREPROGRAMMED['Was ist die AHV-Plafonierung?']
   if (q.includes('erziehung')) return PREPROGRAMMED['Was sind Erziehungsgutschriften?']
-  if (q.includes('vorbezug')) return PREPROGRAMMED['Was bedeutet Vorbezug der AHV?']
+  if (q.includes('vorbezug') || (q.includes('frühpension') && q.includes('ahv'))) return PREPROGRAMMED['Wie wirkt sich eine Frühpensionierung auf meine AHV aus?']
+  if (q.includes('frühpension') || q.includes('früh') && q.includes('pension')) return PREPROGRAMMED['Ab wann kann ich frühzeitig pensionieren?']
   if (q.includes('umwandlung')) return PREPROGRAMMED['Was ist ein guter Umwandlungssatz?']
   if (q.includes('einkauf')) return PREPROGRAMMED['Was ist ein PK-Einkauf?']
   if (q.includes('3a')) return PREPROGRAMMED['Wie viel 3a kann ich einzahlen?']
-  if (q.includes('kapital') || q.includes('rente')) return PREPROGRAMMED['Soll ich PK-Kapital oder Rente beziehen?']
+  if ((q.includes('unterschied') && (q.includes('rente') || q.includes('kapital'))) || (q.includes('rente') && q.includes('kapital'))) return PREPROGRAMMED['Was ist der Unterschied zwischen Rente und Kapital?']
+  if (q.includes('kapital')) return PREPROGRAMMED['Soll ich PK-Kapital oder Rente beziehen?']
   if (q.includes('steuer')) return PREPROGRAMMED['Muss ich Steuern auf Renten zahlen?']
   if (q.includes('ausgaben') || q.includes('budget') || q.includes('kosten')) return PREPROGRAMMED['Was sind typische Ausgaben im Alter?']
   if (q.includes('überbrückung')) return PREPROGRAMMED['Was ist eine Überbrückungsrente?']
+  if (q.includes('lücke') || q.includes('vorsorgelücke')) return PREPROGRAMMED['Wie hoch ist meine voraussichtliche Vorsorgelücke?']
   if (q.includes('score') || q.includes('bewertung') || q.includes('ergebnis')) return PREPROGRAMMED['Was bedeutet dieser Score?']
 
-  return 'Das ist eine gute Frage! Für eine individuelle Antwort auf diese spezifische Frage empfehle ich ein Gespräch mit einer unabhängigen Finanzplanerin oder einem Finanzplaner. WealthWise gibt dir eine fundierte Orientierung – eine persönliche Beratung kann aber alle steuerlichen, rechtlichen und individuellen Faktoren berücksichtigen.'
+  return 'Das ist eine wichtige Frage. WealthWise gibt Ihnen eine fundierte Orientierung auf Basis offizieller Schweizer Vorsorgedaten. Für eine individuell verbindliche Antwort empfehle ich zusätzlich ein Gespräch mit einer unabhängigen Finanzplanerin oder einem Finanzplaner, die alle steuerlichen, rechtlichen und persönlichen Faktoren berücksichtigen können.'
 }
 
 interface Message {
@@ -115,10 +124,10 @@ export default function ChatPanel({ currentStep }: Props) {
     if (!open || greeted || prevStepRef.current === currentStep) return
     prevStepRef.current = currentStep
     const greetings: Record<StepKey, string> = {
-      situation: `Willkommen bei WealthWise! 👋 Hier erfassen wir deine Ausgangslage. Falls etwas unklar ist – frag mich einfach.`,
-      vorsorge: `Jetzt geht's um ${hasPartner ? 'eure' : 'deine'} Vorsorge – AHV, Pensionskasse und Säule 3a. Hier steckt oft das meiste Potenzial 💡`,
-      ausgaben: `Wie viel braucht${hasPartner ? ' ihr' : 'st du'} im Alter? Hier erfassen wir ${hasPartner ? 'euer' : 'dein'} Budget – so realistisch wie möglich.`,
-      analyse: `Hier ${hasPartner ? 'seht ihr' : 'siehst du'} das Ergebnis ${hasPartner ? 'eurer' : 'deiner'} Planung. Ich erkläre ${hasPartner ? 'euch' : 'dir'} gerne, was dahintersteckt 📊`,
+      situation: `Guten Tag. Ich unterstütze Sie bei Fragen rund um Ihre Vorsorge- und Pensionierungsplanung. Hier erfassen wir zunächst Ihre persönliche Ausgangslage. Was möchten Sie wissen?`,
+      vorsorge: `Wir befassen uns nun mit Ihrer Vorsorgesituation – AHV, Pensionskasse und Säule 3a. Hier steckt oft das grösste Optimierungspotenzial. Stellen Sie mir gerne Ihre Fragen dazu.`,
+      ausgaben: `In diesem Schritt erfassen wir Ihr geplantes Budget im Alter. Eine realistische Einschätzung der Ausgaben ist die Grundlage für eine belastbare Vorsorgeanalyse. Wie kann ich Ihnen helfen?`,
+      analyse: `Hier sehen Sie das Ergebnis Ihrer persönlichen Vorsorgeanalyse. Ich erkläre Ihnen gerne die Berechnungsgrundlagen und was die Zahlen für Ihre Situation bedeuten.`,
     }
     setGreeted(true)
     setTimeout(() => {

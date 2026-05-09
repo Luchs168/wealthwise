@@ -56,12 +56,11 @@ export default function Landing() {
       <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-200)' }}>
         <div className="hero">
           <div>
-            <div className="hero-eyebrow">Kostenlos · In 10 Minuten fertig</div>
-            <h1>Reicht deine Rente? <em>Finde es heraus.</em></h1>
+            <div className="hero-eyebrow">Für Personen von 50–65 Jahren · Kostenlos · In 10 Minuten</div>
+            <h1>Reicht Ihre Rente? <em>Finden Sie es heraus.</em></h1>
             <p className="lead">
-              Die digitale Vorsorgeplanung für die Schweiz.
-              Unabhängig, datengeschützt – und basiert auf offiziellen
-              Vorsorgedaten 2026.
+              Ihre digitale Vorsorgeplanung – unabhängig, transparent, verständlich.
+              Basierend auf offiziellen AHV/BVG-Kennzahlen 2026.
             </p>
             <div className="hero-ctas">
               <button className="btn-primary" onClick={() => navigate('/schritt/1')}>
@@ -153,8 +152,8 @@ export default function Landing() {
         <div className="trust-inner">
           {[
             { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>, text: 'Keine Datenspeicherung' },
-            { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="3" y1="12" x2="21" y2="12"/></svg>, text: 'Schweizer Vorsorgedaten 2026' },
-            { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="7" width="14" height="12" rx="3"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><circle cx="12" cy="3" r="1"/></svg>, text: 'KI-gestützter Assistent' },
+            { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="3" y1="12" x2="21" y2="12"/></svg>, text: 'AHV/BVG-Kennzahlen 2026' },
+            { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>, text: 'Unabhängig & neutral' },
             { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>, text: 'In 10 Minuten fertig' },
           ].map((item) => (
             <div key={item.text} className="trust-item">
@@ -162,6 +161,56 @@ export default function Landing() {
               {item.text}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* VORTEILE */}
+      <div style={{ background: 'var(--navy-900)', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 40px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 44 }}>
+            <div className="eyebrow" style={{ color: 'rgba(255,255,255,.45)', marginBottom: 12 }}>Warum WealthWise?</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, color: '#fff', margin: '0 0 12px', letterSpacing: '-.02em' }}>
+              Entwickelt für Ihre Pensionierungsplanung
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,.55)', fontSize: 16, maxWidth: 520, margin: '0 auto' }}>
+              Für Personen von 50–65 Jahren, die ihre Pensionierung fundiert planen möchten.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+            {[
+              {
+                icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+                title: 'Ganzheitliche Analyse aller 3 Säulen',
+                text: 'AHV, Pensionskasse und Säule 3a werden in einer vollständigen, koordinierten Berechnung erfasst.',
+              },
+              {
+                icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+                title: 'Unabhängig – keine Produktempfehlungen',
+                text: 'WealthWise ist keiner Bank, Versicherung oder Pensionskasse verpflichtet. Rein informativ.',
+              },
+              {
+                icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>,
+                title: 'Ihre Daten bleiben bei Ihnen',
+                text: 'Zero-Storage-Prinzip: Alle Berechnungen erfolgen lokal in Ihrem Browser. Keine Serverspeicherung.',
+              },
+              {
+                icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="3" y1="12" x2="21" y2="12"/></svg>,
+                title: 'Basierend auf AHV/BVG-Kennzahlen 2026',
+                text: 'Offizielle Daten: BSV, BFS-Sterbetafeln, AHV-Rentenskala 44 und Eidg. BVG-Kennzahlen.',
+              },
+            ].map((item) => (
+              <div key={item.title} style={{ background: 'rgba(255,255,255,.06)', borderRadius: 14, padding: '24px 22px', border: '1px solid rgba(255,255,255,.09)' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,.1)', display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,.8)', marginBottom: 14 }}>
+                  {item.icon}
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#fff', marginBottom: 8, lineHeight: 1.3 }}>{item.title}</div>
+                <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.55)', lineHeight: 1.6 }}>{item.text}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 36, fontSize: 12.5, color: 'rgba(255,255,255,.35)', fontStyle: 'italic', letterSpacing: '.01em' }}>
+            Entwickelt auf Basis wissenschaftlicher Grundlagen der Finanzplanung · Prototyp FHNW Masterarbeit
+          </div>
         </div>
       </div>
 
@@ -322,10 +371,18 @@ export default function Landing() {
             <Link to="/datenschutz">Datenschutz</Link>
             <a href="mailto:info@wealthwise.ch">Kontakt</a>
           </div>
-          <div className="footer-meta">© 2026 WealthWise · Made in Switzerland 🇨🇭</div>
+          <div className="footer-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+              <rect width="20" height="20" rx="3" fill="#FF0000"/>
+              <rect x="7.5" y="3" width="5" height="14" fill="white"/>
+              <rect x="3" y="7.5" width="14" height="5" fill="white"/>
+            </svg>
+            © 2026 WealthWise – Prototyp FHNW Masterarbeit
+          </div>
         </div>
         <div className="footer-disclaimer">
-          WealthWise bietet keine Finanzberatung. Die Berechnungen basieren auf vereinfachten Annahmen und den offiziellen Schweizer Vorsorgedaten 2026. Für verbindliche Entscheidungen konsultiere bitte eine qualifizierte Fachperson.
+          Basierend auf öffentlich zugänglichen Daten der AHV, BFS und BVG-Kennzahlen 2026.
+          WealthWise bietet keine Finanzberatung und stellt keine Anlageberatung dar. Die Berechnungen basieren auf vereinfachten Annahmen. Für verbindliche Entscheidungen konsultieren Sie bitte eine qualifizierte Fachperson.
         </div>
       </footer>
     </div>
