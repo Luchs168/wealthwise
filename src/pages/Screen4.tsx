@@ -31,6 +31,12 @@ import {
   calculateBridgingFromCapital, calculatePartTimeImpact, calculateOptimalBridgingStrategy,
   buildBridgingChartData,
 } from '../utils/bridgingCalculation'
+import {
+  calculateWealthDepletion, calculateDepletionAge, buildDepletionScenarios, calculateWithdrawalStrategies,
+  calculateSensitivity, calculateELEligibility, buildScenarioChartData,
+} from '../utils/wealthDepletionCalculation'
+import { generateYearlyProjection, exportProjectionToCSV, downloadCSV } from '../utils/projectionTable'
+import { WEALTH_CONSTANTS } from '../constants/wealthConstants'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
@@ -240,6 +246,14 @@ export default function Screen4() {
   const [rvkKapitalPct, setRvkKapitalPct] = useState(50)
   const [rvkReturnRate, setRvkReturnRate] = useState(0.02)
 
+  // Wealth depletion state
+  const [wdReturnRate, setWdReturnRate] = useState(0.02)
+  const [wdInflation, setWdInflation] = useState(0.015)
+  const [wdAdjustInflation, setWdAdjustInflation] = useState(false)
+  const [wdShowTable, setWdShowTable] = useState(false)
+  const [wdGoalMode, setWdGoalMode] = useState<'deplete90' | 'deplete95' | 'preserve'>('deplete95')
+  const [wdCustomWithdrawal, setWdCustomWithdrawal] = useState<number | null>(null)
+
   // Bridging state
   const [bridgingRetireAge, setBridgingRetireAge] = useState(ra1)
   const [useAHVVorbezug, setUseAHVVorbezug] = useState(false)
@@ -341,6 +355,68 @@ export default function Screen4() {
       pkMonthlyAtEarlyRetirement, ahvMonthly1, bridgingGap.monthlyNetGap, monthlyBudget,
     )
   , [currentAge1, bridgingRetireAge, p1.income, pkMonthlyAtEarlyRetirement, ahvMonthly1, bridgingGap.monthlyNetGap, monthlyBudget])
+
+  // Wealth depletion computed values
+  const wdMonthlyIncome = analysis.monthlyIncome.total
+  const wdMonthlyGap = Math.max(0, monthlyBudget - wdMonthlyIncome)
+  const wdEffectiveWithdrawal = wdCustomWithdrawal ?? wdMonthlyGap
+
+  // Wealth at retirement: free assets + 3a (if any) + PK capital (if Kapitalbezug) - taxes
+  const wdInitialWealth = useMemo(() => {
+    let w = freeAssets || 0
+    if (p1.has3a && p1.balance3a > 0) w += p1.balance3a
+    if (p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0) {
+      const capAmount = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+      const tax = calculateCapitalWithdrawalTax(capAmount, canton, taxStatus)
+      w += tax.netAmount
+    }
+    return w
+  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, canton, taxStatus])
+
+  const wdScenarios = useMemo(() =>
+    buildDepletionScenarios(wdInitialWealth, wdEffectiveWithdrawal, ra1)
+  , [wdInitialWealth, wdEffectiveWithdrawal, ra1])
+
+  const wdStrategies = useMemo(() =>
+    calculateWithdrawalStrategies(wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, ra1)
+  , [wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, ra1])
+
+  const wdChartData = useMemo(() =>
+    buildScenarioChartData(wdScenarios, ra1)
+  , [wdScenarios, ra1])
+
+  const wdCustomProjection = useMemo(() =>
+    calculateWealthDepletion(wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, wdInflation, ra1, wdAdjustInflation, 40)
+  , [wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, wdInflation, ra1, wdAdjustInflation])
+
+  const wdSensitivity = useMemo(() =>
+    calculateSensitivity(wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, ra1)
+  , [wdInitialWealth, wdEffectiveWithdrawal, wdReturnRate, ra1])
+
+  const wdELCheck = useMemo(() =>
+    calculateELEligibility(
+      ahvMonthly1 * 12,
+      pkMonthlyForRente * 12,
+      freeAssets || 0,
+      civilStatus === 'verheiratet' || civilStatus === 'partnerschaft',
+      canton,
+    )
+  , [ahvMonthly1, pkMonthlyForRente, freeAssets, civilStatus, canton])
+
+  const wdLifeExp = p1.sex === 'm' ? WEALTH_CONSTANTS.LIFE_EXPECTANCY_MALE_65 : WEALTH_CONSTANTS.LIFE_EXPECTANCY_FEMALE_65
+  const wdRealistDepletionAge = wdScenarios.find(s => s.label === 'Realistisch')?.depletionAge ?? null
+  const wdStatus = wdRealistDepletionAge === null
+    ? 'green'
+    : wdRealistDepletionAge >= wdLifeExp + 3 ? 'green'
+    : wdRealistDepletionAge >= wdLifeExp - 3 ? 'yellow'
+    : 'red'
+
+  const wdYearlyTable = useMemo(() =>
+    generateYearlyProjection(
+      ra1, wdMonthlyIncome * 12, monthlyBudget * 12,
+      wdInitialWealth, wdReturnRate, wdInflation, wdAdjustInflation, 95,
+    )
+  , [ra1, wdMonthlyIncome, monthlyBudget, wdInitialWealth, wdReturnRate, wdInflation, wdAdjustInflation])
 
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
@@ -1077,6 +1153,472 @@ export default function Screen4() {
             </div>
           )}
         </section>
+
+        {/* Vermögensentwicklung & Entnahmeplan */}
+        {wdInitialWealth > 0 && (
+          <section className="block">
+            <div className="block-head">
+              <h2 className="block-title"><span className="block-num">B2</span>Vermögensentwicklung &amp; Entnahmeplan</h2>
+              <span className="block-hint">Wie lange reicht Ihr Vermögen?</span>
+            </div>
+
+            <div style={{ fontSize: 13.5, color: 'var(--ink-600)', lineHeight: 1.7, marginBottom: 18, padding: '12px 14px', background: 'var(--ink-50)', borderRadius: 8 }}>
+              Nach der Pensionierung decken AHV und PK-Rente oft nicht den gesamten Finanzbedarf. Die Differenz muss aus Ihrem Vermögen finanziert werden. Die entscheidende Frage: <strong>Wie lange reicht Ihr Vermögen?</strong>
+            </div>
+
+            {/* Income vs expenses overview */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div style={{ padding: '14px 16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', marginBottom: 10 }}>Monatliche Einnahmen</div>
+                {[
+                  { label: 'AHV-Rente', value: ahvMonthly1 },
+                  { label: 'PK-Rente', value: pkMonthlyForRente },
+                  { label: 'Total Einnahmen', value: wdMonthlyIncome, bold: true },
+                ].map((row, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
+                    <span style={{ color: '#166534' }}>{row.label}</span>
+                    <span>CHF {fmtCHF(row.value)}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '14px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#dc2626', marginBottom: 10 }}>Monatlicher Bedarf</div>
+                {[
+                  { label: 'Lebenshaltung', value: monthlyBudget },
+                  { label: 'Steuern (geschätzt)', value: retirementTax1?.monthlyTax ?? 0 },
+                  { label: 'Total Bedarf', value: monthlyBudget + (retirementTax1?.monthlyTax ?? 0), bold: true },
+                ].map((row, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
+                    <span style={{ color: '#7f1d1d' }}>{row.label}</span>
+                    <span>CHF {fmtCHF(row.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Monthly gap hero */}
+            <div style={{
+              padding: '16px 20px', borderRadius: 12, marginBottom: 20,
+              background: wdStatus === 'green' ? 'var(--navy-600)' : wdStatus === 'yellow' ? '#d97706' : '#dc2626',
+              color: 'white',
+            }}>
+              <div style={{ fontSize: 11.5, opacity: 0.8, marginBottom: 4 }}>Benötigte Entnahme aus Vermögen</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 700, marginBottom: 6 }}>
+                CHF {fmtCHF(wdEffectiveWithdrawal)}/Monat
+              </div>
+              <div style={{ display: 'flex', gap: 20, fontSize: 12.5, flexWrap: 'wrap' }}>
+                <div>Vermögen bei Pensionierung: <strong>CHF {fmtCHF(wdInitialWealth)}</strong></div>
+                <div>Nachh. Rate (3.5%): <strong>CHF {fmtCHF(wdStrategies.percentRule35.monthlyAmount)}/Mt.</strong></div>
+                {wdMonthlyGap > wdStrategies.percentRule35.monthlyAmount && (
+                  <div style={{ color: '#fde68a' }}>⚠ Entnahme übersteigt nachhaltige Rate</div>
+                )}
+              </div>
+            </div>
+
+            {/* Wealth composition */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>Vermögen bei Pensionierung (Zusammenstellung)</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <tbody>
+                    {[
+                      { label: 'Bankguthaben / Sparkonten', value: freeAssets || 0, positive: true },
+                      ...(p1.has3a && p1.balance3a > 0 ? [{ label: 'Säule 3a (Kapitalbezug)', value: p1.balance3a, positive: true }] : []),
+                      ...(p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0 ? (() => {
+                        const cap = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+                        const tax = calculateCapitalWithdrawalTax(cap, canton, taxStatus)
+                        return [
+                          { label: `PK-Kapital (${p1.pkBezugsart === 'mix' ? '50%' : '100%'} Kapitalbezug)`, value: cap, positive: true },
+                          { label: '– Kapitalbezugssteuer', value: tax.totalTax, positive: false },
+                        ]
+                      })() : []),
+                    ].map((row, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--ink-50)' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }}>{row.label}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: row.positive ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                          {row.positive ? '' : '–'}CHF {fmtCHF(row.value)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: 'var(--navy-50)', fontWeight: 700 }}>
+                      <td style={{ padding: '8px 10px', border: '1px solid var(--ink-200)' }}>Verfügbares Vermögen bei Pensionierung</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-200)', color: 'var(--navy-700)' }}>CHF {fmtCHF(wdInitialWealth)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {property.has && property.value > 0 && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: 12, color: '#0c4a6e' }}>
+                  Ihre Immobilie (Verkehrswert CHF {fmtCHF(property.value)}) ist NICHT als liquides Vermögen berücksichtigt. Sie könnten diese theoretisch verkaufen oder eine Umkehrhypothek prüfen.
+                </div>
+              )}
+            </div>
+
+            {/* Main depletion chart */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>Vermögensverlauf – Drei Szenarien</div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10, fontSize: 12 }}>
+                {wdScenarios.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 24, height: 3, background: i === 0 ? '#22c55e' : i === 1 ? '#3b82f6' : '#ef4444', borderRadius: 2 }} />
+                    <span style={{ color: 'var(--ink-600)' }}>{s.label}: {s.depletionAge ? `bis Alter ${s.depletionAge}` : '> 100'} (Entnahme CHF {fmtCHF(s.monthlyWithdrawal)}/Mt.)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={wdChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                <XAxis dataKey="age" tick={{ fontSize: 11 }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={56} />
+                <Tooltip formatter={(v: number) => `CHF ${fmtCHF(v)}`} labelFormatter={l => `Alter ${l}`} />
+                <ReferenceLine y={0} stroke="#dc2626" strokeWidth={1.5} label={{ value: 'Vermögen 0', fill: '#dc2626', fontSize: 10, position: 'insideRight' }} />
+                <ReferenceLine x={wdLifeExp} stroke="#6b7280" strokeDasharray="5 5" label={{ value: `Ø LE ${wdLifeExp}`, fill: '#6b7280', fontSize: 10, position: 'insideTopRight' }} />
+                <Line type="monotone" dataKey="Optimistisch" stroke="#22c55e" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Realistisch" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="Pessimistisch" stroke="#ef4444" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+
+            {/* Scenario summary table */}
+            <div style={{ overflowX: 'auto', marginBottom: 20, marginTop: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ background: 'var(--navy-50)' }}>
+                    {['Szenario', 'Rendite', 'Entnahme', 'Reicht bis Alter', 'Bewertung'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid var(--ink-100)', fontWeight: 600, color: 'var(--navy-700)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {wdScenarios.map((s, i) => {
+                    const ok = s.depletionAge === null || s.depletionAge > wdLifeExp + 3
+                    const warn = s.depletionAge !== null && s.depletionAge >= wdLifeExp - 3 && s.depletionAge <= wdLifeExp + 3
+                    return (
+                      <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--ink-50)' }}>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontWeight: 600 }}>{s.label}</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }}>{(s.returnRate * 100).toFixed(0)}%</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }}>CHF {fmtCHF(s.monthlyWithdrawal)}/Mt.</td>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontWeight: 700, color: ok ? '#15803d' : warn ? '#d97706' : '#dc2626' }}>
+                          {s.depletionAge ? `Alter ${s.depletionAge}` : '> Alter 100'}
+                        </td>
+                        <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }}>
+                          {ok ? '✅ Ausreichend' : warn ? '⚠️ Knapp' : '❌ Unterdeckung'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr style={{ background: '#f0f9ff', fontStyle: 'italic' }}>
+                    <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }} colSpan={3}>Statist. Lebenserwartung ({p1.sex === 'm' ? 'Mann' : 'Frau'})</td>
+                    <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontWeight: 700 }}>Alter {wdLifeExp}</td>
+                    <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontSize: 11 }}>BFS Daten 2026</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Withdrawal strategies */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Entnahme-Strategien im Vergleich</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['deplete90', 'deplete95', 'preserve'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setWdGoalMode(mode)}
+                      style={{
+                        flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 12.5,
+                        border: `2px solid ${wdGoalMode === mode ? 'var(--navy-600)' : 'var(--ink-200)'}`,
+                        background: wdGoalMode === mode ? 'var(--navy-600)' : 'white',
+                        color: wdGoalMode === mode ? 'white' : 'var(--ink-700)',
+                        fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      {mode === 'deplete90' ? 'Verzehr bis 90' : mode === 'deplete95' ? 'Verzehr bis 95' : 'Kapitalerhalt'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 12.5 }}>
+                  {wdGoalMode === 'deplete90' && (
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>Kapitalverzehr bis Alter 90</div>
+                      <div style={{ color: 'var(--ink-600)' }}>
+                        Sie können <strong>CHF {fmtCHF(wdStrategies.toAge90.monthlyAmount)}/Monat</strong> entnehmen und das Vermögen bis 90 aufbrauchen.
+                        {wdStrategies.toAge90.monthlyAmount < wdEffectiveWithdrawal && (
+                          <span style={{ color: '#dc2626' }}> Zu wenig – Lücke CHF {fmtCHF(wdEffectiveWithdrawal - wdStrategies.toAge90.monthlyAmount)}/Mt.</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {wdGoalMode === 'deplete95' && (
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>Kapitalverzehr bis Alter 95 (empfohlen)</div>
+                      <div style={{ color: 'var(--ink-600)' }}>
+                        Sie können <strong>CHF {fmtCHF(wdStrategies.toAge95.monthlyAmount)}/Monat</strong> entnehmen und das Vermögen bis 95 aufbrauchen.
+                        {wdStrategies.toAge95.monthlyAmount >= wdEffectiveWithdrawal
+                          ? <span style={{ color: '#15803d' }}> Ihr Bedarf ist gedeckt.</span>
+                          : <span style={{ color: '#dc2626' }}> Lücke: CHF {fmtCHF(wdEffectiveWithdrawal - wdStrategies.toAge95.monthlyAmount)}/Mt.</span>}
+                      </div>
+                    </div>
+                  )}
+                  {wdGoalMode === 'preserve' && (
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>Kapitalerhalt – nur Rendite entnehmen</div>
+                      <div style={{ color: 'var(--ink-600)' }}>
+                        Bei {(wdReturnRate * 100).toFixed(1)}% Rendite: <strong>CHF {fmtCHF(wdStrategies.sustainableForever.monthlyAmount)}/Monat</strong> (nur Rendite, Kapital bleibt).
+                        {wdStrategies.sustainableForever.monthlyAmount < wdEffectiveWithdrawal && (
+                          <span style={{ color: '#dc2626' }}> Ihr Bedarf CHF {fmtCHF(wdEffectiveWithdrawal)}/Mt. übersteigt das nachhaltig Mögliche.</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12 }}>
+                  <strong>4%-Regel (Bengen 1994):</strong> CHF {fmtCHF(wdStrategies.percentRule4.firstYearMonthly)}/Mt. · Reicht bis {wdStrategies.percentRule4.depletionAge ? `Alter ${wdStrategies.percentRule4.depletionAge}` : '> 100'}. Schweizer Empfehlung: konservativere 3–3.5% (tiefere erwartete Renditen).
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive sensitivity sliders */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 12 }}>Interaktive Sensitivität</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {[
+                  { label: 'Monatliche Entnahme', value: wdCustomWithdrawal ?? wdMonthlyGap, min: Math.max(0, (wdCustomWithdrawal ?? wdMonthlyGap) - 2000), max: (wdCustomWithdrawal ?? wdMonthlyGap) + 2000, step: 100, unit: 'CHF/Mt.', setter: (v: number) => setWdCustomWithdrawal(v) },
+                  { label: 'Rendite', value: Math.round(wdReturnRate * 100), min: 0, max: 6, step: 0.5, unit: '%', setter: (v: number) => setWdReturnRate(v / 100) },
+                  { label: 'Inflation', value: Math.round(wdInflation * 100 * 10) / 10, min: 0, max: 3, step: 0.5, unit: '%', setter: (v: number) => setWdInflation(v / 100) },
+                ].map(sl => (
+                  <div key={sl.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: 'var(--ink-600)' }}>{sl.label}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--navy-700)' }}>{sl.label === 'Monatliche Entnahme' ? `CHF ${fmtCHF(Math.round(sl.value))}` : `${sl.value}${sl.unit}`}</span>
+                    </div>
+                    <input
+                      type="range" min={sl.min} max={sl.max} step={sl.step}
+                      value={sl.value}
+                      onChange={e => sl.setter(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--navy-600)' }}
+                    />
+                  </div>
+                ))}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={wdAdjustInflation} onChange={e => setWdAdjustInflation(e.target.checked)} />
+                  Entnahme jährlich an Inflation anpassen (Kaufkraft erhalten)
+                </label>
+              </div>
+              {/* Live result */}
+              <div style={{ marginTop: 10, padding: '10px 14px', background: wdCustomProjection.find(p => p.depleted) ? '#fef2f2' : '#ecfdf5', border: `1px solid ${wdCustomProjection.find(p => p.depleted) ? '#fecaca' : '#bbf7d0'}`, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                {(() => {
+                  const dep = wdCustomProjection.find(p => p.depleted)
+                  return dep
+                    ? <span style={{ color: '#dc2626' }}>Mit diesen Einstellungen: Vermögen aufgebraucht bei Alter {dep.age}</span>
+                    : <span style={{ color: '#15803d' }}>Mit diesen Einstellungen: Vermögen reicht bis Alter 100+</span>
+                })()}
+              </div>
+            </div>
+
+            {/* Sensitivity tornado */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Sensitivitäts-Analyse – Was beeinflusst Ihr Ergebnis?</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {wdSensitivity.map((s, i) => {
+                  const maxDelta = Math.max(...wdSensitivity.map(x => Math.max(Math.abs(x.lowDelta), Math.abs(x.highDelta))), 1)
+                  const barLow = Math.min(100, (Math.abs(s.lowDelta) / maxDelta) * 100)
+                  const barHigh = Math.min(100, (Math.abs(s.highDelta) / maxDelta) * 100)
+                  return (
+                    <div key={i} style={{ fontSize: 12.5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--ink-700)' }}>{s.factor}</span>
+                        <span style={{ color: 'var(--ink-500)', fontSize: 11 }}>
+                          {s.lowLabel}: {s.lowDelta > 0 ? '+' : ''}{s.lowDelta}J · {s.highLabel}: {s.highDelta > 0 ? '+' : ''}{s.highDelta}J
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center', height: 14 }}>
+                        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ width: `${barLow}%`, height: 10, background: s.lowDelta > 0 ? '#22c55e' : '#ef4444', borderRadius: '4px 0 0 4px' }} />
+                        </div>
+                        <div style={{ width: 2, height: 14, background: 'var(--ink-300)' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ width: `${barHigh}%`, height: 10, background: s.highDelta > 0 ? '#22c55e' : '#ef4444', borderRadius: '0 4px 4px 0' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* What-if scenarios */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>«Was wäre wenn…»</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {[
+                  { label: 'CHF 500 weniger/Monat ausgeben', deltaM: -500, deltaW: 0, deltaR: 0 },
+                  { label: 'Börsencrash –30%', deltaM: 0, deltaW: -0.3, deltaR: 0 },
+                  { label: 'Pflegeheim ab 80 (+CHF 5\'000/Mt.)', deltaM: 5000, deltaW: 0, deltaR: 0 },
+                  { label: 'Erbschaft +CHF 200\'000', deltaM: 0, deltaW: 0.2, deltaR: 0 },
+                ].map((sc, i) => {
+                  const altWithdrawal = wdEffectiveWithdrawal + sc.deltaM
+                  const altWealth = wdInitialWealth + sc.deltaW * wdInitialWealth + sc.deltaR * 1000000
+                  const baseAge = wdScenarios.find(s => s.label === 'Realistisch')?.depletionAge ?? null
+                  const altAge = (() => {
+                    const proj = calculateWealthDepletion(Math.max(0, altWealth), Math.max(0, altWithdrawal), wdReturnRate, wdInflation, ra1, false, 40)
+                    const dep = proj.find(p => p.depleted)
+                    return dep ? dep.age : null
+                  })()
+                  const diff = altAge !== null && baseAge !== null ? altAge - baseAge : altAge === null && baseAge !== null ? 99 - baseAge : null
+                  return (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--ink-50)', border: '1px solid var(--ink-100)', borderRadius: 8, fontSize: 12.5 }}>
+                      <span style={{ color: 'var(--ink-700)' }}>{sc.label}</span>
+                      <span style={{ fontWeight: 700, color: diff !== null && diff > 0 ? '#15803d' : '#dc2626', whiteSpace: 'nowrap' }}>
+                        {diff !== null ? `${diff > 0 ? '+' : ''}${diff === 99 - (baseAge ?? 0) ? '>+' + (99 - (baseAge ?? 0)) : diff} Jahre` : '–'}
+                        {altAge && ` (bis ${altAge})`}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Longevity risk */}
+            <div style={{ marginBottom: 20, padding: '14px 16px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#0c4a6e', marginBottom: 8 }}>Langlebigkeitsrisiko</div>
+              <div style={{ fontSize: 12.5, color: '#1e3a5f', lineHeight: 1.7 }}>
+                <div>Statistische Lebenserwartung mit 65: <strong>{wdLifeExp} Jahre</strong></div>
+                <div>25% der {p1.sex === 'm' ? 'Männer' : 'Frauen'} werden älter als {wdLifeExp + 5} · 10% älter als {wdLifeExp + 8}</div>
+                <div style={{ marginTop: 6, fontWeight: 600 }}>Wir empfehlen: Planen Sie bis mindestens 95 Jahre.</div>
+                <div style={{ marginTop: 6, padding: '8px 10px', background: wdStatus === 'green' ? '#ecfdf5' : wdStatus === 'yellow' ? '#fffbeb' : '#fef2f2', borderRadius: 6, fontSize: 12.5 }}>
+                  {wdStatus === 'green' && `✅ Ihr Vermögen reicht voraussichtlich über Ihre statistische Lebenserwartung (${wdLifeExp}) hinaus.`}
+                  {wdStatus === 'yellow' && `⚠️ Ihr Vermögen reicht knapp. Ein Puffer wäre empfehlenswert.`}
+                  {wdStatus === 'red' && (() => {
+                    const targetAge = 95
+                    const shortfall = wdEffectiveWithdrawal - wdStrategies.toAge95.monthlyAmount
+                    return `❌ Achtung: Ihr Vermögen könnte vor dem Lebensende aufgebraucht sein. ${shortfall > 0 ? `Für Reichweite bis 95: CHF ${fmtCHF(shortfall)}/Mt. weniger entnehmen` : ''}`
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* EL check */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>Ergänzungsleistungen (EL) – Sicherheitsnetz</div>
+              <div style={{ padding: '14px 16px', background: wdELCheck.eligible ? '#eff6ff' : 'var(--ink-50)', border: `1px solid ${wdELCheck.eligible ? '#bae6fd' : 'var(--ink-200)'}`, borderRadius: 10, fontSize: 12.5 }}>
+                {wdELCheck.eligible ? (
+                  <>
+                    <div style={{ fontWeight: 600, color: '#0c4a6e', marginBottom: 6 }}>Basierend auf Ihren Angaben könnten Sie EL beanspruchen</div>
+                    <div style={{ color: '#1e3a5f', lineHeight: 1.65 }}>
+                      <div>Anerkannte Ausgaben: CHF {fmtCHF(wdELCheck.annualNeeds)}/Jahr</div>
+                      <div>Anrechenbare Einnahmen: CHF {fmtCHF(Math.round(wdELCheck.annualIncome))}/Jahr</div>
+                      <div style={{ marginTop: 4, fontWeight: 700 }}>Geschätzte EL: CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat</div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: 'var(--ink-600)' }}>
+                    Basierend auf Ihren Angaben besteht kein EL-Anspruch (Einkommen und Vermögen übersteigen die Grenzwerte).
+                  </div>
+                )}
+                <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-500)' }}>
+                  EL sind kein Almosen – sie sind ein Rechtsanspruch. Die tatsächliche Berechnung erfolgt durch die zuständige AHV-Zweigstelle.
+                </div>
+              </div>
+            </div>
+
+            {/* Year-by-year table */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)' }}>Cashflow-Übersicht Jahr für Jahr</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => downloadCSV(exportProjectionToCSV(wdYearlyTable), `entnahmeplan_alter${ra1}.csv`)}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--ink-200)', background: 'white', fontSize: 12, cursor: 'pointer', color: 'var(--ink-600)' }}
+                  >
+                    ↓ CSV Export
+                  </button>
+                  <button
+                    onClick={() => setWdShowTable(v => !v)}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--navy-200)', background: wdShowTable ? 'var(--navy-600)' : 'white', fontSize: 12, cursor: 'pointer', color: wdShowTable ? 'white' : 'var(--navy-600)' }}
+                  >
+                    {wdShowTable ? 'Tabelle schliessen' : 'Tabelle öffnen'}
+                  </button>
+                </div>
+              </div>
+              {wdShowTable && (
+                <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto', border: '1px solid var(--ink-100)', borderRadius: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
+                    <thead style={{ position: 'sticky', top: 0, background: 'var(--navy-50)', zIndex: 1 }}>
+                      <tr>
+                        {['Alter', 'Einnahmen/J', 'Ausgaben/J', 'Entnahme/J', 'Rendite', 'Vermögen Ende'].map(h => (
+                          <th key={h} style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', fontWeight: 600, color: 'var(--navy-700)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wdYearlyTable.map((row, i) => (
+                        <tr key={i} style={{ background: row.depleted ? '#fef2f2' : row.wealthEnd < wdEffectiveWithdrawal * 12 ? '#fffbeb' : i % 2 === 0 ? 'white' : 'var(--ink-50)' }}>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', fontWeight: 700, color: row.depleted ? '#dc2626' : 'inherit' }}>{row.age}{row.depleted ? ' 🔴' : ''}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)' }}>CHF {fmtCHF(row.annualIncome)}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)' }}>CHF {fmtCHF(row.annualExpenses)}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: row.withdrawal > 0 ? '#dc2626' : '#15803d' }}>CHF {fmtCHF(row.withdrawal)}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', color: '#15803d' }}>CHF {fmtCHF(row.returns)}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right', border: '1px solid var(--ink-100)', fontWeight: 600, color: row.wealthEnd > 0 ? 'var(--navy-700)' : '#dc2626' }}>CHF {fmtCHF(row.wealthEnd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Action levers if wealth is insufficient */}
+            {wdStatus !== 'green' && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Hebel zur Verlängerung der Vermögensreichweite</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--navy-50)' }}>
+                        {['Massnahme', 'Effekt (Jahre)', 'Aufwand'].map(h => (
+                          <th key={h} style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid var(--ink-100)', fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const base = wdScenarios.find(s => s.label === 'Realistisch')?.depletionAge ?? 90
+                        const levers = [
+                          { label: 'Ausgaben –CHF 500/Mt.', altM: wdEffectiveWithdrawal - 500, altW: wdInitialWealth, altR: wdReturnRate, effort: 'Lebensstil' },
+                          { label: 'Pensionierung 1 Jahr später', altM: wdEffectiveWithdrawal, altW: wdInitialWealth + (p1.income || 0), altR: wdReturnRate, effort: 'Länger arbeiten' },
+                          { label: 'Rendite +1% (Anlageoptimierung)', altM: wdEffectiveWithdrawal, altW: wdInitialWealth, altR: wdReturnRate + 0.01, effort: 'Mehr Risiko' },
+                          { label: 'PK-Einkauf CHF 50k → mehr Rente', altM: wdEffectiveWithdrawal - Math.round(50000 * rvkConversionRate / 12), altW: wdInitialWealth, altR: wdReturnRate, effort: 'Einmalzahlung' },
+                        ]
+                        return levers.map((lv, i) => {
+                          const proj = calculateWealthDepletion(Math.max(0, lv.altW), Math.max(0, lv.altM), lv.altR, wdInflation, ra1, false, 40)
+                          const dep = proj.find(p => p.depleted)
+                          const newAge = dep ? dep.age : null
+                          const diff = newAge !== null ? newAge - base : 99 - base
+                          return (
+                            <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--ink-50)' }}>
+                              <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)' }}>{lv.label}</td>
+                              <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', fontWeight: 700, color: diff > 0 ? '#15803d' : '#dc2626' }}>
+                                {diff > 0 ? '+' : ''}{diff >= 99 - base ? `>+${99 - base}` : diff} Jahre
+                              </td>
+                              <td style={{ padding: '8px 10px', border: '1px solid var(--ink-100)', color: 'var(--ink-500)' }}>{lv.effort}</td>
+                            </tr>
+                          )
+                        })
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Disclaimer */}
+            <div style={{ padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
+              <strong>Hinweis:</strong> Die Vermögensprojektion basiert auf vereinfachten Annahmen. Tatsächliche Renditen schwanken und können negativ sein. Vergangene Renditen sind kein Indikator für zukünftige Ergebnisse. EL-Berechnungen sind Schätzungen – die tatsächliche Berechnung erfolgt durch die zuständige AHV-Zweigstelle.
+            </div>
+          </section>
+        )}
 
         {/* Was wäre wenn */}
         <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>
