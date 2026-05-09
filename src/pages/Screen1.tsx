@@ -7,6 +7,133 @@ import ChatPanel from '../components/ChatPanel'
 import { useStore, CivilStatus } from '../store'
 import { fmtCHF } from '../lib/calc'
 
+function OnboardingOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(17,31,58,.7)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 20, padding: '44px 40px',
+        maxWidth: 520, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,.25)',
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 14, background: 'var(--navy-800)',
+          display: 'grid', placeItems: 'center', marginBottom: 22,
+          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color: '#fff',
+        }}>W</div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'var(--navy-900)', margin: '0 0 10px', lineHeight: 1.2 }}>
+          Willkommen bei Ihrer Vorsorgeanalyse
+        </h2>
+        <p style={{ fontSize: 15, color: 'var(--ink-600)', margin: '0 0 24px', lineHeight: 1.7 }}>
+          In den nächsten Minuten ermitteln wir gemeinsam, ob Ihr Einkommen und Vermögen für Ihren gewünschten Lebensstandard nach der Pensionierung ausreicht.
+        </p>
+        <div style={{ marginBottom: 28 }}>
+          {[
+            'Eine klare Übersicht Ihrer Einnahmen und Ausgaben nach der Pensionierung',
+            'Verschiedene Szenarien (optimistisch, realistisch, pessimistisch)',
+            'Konkrete Handlungsempfehlungen mit Franken-Beträgen',
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < 2 ? 10 : 0 }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%', background: '#dcfce7',
+                color: '#16a34a', fontSize: 11, fontWeight: 700,
+                display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 2,
+              }}>✓</div>
+              <span style={{ fontSize: 14, color: 'var(--ink-700)', lineHeight: 1.55 }}>
+                Sie erhalten: <b>{item}</b>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{
+          padding: '12px 14px', background: 'var(--navy-50)',
+          border: '1px solid var(--navy-200)', borderRadius: 10,
+          fontSize: 13, color: 'var(--navy-700)', marginBottom: 24, lineHeight: 1.5,
+        }}>
+          🔒 Ihre Angaben werden nicht gespeichert und nicht weitergegeben.
+        </div>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 24px' }}
+          onClick={onClose}
+        >
+          Los geht's →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TransitionOverlay1({
+  onContinue,
+  name,
+  age,
+  civil,
+  retireAge,
+}: {
+  onContinue: () => void
+  name: string
+  age: number | null
+  civil: string
+  retireAge: number
+}) {
+  const civilLabels: Record<string, string> = {
+    ledig: 'Ledig', verheiratet: 'Verheiratet',
+    partnerschaft: 'Eingetragene Partnerschaft',
+    geschieden: 'Geschieden', verwitwet: 'Verwitwet',
+  }
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: '#fff', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+        <div style={{
+          width: 60, height: 60, borderRadius: '50%', background: '#dcfce7',
+          color: '#16a34a', fontSize: 26, display: 'grid',
+          placeItems: 'center', margin: '0 auto 24px',
+        }}>✓</div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'var(--navy-900)', margin: '0 0 8px' }}>
+          Persönliche Angaben erfasst
+        </h2>
+        <p style={{ fontSize: 15, color: 'var(--ink-500)', margin: '0 0 28px' }}>
+          Ihre persönliche Ausgangslage ist gespeichert.
+        </p>
+        <div style={{
+          background: 'var(--navy-50)', border: '1px solid var(--navy-200)',
+          borderRadius: 14, padding: '20px 24px', marginBottom: 28, textAlign: 'left',
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px',
+        }}>
+          {[
+            { label: 'Name', value: name || '–' },
+            { label: 'Alter', value: age !== null ? `${age} Jahre` : '–' },
+            { label: 'Zivilstand', value: civilLabels[civil] || civil },
+            { label: 'Pensionierung', value: `mit ${retireAge} Jahren` },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div style={{ fontSize: 11, color: 'var(--ink-400)', textTransform: 'uppercase', letterSpacing: '.06em', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>{label}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--navy-800)' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', justifyContent: 'center', fontSize: 15, padding: '14px 24px' }}
+          onClick={onContinue}
+        >
+          Weiter zur finanziellen Bestandesaufnahme →
+        </button>
+        <p style={{ fontSize: 13, color: 'var(--ink-400)', marginTop: 14 }}>
+          ⏱ Noch ca. 8 Minuten
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /* ---- Icons ---- */
 const Icons = {
   Check: () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 12 10 17 19 7"/></svg>,
@@ -87,6 +214,8 @@ export default function Screen1() {
   } = store
 
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
+  const [showOnboarding, setShowOnboarding] = useState(() => !sessionStorage.getItem('ww_onboarded'))
+  const [showTransition, setShowTransition] = useState(false)
   const isCouple = person1.civil === 'verheiratet' || person1.civil === 'partnerschaft'
 
   useEffect(() => {
@@ -113,6 +242,21 @@ export default function Screen1() {
 
   return (
     <div className="app">
+      {showOnboarding && (
+        <OnboardingOverlay onClose={() => {
+          sessionStorage.setItem('ww_onboarded', '1')
+          setShowOnboarding(false)
+        }} />
+      )}
+      {showTransition && (
+        <TransitionOverlay1
+          onContinue={() => navigate('/schritt/2')}
+          name={person1.name}
+          age={age1}
+          civil={person1.civil}
+          retireAge={person1.retireAge}
+        />
+      )}
       <TopBar screenLabel="Vorsorgeplanung" />
       <ProgressBar current={1} />
 
@@ -558,7 +702,7 @@ export default function Screen1() {
         <div className="footer-meta">Schritt 1 von 4 · Situation</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" disabled>← Zurück</button>
-          <button className="btn btn-primary" onClick={() => navigate('/schritt/2')}>
+          <button className="btn btn-primary" onClick={() => setShowTransition(true)}>
             Weiter <Icons.Arrow />
           </button>
         </div>

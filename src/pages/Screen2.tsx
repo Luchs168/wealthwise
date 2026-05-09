@@ -6,6 +6,83 @@ import ChatPanel from '../components/ChatPanel'
 import { useStore } from '../store'
 import { fmtCHF, calculateAhvHousehold, calculatePkRente, project3a, CONSTANTS } from '../lib/calc'
 
+function TransitionOverlay2({
+  onContinue,
+  totalMonthly,
+  ahvMonthly,
+  pkMonthly,
+}: {
+  onContinue: () => void
+  totalMonthly: number
+  ahvMonthly: number
+  pkMonthly: number
+}) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: '#fff', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+        <div style={{
+          width: 60, height: 60, borderRadius: '50%', background: '#dcfce7',
+          color: '#16a34a', fontSize: 26, display: 'grid',
+          placeItems: 'center', margin: '0 auto 24px',
+        }}>✓</div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'var(--navy-900)', margin: '0 0 8px' }}>
+          Vorsorge und Vermögen erfasst
+        </h2>
+        <p style={{ fontSize: 15, color: 'var(--ink-500)', margin: '0 0 28px' }}>
+          Hier ist Ihre erste Einschätzung:
+        </p>
+
+        {/* Wow moment */}
+        <div style={{
+          background: 'var(--navy-900)', borderRadius: 16,
+          padding: '28px 28px', marginBottom: 24, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', marginBottom: 6, fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }}>
+            VORAUSSICHTLICHES EINKOMMEN NACH PENSIONIERUNG
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40, color: '#fff', letterSpacing: '-.02em' }}>
+            CHF {fmtCHF(totalMonthly)}
+          </div>
+          <div style={{ fontSize: 14, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>pro Monat (AHV + PK-Rente)</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,.12)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', marginBottom: 3 }}>AHV</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,.85)' }}>
+                CHF {fmtCHF(ahvMonthly)}/Mt.
+              </div>
+            </div>
+            <div style={{ width: 1, background: 'rgba(255,255,255,.15)' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', marginBottom: 3 }}>PK-Rente</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,.85)' }}>
+                CHF {fmtCHF(pkMonthly)}/Mt.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 24px', lineHeight: 1.6 }}>
+          Im nächsten Schritt ermitteln wir Ihren Bedarf – wie viel Sie nach der Pensionierung tatsächlich ausgeben möchten.
+        </p>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', justifyContent: 'center', fontSize: 15, padding: '14px 24px' }}
+          onClick={onContinue}
+        >
+          Weiter zur Ausgabenerfassung →
+        </button>
+        <p style={{ fontSize: 13, color: 'var(--ink-400)', marginTop: 14 }}>
+          ⏱ Noch ca. 3 Minuten
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function parseNum(s: string | number): number {
   if (typeof s === 'number') return s
   return parseInt(String(s).replace(/[^0-9]/g, '')) || 0
@@ -143,6 +220,7 @@ export default function Screen2() {
   const [ahvExpanded, setAhvExpanded] = useState(false)
   const [ahvBezug1, setAhvBezug1] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
   const [ahvBezug2, setAhvBezug2] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
+  const [showTransition, setShowTransition] = useState(false)
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -193,8 +271,19 @@ export default function Screen2() {
     { id: 'aufschub', label: 'Aufschub', hint: 'Ab 66–70 · Zuschlag ca. +5.2% pro Jahr', color: '#16a34a' },
   ] as const
 
+  const pkMonthly1 = p1.hasPK && p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0
+  const pkMonthly2 = isPaar && p2.hasPK && p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0
+
   return (
     <div className="app">
+      {showTransition && (
+        <TransitionOverlay2
+          onContinue={() => navigate('/schritt/3')}
+          totalMonthly={totalMonthly}
+          ahvMonthly={ahv.combinedMonthly}
+          pkMonthly={pkMonthly1 + pkMonthly2}
+        />
+      )}
       <TopBar screenLabel="Vorsorgeplanung" />
       <ProgressBar current={2} />
 
@@ -207,30 +296,55 @@ export default function Screen2() {
           </p>
         </div>
 
-        {/* Completion indicator */}
+        {/* Completion indicator with section labels */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-          background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10,
+          padding: '14px 16px',
+          background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 12,
           marginBottom: 4,
         }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-600)', fontWeight: 500 }}>
-              {completedSections} von 4 Bereichen ausgefüllt
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-600)', fontWeight: 500 }}>
+                {completedSections} von 4 Bereichen ausgefüllt
+                {completedSections < 4 && <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> – je mehr Angaben, desto präziser Ihre Analyse</span>}
+                {completedSections === 4 && <span style={{ color: 'var(--green-600)', fontWeight: 600 }}> – alle Bereiche vollständig!</span>}
+              </div>
+              <div style={{ height: 4, background: 'var(--ink-100)', borderRadius: 4, marginTop: 6, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 4,
+                  background: completedSections === 4 ? 'var(--green-500)' : 'var(--navy-600)',
+                  width: `${(completedSections / 4) * 100}%`,
+                  transition: 'width .4s',
+                }} />
+              </div>
             </div>
-            <div style={{ height: 4, background: 'var(--ink-100)', borderRadius: 4, marginTop: 6, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 4,
-                background: completedSections === 4 ? 'var(--green-500)' : 'var(--navy-600)',
-                width: `${(completedSections / 4) * 100}%`,
-                transition: 'width .4s',
-              }} />
+            <div style={{
+              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18,
+              color: completedSections === 4 ? 'var(--green-600)' : 'var(--navy-700)',
+            }}>
+              {Math.round((completedSections / 4) * 100)}%
             </div>
           </div>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18,
-            color: completedSections === 4 ? 'var(--green-600)' : 'var(--navy-700)',
-          }}>
-            {Math.round((completedSections / 4) * 100)}%
+          {/* Section status pills */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { label: 'AHV', done: p1.income > 0, hint: p1.income > 0 ? `CHF ${fmtCHF(ahv.person1.monthlyRente)}/Mt.` : null },
+              { label: 'Pensionskasse', done: p1.hasPK && p1.pkCapital > 0, hint: p1.hasPK && p1.pkCapital > 0 ? `CHF ${fmtCHF(pk1.monthlyRente)}/Mt.` : null },
+              { label: 'Säule 3a', done: p1.has3a && p1.balance3a > 0, hint: p1.has3a && p1.balance3a > 0 ? `CHF ${fmtCHF(p1.balance3a)}` : null },
+              { label: 'Vermögen', done: useStore.getState().freeAssets > 0, hint: useStore.getState().freeAssets > 0 ? `CHF ${fmtCHF(useStore.getState().freeAssets)}` : null },
+            ].map(({ label, done, hint }) => (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 20,
+                background: done ? '#dcfce7' : 'var(--ink-100)',
+                color: done ? '#15803d' : 'var(--ink-500)',
+                fontSize: 12, fontWeight: 500,
+              }}>
+                <span>{done ? '✓' : '○'}</span>
+                <span>{label}</span>
+                {hint && <span style={{ color: '#16a34a', fontWeight: 600 }}>· {hint}</span>}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -418,6 +532,8 @@ export default function Screen2() {
               </div>
               <p style={{ fontSize: 12, color: 'var(--ink-400)', margin: '8px 0 0' }}>
                 Max. 44 Beitragsjahre für volle Rente. Jedes fehlende Jahr kürzt die Rente um ca. 2.3%.
+                {' '}→ Bestellen Sie Ihren IK-Auszug kostenlos unter{' '}
+                <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
               </p>
             </div>
           )}
@@ -468,11 +584,16 @@ export default function Screen2() {
             <>
               <PkUpload onExtract={(capital, rate) => updatePerson(activeTab, { pkCapital: capital, pkRate: rate })} />
               <div className="form-grid" style={{ marginBottom: 14 }}>
-                <CHFField
-                  label="PK-Kapital bei Pensionierung"
-                  value={cur.pkCapital}
-                  onChange={(v) => updatePerson(activeTab, { pkCapital: v })}
-                />
+                <div>
+                  <CHFField
+                    label="PK-Kapital bei Pensionierung"
+                    value={cur.pkCapital}
+                    onChange={(v) => updatePerson(activeTab, { pkCapital: v })}
+                  />
+                  <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 3, paddingLeft: 2 }}>
+                    → Finden Sie auf Ihrem Vorsorgeausweis unter «Alterskapital»
+                  </div>
+                </div>
                 <div className="field">
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     Umwandlungssatz (%)
@@ -495,6 +616,9 @@ export default function Screen2() {
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
                     BVG-Minimum (Obligatorium): 6.8% · Überobligatorium typisch: 4.5–5.8%
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 1, display: 'block' }}>
+                    → Finden Sie auf Ihrem Vorsorgeausweis (Seite 1, oben)
                   </span>
                 </div>
               </div>
@@ -617,6 +741,7 @@ export default function Screen2() {
           </div>
           <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 16px' }}>
             Barvermögen, Wertschriften und sonstige Ersparnisse (ohne 3a, PK und selbstgenutztes Wohneigentum).
+            Falls Sie keinen genauen Betrag kennen, können Sie schätzen – Sie können die Angabe jederzeit anpassen.
           </p>
           <CHFField
             label={`Freies Vermögen ${isPaar ? '(Haushalt)' : ''}`}
@@ -681,7 +806,7 @@ export default function Screen2() {
         <div className="footer-meta">Schritt 2 von 4 · Vorsorge</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => navigate('/schritt/1')}>← Zurück</button>
-          <button className="btn btn-primary" onClick={() => navigate('/schritt/3')}>
+          <button className="btn btn-primary" onClick={() => setShowTransition(true)}>
             Weiter
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/>

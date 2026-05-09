@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import TopBar from '../components/TopBar'
@@ -8,6 +8,86 @@ import { useStore } from '../store'
 import { fmtCHF } from '../lib/calc'
 import { CATEGORY_CONFIG, CATEGORIES_ORDERED } from '../types/lifeEvents'
 import type { LifeEvent, LifeEventCategory, LifeEventArt } from '../types/lifeEvents'
+
+const LOADING_STEPS = [
+  'Vorsorgesituation wird analysiert...',
+  'Szenarien werden berechnet...',
+  'Handlungsempfehlungen werden ermittelt...',
+  'Analyse abgeschlossen ✓',
+]
+
+function LoadingTransition({ onDone }: { onDone: () => void }) {
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    if (step < LOADING_STEPS.length - 1) {
+      const t = setTimeout(() => setStep(s => s + 1), 700)
+      return () => clearTimeout(t)
+    } else {
+      const t = setTimeout(onDone, 600)
+      return () => clearTimeout(t)
+    }
+  }, [step])
+
+  const pct = Math.round(((step + 1) / LOADING_STEPS.length) * 100)
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: '#fff', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 18, background: 'var(--navy-800)',
+          display: 'grid', placeItems: 'center', margin: '0 auto 28px',
+          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 28, color: '#fff',
+        }}>W</div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'var(--navy-900)', margin: '0 0 6px' }}>
+          Finanzbedarf ermittelt
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 32px' }}>
+          Ihre persönliche Analyse wird berechnet...
+        </p>
+
+        {/* Progress bar */}
+        <div style={{ height: 6, background: 'var(--ink-100)', borderRadius: 6, marginBottom: 20, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 6,
+            background: 'var(--navy-700)',
+            width: `${pct}%`,
+            transition: 'width .6s ease',
+          }} />
+        </div>
+
+        {/* Steps list */}
+        <div style={{ textAlign: 'left' }}>
+          {LOADING_STEPS.map((msg, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 0',
+              opacity: i <= step ? 1 : 0.3,
+              transition: 'opacity .3s',
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                background: i < step ? '#dcfce7' : i === step ? 'var(--navy-100)' : 'var(--ink-100)',
+                color: i < step ? '#16a34a' : i === step ? 'var(--navy-700)' : 'var(--ink-400)',
+                fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center',
+              }}>
+                {i < step ? '✓' : i === step ? '…' : ''}
+              </div>
+              <span style={{
+                fontSize: 14, color: i <= step ? 'var(--ink-800)' : 'var(--ink-400)',
+                fontWeight: i === step ? 500 : 400,
+              }}>{msg}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 import { calculatePKReductionFromWithdrawal, calculateMortgageAffordability, getEventImpactSummary } from '../utils/lifeEventCalculation'
 
 // BFS HABE 2022 reference data for retired households
@@ -525,6 +605,7 @@ export default function Screen3() {
   const { expenses, setExpenses, persons, person1, hasPartner, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent } = useStore()
   const isPaar = hasPartner
 
+  const [showLoading, setShowLoading] = useState(false)
   const [mode, setMode] = useState<'simple' | 'detailed'>(expenses.mode)
   const [retirementAdjust, setRetirementAdjust] = useState<number>(1.0)
 
@@ -588,6 +669,9 @@ export default function Screen3() {
 
   return (
     <div className="app">
+      {showLoading && (
+        <LoadingTransition onDone={() => navigate('/schritt/4')} />
+      )}
       <TopBar screenLabel="Vorsorgeplanung" />
       <ProgressBar current={3} />
 
@@ -1009,7 +1093,7 @@ export default function Screen3() {
             onClick={() => {
               const total = retirementTotal > 0 ? retirementTotal : baseTotal
               setExpenses({ mode, simpleTotal: total })
-              navigate('/schritt/4')
+              setShowLoading(true)
             }}
           >
             Weiter →
