@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, Area, AreaChart, BarChart, Bar
@@ -434,6 +434,13 @@ export default function Screen4() {
             </div>
           </div>
         </section>
+
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)', textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
+          <Link to="/impressum" style={{ color: 'var(--ink-400)' }}>Impressum</Link>
+          {' · '}
+          <Link to="/datenschutz" style={{ color: 'var(--ink-400)' }}>Datenschutz</Link>
+          {' · '}© 2026 WealthWise
+        </div>
       </main>
 
       <div className="footer">
