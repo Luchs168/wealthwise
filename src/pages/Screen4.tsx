@@ -1221,7 +1221,7 @@ export default function Screen4() {
             Diese Analyse dient der Orientierung und stellt keine Anlageberatung oder Finanzplanung dar. Die Berechnungen basieren auf vereinfachten Annahmen und den offiziellen Schweizer Vorsorgedaten 2026 (AHV-Rentenskala 44, BVG-Kennzahlen, BFS-Sterbetafeln). Individuelle steuerliche, rechtliche und persönliche Faktoren werden nicht vollständig berücksichtigt. Für verbindliche Entscheidungen konsultieren Sie bitte eine qualifizierte Finanzfachperson.
           </p>
           <div style={{ marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)' }}>
-            WealthWise – Prototyp FHNW Masterarbeit · Datenquellen: BSV, BFS, Eidg. Finanzdepartement
+            WealthWise – Digitale Vorsorgeplanung Schweiz · Datenquellen: BSV, BFS, Eidg. Finanzdepartement
           </div>
         </div>
 

@@ -209,7 +209,7 @@ export default function Landing() {
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 36, fontSize: 12.5, color: 'rgba(255,255,255,.35)', fontStyle: 'italic', letterSpacing: '.01em' }}>
-            Entwickelt auf Basis wissenschaftlicher Grundlagen der Finanzplanung · Prototyp FHNW Masterarbeit
+            Entwickelt auf Basis offizieller Schweizer Vorsorgedaten 2026 · BSV, BFS, Eidg. Finanzdepartement
           </div>
         </div>
       </div>
@@ -377,7 +377,7 @@ export default function Landing() {
               <rect x="7.5" y="3" width="5" height="14" fill="white"/>
               <rect x="3" y="7.5" width="14" height="5" fill="white"/>
             </svg>
-            © 2026 WealthWise – Prototyp FHNW Masterarbeit
+            © 2026 WealthWise – Digitale Vorsorgeplanung Schweiz
           </div>
         </div>
         <div className="footer-disclaimer">
