@@ -4,6 +4,8 @@ import Screen1 from './pages/Screen1'
 import Screen2 from './pages/Screen2'
 import Screen3 from './pages/Screen3'
 import Screen4 from './pages/Screen4'
+import Impressum from './pages/Impressum'
+import Datenschutz from './pages/Datenschutz'
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
         <Route path="/schritt/2" element={<Screen2 />} />
         <Route path="/schritt/3" element={<Screen3 />} />
         <Route path="/schritt/4" element={<Screen4 />} />
+        <Route path="/impressum" element={<Impressum />} />
+        <Route path="/datenschutz" element={<Datenschutz />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

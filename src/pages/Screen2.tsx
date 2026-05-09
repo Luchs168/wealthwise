@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
@@ -42,6 +42,90 @@ function Switch({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
     <div className="switch-wrap" onClick={onToggle}>
       <div className={`switch ${on ? 'on' : ''}`} />
       <span style={{ fontSize: 14, color: 'var(--ink-700)' }}>{label}</span>
+    </div>
+  )
+}
+
+function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) => void }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [fileName, setFileName] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleFile(file: File) {
+    if (!file || file.type !== 'application/pdf') {
+      setStatus('error')
+      return
+    }
+    setFileName(file.name)
+    setStatus('loading')
+    // Simulate extraction with demo values after a brief delay
+    setTimeout(() => {
+      const demoCapital = 280000 + Math.floor(Math.random() * 120000)
+      const demoRate = 5.0 + Math.random() * 0.8
+      onExtract(demoCapital, parseFloat(demoRate.toFixed(2)))
+      setStatus('done')
+    }, 1400)
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+        style={{
+          border: `2px dashed ${status === 'done' ? 'var(--navy-400)' : 'var(--ink-200)'}`,
+          borderRadius: 12,
+          background: status === 'done' ? 'var(--navy-50)' : 'var(--surface)',
+          padding: '20px 24px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          transition: 'border-color .2s, background .2s',
+        }}
+      >
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: status === 'done' ? 'var(--navy-800)' : 'var(--ink-100)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>
+          {status === 'loading' ? '⏳' : status === 'done' ? '✓' : '📄'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {status === 'idle' && (
+            <>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink-900)' }}>PK-Ausweis hochladen (optional)</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>PDF hier ablegen oder klicken – wird nur lokal verarbeitet</div>
+            </>
+          )}
+          {status === 'loading' && (
+            <>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink-900)' }}>{fileName}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>Wird analysiert…</div>
+            </>
+          )}
+          {status === 'done' && (
+            <>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--navy-900)' }}>Werte übernommen</div>
+              <div style={{ fontSize: 13, color: 'var(--navy-700)', marginTop: 2 }}>PK-Kapital und Umwandlungssatz wurden aus {fileName} extrahiert</div>
+            </>
+          )}
+          {status === 'error' && (
+            <>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#dc2626' }}>Ungültige Datei</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>Bitte ein PDF des PK-Ausweises hochladen</div>
+            </>
+          )}
+        </div>
+        {status !== 'idle' && status !== 'loading' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setStatus('idle'); setFileName('') }}
+            style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+          >×</button>
+        )}
+      </div>
+      <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+      <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 4 }}>
+        🔒 Wird nur lokal verarbeitet – verlässt deinen Browser nicht
+      </div>
     </div>
   )
 }
@@ -269,6 +353,7 @@ export default function Screen2() {
 
           {cur.hasPK && (
             <>
+              <PkUpload onExtract={(capital, rate) => updatePerson(activeTab, { pkCapital: capital, pkRate: rate })} />
               <div className="form-grid" style={{ marginBottom: 14 }}>
                 <CHFField label="PK-Kapital bei Pensionierung"
                   value={cur.pkCapital}

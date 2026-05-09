@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 const FAQS = [
   {
@@ -318,9 +318,9 @@ export default function Landing() {
             <div className="footer-brand-txt">WealthWise</div>
           </div>
           <div className="footer-links">
-            <a href="#">Impressum</a>
-            <a href="#">Datenschutz</a>
-            <a href="#">Kontakt</a>
+            <Link to="/impressum">Impressum</Link>
+            <Link to="/datenschutz">Datenschutz</Link>
+            <a href="mailto:info@wealthwise.ch">Kontakt</a>
           </div>
           <div className="footer-meta">© 2026 WealthWise · Made in Switzerland 🇨🇭</div>
         </div>
