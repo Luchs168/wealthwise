@@ -138,7 +138,7 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
 
 export default function Screen2() {
   const navigate = useNavigate()
-  const { persons, updatePerson, hasPartner, person1, person2, civilStatus } = useStore()
+  const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [ahvExpanded, setAhvExpanded] = useState(false)
   const [ahvBezug1, setAhvBezug1] = useState<'vorbezug' | 'ordentlich' | 'aufschub'>('ordentlich')
@@ -421,6 +421,14 @@ export default function Screen2() {
               </p>
             </div>
           )}
+
+          <div className="toggle-row" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
+            <Switch
+              on={kirchensteuer}
+              onToggle={() => setKirchensteuer(!kirchensteuer)}
+              label="Ich bin kirchensteuerpflichtig (wird bei Steueranalyse in Schritt 4 berücksichtigt)"
+            />
+          </div>
         </section>
 
         {/* B · Pensionskasse */}

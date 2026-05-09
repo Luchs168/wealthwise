@@ -82,6 +82,9 @@ export interface WealthWiseState {
   // Step 3
   expenses: ExpensesData
 
+  // Tax
+  kirchensteuer: boolean
+
   // Actions
   setGoal: (g: string) => void
   setCivilStatus: (s: CivilStatus) => void
@@ -95,6 +98,7 @@ export interface WealthWiseState {
   setFreeAssets: (v: number) => void
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
+  setKirchensteuer: (v: boolean) => void
   resetStore: () => void
 }
 
@@ -167,6 +171,8 @@ export const useStore = create<WealthWiseState>()(
         customAmount: 0,
       },
 
+      kirchensteuer: false,
+
       setGoal: (g) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
       setPerson1: (p) => set((state) => ({ person1: { ...state.person1, ...p } })),
@@ -182,6 +188,7 @@ export const useStore = create<WealthWiseState>()(
       setFreeAssets: (v) => set({ freeAssets: v }),
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
+      setKirchensteuer: (v) => set({ kirchensteuer: v }),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
@@ -198,6 +205,7 @@ export const useStore = create<WealthWiseState>()(
         freeAssets: 0,
         property: { has: false, value: 0, mortgage: 0 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0 },
+        kirchensteuer: false,
       }),
     }),
     {

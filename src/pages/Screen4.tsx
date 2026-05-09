@@ -9,6 +9,12 @@ import ProgressBar from '../components/ProgressBar'
 import ChatPanel from '../components/ChatPanel'
 import { useStore, getPersonsForCalc } from '../store'
 import { fmtCHF, calculateAge } from '../lib/calc'
+import {
+  calculateIncomeTax, calculateRetirementTax, calculateCapitalWithdrawalTax,
+  calculateThirdPillarSavings, calculatePkPurchaseSavings, calculateRenteVsKapital,
+  CANTONAL_TAX_URLS, CANTON_NAMES,
+} from '../lib/tax'
+import type { TaxCivilStatus } from '../lib/tax'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
 
@@ -111,7 +117,7 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, property } = state
+  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer } = state
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
 
@@ -150,6 +156,56 @@ export default function Screen4() {
     person1: { ...p1, retireAge: altRetireAge, retirementAge: altRetireAge },
   }), [inputData, p1, altRetireAge])
   const altAnalysis = useMemo(() => calculateProAnalysis(altInputData), [altInputData])
+
+  // Tax section
+  const canton = location?.kanton ?? 'ZH'
+  const taxStatus: TaxCivilStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 'verheiratet' : 'ledig'
+  const ahvMonthly1 = analysis.ahv.person1?.monthlyRente ?? 0
+  const impliedPkMonthly1 = p1.hasPK ? Math.round(p1.pkCapital * (p1.pkRate / 100) / 12) : 0
+  const pkMonthlyForRente = p1.hasPK && p1.pkBezugsart !== 'kapital'
+    ? (p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1) : 0
+
+  const incomeTax1 = useMemo(() => {
+    if (!p1.income) return null
+    return calculateIncomeTax(p1.income, canton, taxStatus, p1.hasPK, p1.yearly3a ?? 0, p1.has3a, kirchensteuer)
+  }, [p1.income, canton, taxStatus, p1.hasPK, p1.yearly3a, p1.has3a, kirchensteuer])
+
+  const retirementTax1 = useMemo(() =>
+    calculateRetirementTax(ahvMonthly1, pkMonthlyForRente, canton, taxStatus, kirchensteuer)
+  , [ahvMonthly1, pkMonthlyForRente, canton, taxStatus, kirchensteuer])
+
+  const capitalTaxResult = useMemo(() => {
+    if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
+    const amount = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+    return { amount, result: calculateCapitalWithdrawalTax(amount, canton, taxStatus) }
+  }, [p1.hasPK, p1.pkBezugsart, p1.pkCapital, canton, taxStatus])
+
+  const thirdPillar1 = useMemo(() => {
+    if (!p1.has3a) return null
+    return calculateThirdPillarSavings(p1.yearly3a ?? 0, incomeTax1?.marginalRate ?? 0.25, p1.hasPK)
+  }, [p1.has3a, p1.yearly3a, p1.hasPK, incomeTax1?.marginalRate])
+
+  const pkSavingsData = useMemo(() =>
+    calculatePkPurchaseSavings([10000, 25000, 50000, 100000], incomeTax1?.marginalRate ?? 0.25)
+  , [incomeTax1?.marginalRate])
+
+  const rvkResult = useMemo(() => {
+    if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
+    const capital = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+    const rente = p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1
+    if (rente <= 0) return null
+    return calculateRenteVsKapital(capital, rente, canton, taxStatus, ra1, kirchensteuer, ahvMonthly1 * 13)
+  }, [p1.hasPK, p1.pkBezugsart, p1.pkCapital, impliedPkMonthly1, ahvMonthly1, canton, taxStatus, ra1, kirchensteuer])
+
+  const taxOptimization = (thirdPillar1?.unusedPotentialSaving ?? 0) + (pkSavingsData[pkSavingsData.length - 1]?.saving ?? 0)
+
+  const [taxExpanded, setTaxExpanded] = useState(false)
+  const [taxSubA, setTaxSubA] = useState(false)
+  const [taxSubB, setTaxSubB] = useState(false)
+  const [taxSubC, setTaxSubC] = useState(false)
+  const [taxSubD, setTaxSubD] = useState(false)
+  const [taxSubE, setTaxSubE] = useState(false)
+  const [taxSubF, setTaxSubF] = useState(false)
 
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
   const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
@@ -613,10 +669,360 @@ export default function Screen4() {
           </div>
         </section>
 
+        {/* Steuern & Optimierung */}
+        <section className="block" style={{ background: '#fafafa', border: '1px solid var(--ink-200)' }}>
+          <div
+            className="block-head"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setTaxExpanded(!taxExpanded)}
+          >
+            <h2 className="block-title">
+              <span className="block-num">G</span>Steuern &amp; Optimierung
+            </h2>
+            <span className="block-hint">{taxExpanded ? '▲ Einklappen' : '▼ Ausklappen · Steueranalyse öffnen'}</span>
+          </div>
+
+          {taxExpanded && (
+            <>
+              {/* KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <div style={{ padding: '16px 18px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Steuerbelastung heute</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: '#dc2626' }}>
+                    {incomeTax1 ? `${(incomeTax1.effectiveRate * 100).toFixed(1)}%` : '—'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>
+                    {incomeTax1 ? `CHF ${fmtCHF(incomeTax1.totalTax)}/Jahr` : 'Einkommen nicht erfasst'}
+                  </div>
+                </div>
+                <div style={{ padding: '16px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Steuerbelastung im Alter</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--green-600)' }}>
+                    {(retirementTax1.effectiveRate * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>
+                    {incomeTax1
+                      ? `CHF ${fmtCHF(Math.max(0, incomeTax1.totalTax - retirementTax1.totalTax))}/Jahr weniger`
+                      : `CHF ${fmtCHF(retirementTax1.totalTax)}/Jahr`}
+                  </div>
+                </div>
+                <div style={{ padding: '16px 18px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Optimierungspotenzial</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: '#d97706' }}>
+                    CHF {fmtCHF(taxOptimization)}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>
+                    3a + PK-Einkauf (geschätzt, p.a.)
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub A: Einkommenssteuer heute */}
+              {incomeTax1 && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubA ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubA(!taxSubA)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>A · Einkommenssteuer heute</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      CHF {fmtCHF(incomeTax1.totalTax)}/Jahr · {(incomeTax1.effectiveRate * 100).toFixed(1)}% effektiv
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubA ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubA && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Bruttoeinkommen</span>
+                        <span style={{ fontWeight: 600, textAlign: 'right' }}>CHF {fmtCHF(incomeTax1.grossIncome)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− AHV/ALV-Beiträge</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(incomeTax1.deductions.ahvALV)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− PK-Beiträge</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(incomeTax1.deductions.pkContribution)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− Säule 3a</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(incomeTax1.deductions.contribution3a)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− Berufsauslagen</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(incomeTax1.deductions.berufsauslagen)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− Versicherungsabzug</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(incomeTax1.deductions.versicherungsabzug)}</span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Steuerbares Einkommen</span>
+                        <span style={{ fontWeight: 700, textAlign: 'right', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(incomeTax1.taxableIncome)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Direkte Bundessteuer</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(incomeTax1.federalTax)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Kantons- &amp; Gemeindesteuer ({CANTON_NAMES[canton] || canton})</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(incomeTax1.cantonalTax)}</span>
+                        {incomeTax1.churchTax > 0 && (
+                          <>
+                            <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Kirchensteuer</span>
+                            <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(incomeTax1.churchTax)}</span>
+                          </>
+                        )}
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Total Steuern</span>
+                        <span style={{ fontWeight: 700, textAlign: 'right', color: '#dc2626', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(incomeTax1.totalTax)}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 12, color: 'var(--ink-500)' }}>
+                        <span>Effektivsteuerquote: <strong>{(incomeTax1.effectiveRate * 100).toFixed(1)}%</strong></span>
+                        <span>Grenzsteuersatz: <strong>{(incomeTax1.marginalRate * 100).toFixed(1)}%</strong></span>
+                        <span>Nettoeinkommen: <strong>CHF {fmtCHF(incomeTax1.netIncome)}/Jahr</strong></span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub B: Steuern nach Pensionierung */}
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubB ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={() => setTaxSubB(!taxSubB)}
+                >
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>B · Steuern nach Pensionierung</span>
+                  <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    CHF {fmtCHF(retirementTax1.totalTax)}/Jahr
+                    {incomeTax1 && incomeTax1.totalTax > retirementTax1.totalTax && (
+                      <span style={{ color: 'var(--green-600)' }}>↓ CHF {fmtCHF(incomeTax1.totalTax - retirementTax1.totalTax)} weniger</span>
+                    )}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubB ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                  </span>
+                </button>
+                {taxSubB && (
+                  <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                      <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>AHV-Rente (inkl. 13.)</span>
+                      <span style={{ textAlign: 'right' }}>CHF {fmtCHF(ahvMonthly1 * 13)}/Jahr</span>
+                      <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>PK-Rente</span>
+                      <span style={{ textAlign: 'right' }}>CHF {fmtCHF(pkMonthlyForRente * 12)}/Jahr</span>
+                      <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>− Versicherungsabzug</span>
+                      <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>− CHF {fmtCHF(Math.max(0, retirementTax1.grossAnnualIncome - retirementTax1.taxableIncome))}</span>
+                      <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Steuerbares Einkommen</span>
+                      <span style={{ fontWeight: 700, textAlign: 'right', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(retirementTax1.taxableIncome)}</span>
+                      <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Direkte Bundessteuer</span>
+                      <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(retirementTax1.federalTax)}</span>
+                      <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Kantons- &amp; Gemeindesteuer</span>
+                      <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(retirementTax1.cantonalTax)}</span>
+                      {retirementTax1.churchTax > 0 && (
+                        <>
+                          <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Kirchensteuer</span>
+                          <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(retirementTax1.churchTax)}</span>
+                        </>
+                      )}
+                      <span style={{ color: 'var(--navy-800)', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Total Steuern im Alter</span>
+                      <span style={{ fontWeight: 700, textAlign: 'right', color: 'var(--green-600)', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(retirementTax1.totalTax)}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 12, color: 'var(--ink-500)', marginBottom: incomeTax1 ? 12 : 0 }}>
+                      <span>Effektivsteuerquote: <strong>{(retirementTax1.effectiveRate * 100).toFixed(1)}%</strong></span>
+                      <span>Monatlich: <strong>CHF {fmtCHF(retirementTax1.monthlyTax)}</strong></span>
+                    </div>
+                    {incomeTax1 && (
+                      <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534' }}>
+                        ✓ Im Ruhestand sinken Ihre Steuern um <strong>CHF {fmtCHF(Math.max(0, incomeTax1.totalTax - retirementTax1.totalTax))}/Jahr</strong>
+                        {' '}(Effektivrate {(incomeTax1.effectiveRate * 100).toFixed(1)}% → {(retirementTax1.effectiveRate * 100).toFixed(1)}%)
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sub C: Kapitalbezugssteuer */}
+              {capitalTaxResult && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubC ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubC(!taxSubC)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>C · Kapitalbezugssteuer PK</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      CHF {fmtCHF(capitalTaxResult.result.totalTax)} auf CHF {fmtCHF(capitalTaxResult.amount)} · {(capitalTaxResult.result.effectiveRate * 100).toFixed(1)}%
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubC ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubC && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Kapitalbezug ({p1.pkBezugsart === 'mix' ? '50%' : '100%'})</span>
+                        <span style={{ textAlign: 'right' }}>CHF {fmtCHF(capitalTaxResult.amount)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Direkte Bundessteuer (Sätzchen-Methode)</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(capitalTaxResult.result.federalTax)}</span>
+                        <span style={{ color: 'var(--ink-500)', paddingLeft: 12 }}>Kantonale Sondersteuer ({CANTON_NAMES[canton] || canton})</span>
+                        <span style={{ textAlign: 'right', color: 'var(--ink-600)' }}>CHF {fmtCHF(capitalTaxResult.result.cantonalTax)}</span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Total Kapitalbezugssteuer</span>
+                        <span style={{ fontWeight: 700, textAlign: 'right', color: '#dc2626', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(capitalTaxResult.result.totalTax)}</span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 600 }}>Netto nach Steuer</span>
+                        <span style={{ fontWeight: 700, textAlign: 'right', color: 'var(--green-600)' }}>CHF {fmtCHF(capitalTaxResult.result.netAmount)}</span>
+                      </div>
+                      <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                        <strong>Tipp:</strong> Staffelung des 3a-Bezugs auf mehrere Steuerjahre vor dem PK-Bezug senkt die Steuerprogression deutlich. Je nach Kanton variiert die Kapitalbezugssteuer erheblich.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub D: PK-Einkauf */}
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubD ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={() => setTaxSubD(!taxSubD)}
+                >
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>D · PK-Einkauf Steuerersparnis</span>
+                  <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    bis CHF {fmtCHF(pkSavingsData[pkSavingsData.length - 1]?.saving ?? 0)} bei CHF 100'000 Einkauf
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubD ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                  </span>
+                </button>
+                {taxSubD && (
+                  <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                    <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 14 }}>
+                      Bei Grenzsteuersatz <strong>{((incomeTax1?.marginalRate ?? 0.25) * 100).toFixed(0)}%</strong> ergeben PK-Einkäufe folgende Steuerersparnis:
+                    </div>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={pkSavingsData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+                        <XAxis dataKey="amount" tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} label={{ value: 'Einkauf (CHF)', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
+                        <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} width={56} />
+                        <Tooltip
+                          formatter={(v: number) => [`CHF ${fmtCHF(v)}`, 'Steuerersparnis']}
+                          labelFormatter={(l: number) => `Einkauf CHF ${fmtCHF(l)}`}
+                          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                        />
+                        <Bar dataKey="saving" name="Steuerersparnis" fill="#1a2b4a" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                      ⚠ <strong>3-Jahres-Sperrfrist (Art. 79b BVG):</strong> Nach einem PK-Einkauf können die eingekauften Leistungen während 3 Jahren nicht als Kapital bezogen werden. Einkäufe rechtzeitig planen.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sub E: Säule 3a */}
+              {p1.has3a && thirdPillar1 && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubE ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubE(!taxSubE)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>E · Säule 3a Steueroptimierung</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      CHF {fmtCHF(thirdPillar1.annualSaving)}/Jahr Ersparnis
+                      {thirdPillar1.unusedPotential > 0 && <span style={{ color: '#d97706' }}>· CHF {fmtCHF(thirdPillar1.unusedPotentialSaving)} Potenzial ungenutzt</span>}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubE ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubE && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Ihre jährliche 3a-Einzahlung</span>
+                        <span style={{ textAlign: 'right' }}>CHF {fmtCHF(thirdPillar1.annualContribution)}</span>
+                        <span style={{ color: 'var(--ink-600)' }}>Maximum {new Date().getFullYear()} {p1.hasPK ? '(mit PK)' : '(ohne PK)'}</span>
+                        <span style={{ textAlign: 'right' }}>CHF {fmtCHF(thirdPillar1.maxContribution)}</span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Jährliche Steuerersparnis</span>
+                        <span style={{ fontWeight: 700, textAlign: 'right', color: 'var(--green-600)', borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>CHF {fmtCHF(thirdPillar1.annualSaving)}</span>
+                        {thirdPillar1.unusedPotential > 0 && (
+                          <>
+                            <span style={{ color: 'var(--ink-500)' }}>Ungenutztes Potenzial/Jahr</span>
+                            <span style={{ textAlign: 'right', color: '#d97706', fontWeight: 600 }}>CHF {fmtCHF(thirdPillar1.unusedPotential)}</span>
+                            <span style={{ color: 'var(--ink-500)' }}>Entgangene Steuerersparnis/Jahr</span>
+                            <span style={{ textAlign: 'right', color: '#d97706', fontWeight: 600 }}>CHF {fmtCHF(thirdPillar1.unusedPotentialSaving)}</span>
+                          </>
+                        )}
+                      </div>
+                      {thirdPillar1.unusedPotential > 0 && (
+                        <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                          Mit dem vollen Maximum von CHF {fmtCHF(thirdPillar1.maxContribution)}/Jahr sparen Sie zusätzlich CHF {fmtCHF(thirdPillar1.unusedPotentialSaving)} Steuern pro Jahr.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub F: Rente vs. Kapital */}
+              {rvkResult && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubF ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubF(!taxSubF)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>F · Rente vs. Kapital – Steuerlicher Break-even</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {rvkResult.breakEvenAge ? `Break-even Alter ${rvkResult.breakEvenAge}` : 'Kein Break-even bis Alter 95'}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubF ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubF && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                        <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Kapitalbezug einmalig</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(rvkResult.capitalTax)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Einmalige Kapitalbezugssteuer</div>
+                        </div>
+                        <div style={{ padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8 }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Rente – Mehrsteuer/Jahr</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--navy-800)' }}>CHF {fmtCHF(rvkResult.annualMarginalRenteTax)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Marginalsteuer auf PK-Rente</div>
+                        </div>
+                      </div>
+                      {rvkResult.breakEvenAge && (
+                        <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534', marginBottom: 14 }}>
+                          Break-even bei Alter <strong>{rvkResult.breakEvenAge}</strong>: Ab dann übersteigen die kumulierten Rentensteuern die einmalige Kapitalbezugssteuer.
+                          {rvkResult.breakEvenAge <= 82
+                            ? ' Bei durchschnittlicher Lebenserwartung (ca. 84 J.) ist der Kapitalbezug steuerlich attraktiv.'
+                            : ' Der Kapitalbezug ist steuerlich attraktiv, solange Sie vor dem Break-even versterben.'}
+                        </div>
+                      )}
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
+                              {['Alter', 'Kum. Rentensteuern', 'Kapitalbezugssteuer', 'Differenz'].map(h => (
+                                <th key={h} style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rvkResult.years.filter((_, i) => i % 3 === 0 || rvkResult.years[i]?.crossover).map((row, i) => (
+                              <tr key={row.age} style={{ background: row.crossover ? '#ecfdf5' : i % 2 === 0 ? 'white' : 'var(--navy-50)', borderBottom: '1px solid var(--ink-100)' }}>
+                                <td style={{ padding: '5px 10px', fontWeight: row.crossover ? 700 : 400, color: 'var(--navy-800)' }}>
+                                  {row.age}{row.crossover ? ' ✓' : ''}
+                                </td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right' }}>CHF {fmtCHF(row.cumulativeRenteTax)}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right' }}>CHF {fmtCHF(row.cumulativeKapitalTax)}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 600, color: row.cumulativeRenteTax > row.cumulativeKapitalTax ? '#dc2626' : 'var(--green-600)' }}>
+                                  {row.cumulativeRenteTax > row.cumulativeKapitalTax ? '−' : '+'}CHF {fmtCHF(Math.abs(row.cumulativeKapitalTax - row.cumulativeRenteTax))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Disclaimer + cantonal link */}
+              <div style={{ marginTop: 12, padding: '12px 16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12, color: 'var(--ink-500)' }}>
+                <strong>Steuerhinweis:</strong> Alle Berechnungen basieren auf DBG 2026-Tarifen und ESTV-Richtwerten. Sie dienen der Orientierung und ersetzen keine individuelle Steuerberatung.
+                {location?.kanton && CANTONAL_TAX_URLS[location.kanton] && (
+                  <>
+                    {' '}
+                    <a href={CANTONAL_TAX_URLS[location.kanton]} target="_blank" rel="noopener noreferrer"
+                      style={{ color: 'var(--navy-600)', textDecoration: 'underline' }}>
+                      Steuerrechner Kanton {CANTON_NAMES[location.kanton] || location.kanton} →
+                    </a>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+
         {/* Income vs Expenses chart */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">G</span>Einnahmen vs. Ausgaben im Alter</h2>
+            <h2 className="block-title"><span className="block-num">H</span>Einnahmen vs. Ausgaben im Alter</h2>
             <span className="block-hint">Monatliche Werte · Nominale CHF</span>
           </div>
           {chartData.length > 0 ? (
@@ -652,7 +1058,7 @@ export default function Screen4() {
             style={{ cursor: 'pointer' }}
             onClick={() => setShowCashflowTable(!showCashflowTable)}
           >
-            <h2 className="block-title"><span className="block-num">H</span>Jahres-Cashflow (Tabelle)</h2>
+            <h2 className="block-title"><span className="block-num">I</span>Jahres-Cashflow (Tabelle)</h2>
             <span className="block-hint">{showCashflowTable ? '▲ Einklappen' : '▼ Ausklappen'}</span>
           </div>
           {showCashflowTable && (
