@@ -120,7 +120,8 @@ export interface AHVVariant {
 
 export function calculateAllVariants(
   avgIncome: number,
-  effectiveContributionYears: number,
+  _effectiveContributionYears: number,
+  gaps: number = 0,
 ): AHVVariant[] {
   const VARIANTS = [
     { bezugAge: 63, label: 'Vorbezug 2 Jahre (ab 63)', shortLabel: 'Vorbezug 2J' },
@@ -131,10 +132,13 @@ export function calculateAllVariants(
   ]
 
   return VARIANTS.map((v) => {
+    // Each variant uses its own projected contribution years based on retirement age
+    const variantBaseYears = Math.min(AHV_2026.FULL_CONTRIBUTION_YEARS, Math.max(0, v.bezugAge - 21))
+    const variantYears = Math.max(0, variantBaseYears - gaps)
     const result = calculateAHVPension({
       avgIncome,
       bezugAge: v.bezugAge,
-      effectiveContributionYears,
+      effectiveContributionYears: variantYears,
     })
     // Cumulative = years receiving × monthly × 12
     const cum10 = result.monthlyRente * 12 * Math.max(0, 10 - (v.bezugAge - 63))

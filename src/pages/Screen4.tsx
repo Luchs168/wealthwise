@@ -1915,11 +1915,9 @@ export default function Screen4() {
           {(() => {
             const p1stored = state.persons.find(p => p.id === 1)!
             const p2stored = state.persons.find(p => p.id === 2)!
-            const effectiveYears1 = Math.max(0,
-              Math.min(44, Math.max(0, (p1.dob ? calculateAge(p1.dob) - 20 : p1stored.ahvContributionYears || 44))) -
-              (p1stored.ahvContributionGaps || 0)
-            )
-            const variants1 = calculateAllVariants(p1.grossIncome || p1.income || 0, effectiveYears1)
+            const baseYears1 = Math.min(44, Math.max(0, ra1 - 21))
+            const effectiveYears1 = Math.max(0, baseYears1 - (p1stored.ahvContributionGaps || 0))
+            const variants1 = calculateAllVariants(p1.grossIncome || p1.income || 0, effectiveYears1, p1stored.ahvContributionGaps || 0)
             const breakEvenData = buildBreakEvenChartData(variants1)
 
             // Break-even between ordentlich and vorbezug 2J
@@ -1939,7 +1937,7 @@ export default function Screen4() {
                       name: person2.name || 'Person 2',
                       result: analysis.ahv.person2,
                       effectiveYears: Math.max(0,
-                        Math.min(44, Math.max(0, (p2?.dob ? calculateAge(p2.dob) - 20 : p2stored.ahvContributionYears || 44))) -
+                        Math.min(44, Math.max(0, (p2stored.retireAge || 65) - 21)) -
                         (p2stored.ahvContributionGaps || 0)
                       ),
                       income: p2?.grossIncome || p2?.income || 0,

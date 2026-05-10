@@ -122,8 +122,10 @@ function buildAhvHousehold(
   civilStatus: string,
 ): AhvHouseholdCalc {
   const FULL_YEARS = 44
-  const years1 = Math.min(FULL_YEARS, Math.max(0, (p1.ahvContributionYears || FULL_YEARS) - (p1.ahvContributionGaps || 0)))
-  const bezug1 = Math.min(70, Math.max(63, p1.ahvBezugAge || p1.retirementAge || 65))
+  const retire1 = p1.retirementAge || p1.retireAge || 65
+  const baseYears1 = Math.min(FULL_YEARS, Math.max(0, retire1 - 21))
+  const years1 = Math.max(0, baseYears1 - (p1.ahvContributionGaps || 0))
+  const bezug1 = Math.min(70, Math.max(63, p1.ahvBezugAge || retire1))
   const avgIncome1 = computeKZGAdjustedIncome(p1.grossIncome || 0, years1, p1.hasKZG, p1.kzgChildren, p1.kzgYears, civilStatus)
 
   const r1 = calculateAHVPension({ avgIncome: avgIncome1, bezugAge: bezug1, effectiveContributionYears: years1 })
@@ -133,8 +135,10 @@ function buildAhvHousehold(
   let r2Result: AhvHouseholdCalc['person2'] = null
 
   if (p2) {
-    const years2 = Math.min(FULL_YEARS, Math.max(0, (p2.ahvContributionYears || FULL_YEARS) - (p2.ahvContributionGaps || 0)))
-    const bezug2 = Math.min(70, Math.max(63, p2.ahvBezugAge || p2.retirementAge || 65))
+    const retire2 = p2.retirementAge || p2.retireAge || 65
+    const baseYears2 = Math.min(FULL_YEARS, Math.max(0, retire2 - 21))
+    const years2 = Math.max(0, baseYears2 - (p2.ahvContributionGaps || 0))
+    const bezug2 = Math.min(70, Math.max(63, p2.ahvBezugAge || retire2))
     const avgIncome2 = computeKZGAdjustedIncome(p2.grossIncome || 0, years2, p2.hasKZG, p2.kzgChildren, p2.kzgYears, civilStatus)
     const r2raw = calculateAHVPension({ avgIncome: avgIncome2, bezugAge: bezug2, effectiveContributionYears: years2 })
     r2Monthly = r2raw.monthlyRente

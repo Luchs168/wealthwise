@@ -265,15 +265,9 @@ export default function Screen2() {
 
   const isPaar = hasPartner
 
-  // Auto-compute contribution years from DOB (start at 20, capped at 44)
-  const autoYears1 = useMemo(() => {
-    const age = calcAge(person1.dob)
-    return age ? Math.min(44, Math.max(0, age - 20)) : p1.ahvContributionYears
-  }, [person1.dob, p1.ahvContributionYears])
-  const autoYears2 = useMemo(() => {
-    const age = calcAge(person2.dob)
-    return age ? Math.min(44, Math.max(0, age - 20)) : p2.ahvContributionYears
-  }, [person2.dob, p2.ahvContributionYears])
+  // Projected contribution years at retirement: retireAge - 21, capped at 44
+  const autoYears1 = useMemo(() => Math.min(44, Math.max(0, (person1.retireAge || 65) - 21)), [person1.retireAge])
+  const autoYears2 = useMemo(() => Math.min(44, Math.max(0, (person2.retireAge || 65) - 21)), [person2.retireAge])
 
   // AHV calculation using precise 2026 factors
   const ahvResult1 = useMemo(() => calculateAHVPension({
@@ -622,7 +616,7 @@ export default function Screen2() {
                   {isPaar && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-700)', marginBottom: 8 }}>{name}</div>}
                   <div className="form-grid">
                     <div className="field">
-                      <label>Erwerbsjahre (automatisch)</label>
+                      <label>Beitragsjahre bei Pensionierung</label>
                       <div style={{
                         padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
                         borderRadius: 8, fontFamily: 'var(--font-display)', fontWeight: 600,
@@ -630,7 +624,7 @@ export default function Screen2() {
                       }}>
                         {autoY} Jahre
                         <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-500)', marginLeft: 8, fontFamily: 'inherit' }}>
-                          (Alter − 20)
+                          {autoY < 44 ? `Skala ${autoY}` : 'Skala 44 (voll)'}
                         </span>
                       </div>
                     </div>
@@ -651,8 +645,15 @@ export default function Screen2() {
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 4 }}>
-                    Effektive Beitragsjahre: <strong>{Math.max(0, autoY - gaps)}</strong> von 44 · Rentenkürzung: {gaps > 0 ? `−${(gaps / 44 * 100).toFixed(1)}%` : 'keine'}
+                    Effektive Beitragsjahre: <strong>{Math.max(0, autoY - gaps)}</strong> von 44
+                    {gaps > 0 && ` · Lücken-Kürzung: −${(gaps / 44 * 100).toFixed(1)}%`}
+                    {autoY < 44 && ` · Frühpension-Kürzung: −${((44 - autoY) / 44 * 100).toFixed(1)}%`}
                   </div>
+                  {autoY < 44 && (
+                    <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
+                      ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erreichen Sie max. Skala {autoY} – das kürzt Ihre Rente zusätzlich zur Vorbezugskürzung.
+                    </div>
+                  )}
                 </div>
               ))}
               <p style={{ fontSize: 12, color: 'var(--ink-400)', margin: '8px 0 0' }}>
@@ -722,7 +723,8 @@ export default function Screen2() {
                         const totalYears = Math.min(cur2.kzgYears, 16 * cur2.kzgChildren)
                         const isMarried2 = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
                         const kzgPerPerson = KZG_YEARLY * totalYears * (isMarried2 ? 0.5 : 1)
-                        const effectiveYears = Math.max(1, (cur2.ahvContributionYears || 44) - (cur2.ahvContributionGaps || 0))
+                        const baseYears = Math.min(44, Math.max(0, ((id === 1 ? person1.retireAge : person2.retireAge) || 65) - 21))
+                        const effectiveYears = Math.max(1, baseYears - (cur2.ahvContributionGaps || 0))
                         const boost = Math.round(kzgPerPerson / effectiveYears)
                         return (
                           <div style={{ marginLeft: 26, marginTop: 6, fontSize: 12, color: '#166534', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7 }}>
