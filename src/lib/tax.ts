@@ -150,7 +150,7 @@ export function calculateDeductions(
   status: TaxCivilStatus,
 ): Deductions {
   const ahvALV = Math.round(grossIncome * 0.064)       // AHV 5.3% + ALV 1.1%
-  const coordinated = Math.max(0, grossIncome - 26460) // BVG Koordinationsabzug 2026
+  const coordinated = Math.max(0, grossIncome - 25725) // BVG Koordinationsabzug 2026
   const pkContribution = hasPK ? Math.round(coordinated * 0.085) : 0
   const contribution3a = has3a ? Math.min(yearly3a, 7258) : 0
   const berufsauslagen = Math.min(4000, Math.max(2000, Math.round(grossIncome * 0.03)))

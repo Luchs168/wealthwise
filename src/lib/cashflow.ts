@@ -1,10 +1,19 @@
 import {
   CONSTANTS,
   calculateAge,
-  calculateAhvHousehold,
   calculatePkHousehold,
-  calculateCapitalWithdrawalTax,
 } from './calc'
+import type { AhvPersonResult } from './calc'
+import {
+  calculateAHVPension,
+  applyPlafonierung,
+} from '../utils/ahvCalculation'
+import {
+  calculateRetirementTax,
+  calculateIncomeTax,
+  calculateCapitalWithdrawalTax as calculateCapitalTax,
+} from './tax'
+import type { TaxCivilStatus } from './tax'
 
 export interface CashflowInput {
   person1: {
@@ -24,9 +33,12 @@ export interface CashflowInput {
     balance3a?: number
     ahvContributionYears?: number
     ahvContributionGaps?: number
+    ahvBezugAge?: number
     gender?: string
     sex?: string
     dob?: string
+    hasFZ?: boolean
+    fzBalance?: number
     [key: string]: unknown
   }
   person2?: {
@@ -46,12 +58,17 @@ export interface CashflowInput {
     balance3a?: number
     ahvContributionYears?: number
     ahvContributionGaps?: number
+    ahvBezugAge?: number
     gender?: string
     sex?: string
     dob?: string
+    hasFZ?: boolean
+    fzBalance?: number
     [key: string]: unknown
   } | null
   civilStatus?: string
+  canton?: string
+  kirchensteuer?: boolean
   inflationRate?: number
   investmentReturn?: number
   riskProfile?: 'conservative' | 'balanced' | 'growth'
@@ -72,6 +89,62 @@ function normalizeP(p: CashflowInput['person1']) {
     pillar3aBalance: p.pillar3aBalance || p.balance3a || 0,
     birthDate: p.birthDate || p.dob || '',
     gender: p.gender || p.sex || 'm',
+    ahvBezugAge: p.ahvBezugAge || p.retirementAge || p.retireAge || 65,
+    hasFZ: p.hasFZ ?? false,
+    fzBalance: p.fzBalance ?? 0,
+  }
+}
+
+// ─── AHV household calculation using correct 2026 values ─────────────────────
+
+export interface AhvHouseholdCalc {
+  person1: { monthlyRente: number; yearlyRente: number; yearlyInkl13: number; avgIncomeUsed: number }
+  person2: { monthlyRente: number; yearlyRente: number; yearlyInkl13: number; avgIncomeUsed: number } | null
+  combinedMonthly: number
+  combinedYearly: number
+  combinedYearlyInkl13: number
+  plafonReduction: number
+}
+
+function buildAhvHousehold(
+  p1: ReturnType<typeof normalizeP>,
+  p2: ReturnType<typeof normalizeP> | null,
+  civilStatus: string,
+): AhvHouseholdCalc {
+  const FULL_YEARS = 44
+  const years1 = Math.min(FULL_YEARS, Math.max(0, (p1.ahvContributionYears || FULL_YEARS) - (p1.ahvContributionGaps || 0)))
+  const bezug1 = Math.min(70, Math.max(63, p1.ahvBezugAge || p1.retirementAge || 65))
+
+  const r1 = calculateAHVPension({ avgIncome: p1.grossIncome || 0, bezugAge: bezug1, effectiveContributionYears: years1 })
+
+  let r2Monthly = 0
+  let r2Income = 0
+  let r2Result: AhvHouseholdCalc['person2'] = null
+
+  if (p2) {
+    const years2 = Math.min(FULL_YEARS, Math.max(0, (p2.ahvContributionYears || FULL_YEARS) - (p2.ahvContributionGaps || 0)))
+    const bezug2 = Math.min(70, Math.max(63, p2.ahvBezugAge || p2.retirementAge || 65))
+    const r2raw = calculateAHVPension({ avgIncome: p2.grossIncome || 0, bezugAge: bezug2, effectiveContributionYears: years2 })
+    r2Monthly = r2raw.monthlyRente
+    r2Income = p2.grossIncome || 0
+    r2Result = { monthlyRente: r2raw.monthlyRente, yearlyRente: r2raw.yearlyRente, yearlyInkl13: r2raw.yearlyInkl13, avgIncomeUsed: r2Income }
+  }
+
+  const plafon = applyPlafonierung(r1.monthlyRente, r2Monthly, civilStatus)
+
+  const m1 = plafon.monthly1
+  const m2 = plafon.monthly2
+
+  if (r2Result) r2Result = { monthlyRente: m2, yearlyRente: m2 * 12, yearlyInkl13: m2 * 13, avgIncomeUsed: r2Income }
+
+  const combinedMonthly = m1 + m2
+  return {
+    person1: { monthlyRente: m1, yearlyRente: m1 * 12, yearlyInkl13: m1 * 13, avgIncomeUsed: p1.grossIncome || 0 },
+    person2: r2Result,
+    combinedMonthly,
+    combinedYearly: combinedMonthly * 12,
+    combinedYearlyInkl13: combinedMonthly * 13,
+    plafonReduction: plafon.plafonReduction,
   }
 }
 
@@ -99,6 +172,9 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const p1raw = normalizeP(data.person1)
   const p2raw = data.person2 ? normalizeP(data.person2) : null
   const civilStatus = data.civilStatus || 'ledig'
+  const canton = data.canton || 'ZH'
+  const kirchensteuer = data.kirchensteuer ?? false
+  const taxStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft' ? civilStatus : 'ledig') as TaxCivilStatus
   const inflationRate = data.inflationRate ?? CONSTANTS.DEFAULT_INFLATION_RATE
   const investmentReturn = data.investmentReturn ?? CONSTANTS.RETURNS[data.riskProfile || 'balanced']
 
@@ -107,7 +183,8 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const ra2 = p2raw ? p2raw.retirementAge || 65 : null
   const endAge = data.endAge || 95
 
-  const ahv = calculateAhvHousehold(p1raw, p2raw, civilStatus)
+  // K1: correct AHV using ahvCalculation.ts (MIN 14'700, MAX 88'200, BSV factors)
+  const ahv = buildAhvHousehold(p1raw, p2raw, civilStatus)
   const pk = calculatePkHousehold(p1raw, p2raw)
 
   function pkKapitalShare(p: ReturnType<typeof normalizeP> | null) {
@@ -170,17 +247,26 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (p1Retired) pkRenteIncome += pk1Monthly * 12
     if (p2raw && p2RetiredSimple) pkRenteIncome += pk2Monthly * 12
 
+    // K3: correct Sätzchen capital withdrawal tax from tax.ts (canton-aware)
     if (isRetirementYearP1 && cap1 > 0) {
       pkKapitalWithdrawal += cap1
-      wealth += cap1 - calculateCapitalWithdrawalTax(cap1)
+      wealth += cap1 - calculateCapitalTax(cap1, canton, taxStatus).totalTax
     }
     if (isRetirementYearP2 && cap2 > 0) {
       pkKapitalWithdrawal += cap2
-      wealth += cap2 - calculateCapitalWithdrawalTax(cap2)
+      wealth += cap2 - calculateCapitalTax(cap2, canton, taxStatus).totalTax
     }
     if (isRetirementYearP1 && start3a > 0 && yearsFromNow === ra1 - currentAge) {
       pillar3aWithdrawal = start3a
-      wealth -= calculateCapitalWithdrawalTax(start3a)
+      wealth -= calculateCapitalTax(start3a, canton, taxStatus).totalTax
+    }
+
+    // K4: Freizügigkeitsguthaben (FZ) — add net capital at retirement
+    if (isRetirementYearP1 && p1raw.hasFZ && p1raw.fzBalance > 0) {
+      wealth += p1raw.fzBalance - calculateCapitalTax(p1raw.fzBalance, canton, taxStatus).totalTax
+    }
+    if (isRetirementYearP2 && p2raw && p2raw.hasFZ && p2raw.fzBalance > 0) {
+      wealth += p2raw.fzBalance - calculateCapitalTax(p2raw.fzBalance, canton, taxStatus).totalTax
     }
 
     if (p1Retired || p2RetiredSimple) {
@@ -199,10 +285,19 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       }
     }
 
-    const taxableIncome = ahvIncome + pkRenteIncome + employmentIncome
-    const taxRate = p1Retired || p2RetiredSimple ? 0.08 : 0.15
-    const estimatedTax = Math.round(taxableIncome * taxRate)
-    if (p1Retired || p2RetiredSimple) wealth -= estimatedTax
+    // K2: correct retirement tax via calculateRetirementTax (canton + Kirchensteuer)
+    let estimatedTax = 0
+    if (p1Retired || p2RetiredSimple) {
+      const ahvMonthly = ahvIncome / 13     // ahvIncome already includes 13th (×13)
+      const pkMonthly = pkRenteIncome / 12
+      const retTax = calculateRetirementTax(ahvMonthly, pkMonthly, canton, taxStatus, kirchensteuer)
+      estimatedTax = retTax.totalTax
+      wealth -= estimatedTax
+    } else if (employmentIncome > 0) {
+      // Display only — wealth already reduced via 0.72 factor above
+      const empTax = calculateIncomeTax(employmentIncome, canton, taxStatus, true, 0, false, kirchensteuer)
+      estimatedTax = empTax.totalTax
+    }
 
     cashflow.push({
       year, age,
@@ -228,7 +323,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 }
 
 export interface ProAnalysisResult {
-  ahv: ReturnType<typeof calculateAhvHousehold>
+  ahv: AhvHouseholdCalc
   pk: ReturnType<typeof calculatePkHousehold>
   yearlyCashflow: CashflowRow[]
   ageWhenBroke: number | null
@@ -244,7 +339,7 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
   const p2 = data.person2 ? normalizeP(data.person2) : null
   const civilStatus = data.civilStatus || 'ledig'
 
-  const ahv = calculateAhvHousehold(p1, p2, civilStatus)
+  const ahv = buildAhvHousehold(p1, p2, civilStatus)
   const pk = calculatePkHousehold(p1, p2)
   const cashflow = calculateYearlyCashflow(data)
 
@@ -264,7 +359,6 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
   const monthlyExpenses = data.monthlyExpenses || 0
   const surplus = monthlyIncomeTotal - monthlyExpenses
 
-  // Sustainability score
   let score = 50
   const cov = monthlyExpenses > 0 ? monthlyIncomeTotal / monthlyExpenses : 1
   if (cov >= 1.2) score += 30
@@ -297,3 +391,6 @@ export function calculateScenarios(data: CashflowInput) {
     pessimistic: calculateProAnalysis({ ...data, inflationRate: 0.025, investmentReturn: CONSTANTS.RETURNS.conservative }),
   }
 }
+
+// Re-export AhvPersonResult for downstream consumers that typed against the old shape
+export type { AhvPersonResult }

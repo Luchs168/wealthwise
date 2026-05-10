@@ -156,15 +156,20 @@ export default function Screen4() {
     return 4000
   }, [expenses])
 
+  // canton declared early — used in both inputData and tax section
+  const canton = location?.kanton ?? 'ZH'
+
   const inputData = useMemo(() => ({
     person1: p1,
     person2: p2,
     civilStatus,
+    canton: canton || 'ZH',
+    kirchensteuer,
     freeAssets: freeAssets || 0,
     monthlyExpenses: monthlyBudget,
     hasProperty: property.has,
     monthlyMortgageCost: property.has ? property.mortgage : 0,
-  }), [p1, p2, civilStatus, freeAssets, monthlyBudget, property])
+  }), [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, monthlyBudget, property])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])
@@ -200,7 +205,6 @@ export default function Screen4() {
   const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
 
   // Tax section
-  const canton = location?.kanton ?? 'ZH'
   const taxStatus: TaxCivilStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 'verheiratet' : 'ledig'
   const ahvMonthly1 = analysis.ahv.person1?.monthlyRente ?? 0
   const impliedPkMonthly1 = p1.hasPK ? Math.round(p1.pkCapital * (p1.pkRate / 100) / 12) : 0
