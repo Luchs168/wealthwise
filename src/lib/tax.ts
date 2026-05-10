@@ -449,6 +449,49 @@ export function calculateRenteVsKapital(
   return { capitalTax, annualMarginalRenteTax: annualRenteTax, breakEvenAge, years }
 }
 
+// ─── Eigenmietwert ────────────────────────────────────────────────────────────
+
+const EIGENMIETWERT_RATES: Record<string, number> = {
+  ZH: 0.035, BE: 0.035, LU: 0.030, AG: 0.035, BS: 0.040,
+  GE: 0.045, VD: 0.040, SG: 0.035, GR: 0.035, TG: 0.035,
+  SZ: 0.030, ZG: 0.030, BL: 0.035, FR: 0.035, SO: 0.035,
+  NE: 0.038, TI: 0.035, VS: 0.035, AR: 0.035, AI: 0.035,
+  GL: 0.035, SH: 0.035, OW: 0.030, NW: 0.030, UR: 0.030, JU: 0.035,
+}
+
+export interface EigenmietwertResult {
+  eigenmietwert: number       // Fiktiver Mietertrag (steuerbares Einkommen)
+  schuldzinsen: number        // Hypothekarzinsen (Abzug)
+  unterhaltskosten: number    // Unterhaltskosten-Pauschalabzug (20% of Eigenmietwert)
+  netAdditionalIncome: number // Netto-Mehrbelastung (eigenmietwert - schuldzinsen - unterhaltskosten)
+  additionalTax: number       // Geschätzte Mehrsteuer pro Jahr
+}
+
+export function calculateEigenmietwert(
+  steuerwert: number,
+  mortgage: number,
+  hypothekZinssatz: number,
+  canton: string,
+  status: TaxCivilStatus,
+  otherAnnualIncome: number,
+  kirchensteuer: boolean,
+): EigenmietwertResult {
+  const rate = EIGENMIETWERT_RATES[canton] ?? 0.035
+  const eigenmietwert = Math.round(steuerwert * rate)
+  const schuldzinsen = Math.round(mortgage * (hypothekZinssatz / 100))
+  const unterhaltskosten = Math.round(eigenmietwert * 0.20)
+  const netAdditionalIncome = Math.max(0, eigenmietwert - schuldzinsen - unterhaltskosten)
+
+  // Marginal tax on the net additional income
+  const baseIncome = otherAnnualIncome
+  const taxBase = calculateCantonalTax(baseIncome, canton, status) + calculateFederalTax(baseIncome, status)
+  const taxWithExtra = calculateCantonalTax(baseIncome + netAdditionalIncome, canton, status) + calculateFederalTax(baseIncome + netAdditionalIncome, status)
+  const churchFactor = kirchensteuer ? 1.08 : 1
+  const additionalTax = Math.round((taxWithExtra - taxBase) * churchFactor)
+
+  return { eigenmietwert, schuldzinsen, unterhaltskosten, netAdditionalIncome, additionalTax }
+}
+
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export const CANTON_NAMES: Record<string, string> = {

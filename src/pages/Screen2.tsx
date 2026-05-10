@@ -1166,10 +1166,76 @@ export default function Screen2() {
           />
         </section>
 
-        {/* E · Zusammenfassung */}
+        {/* E · Wohneigentum */}
+        {(() => {
+          const prop = useStore.getState().property
+          const setProperty = useStore.getState().setProperty
+          return (
+            <section className="block">
+              <div className="block-head">
+                <h2 className="block-title"><span className="block-num">E</span>Wohneigentum</h2>
+                <span className="block-hint">Optional</span>
+              </div>
+              <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
+                Falls Sie selbst genutztes Wohneigentum besitzen, erfassen Sie es hier. Dies beeinflusst den Eigenmietwert (fiktives steuerbares Einkommen) und die Schuldzinsabzüge.
+              </p>
+
+              <div className="toggle-row">
+                <Switch
+                  on={prop.has}
+                  onToggle={() => setProperty({ has: !prop.has })}
+                  label="Ich besitze selbst genutztes Wohneigentum"
+                />
+              </div>
+
+              {prop.has && (
+                <>
+                  <div className="form-grid" style={{ marginTop: 14 }}>
+                    <CHFField
+                      label="Marktwert der Liegenschaft"
+                      value={prop.value}
+                      onChange={(v) => setProperty({ value: v, steuerwert: prop.steuerwert || Math.round(v * 0.7) })}
+                    />
+                    <CHFField
+                      label="Ausstehende Hypothek"
+                      value={prop.mortgage}
+                      onChange={(v) => setProperty({ mortgage: v })}
+                    />
+                  </div>
+                  <div className="form-grid" style={{ marginTop: 10 }}>
+                    <CHFField
+                      label="Steuerwert der Liegenschaft"
+                      value={prop.steuerwert || Math.round(prop.value * 0.7)}
+                      onChange={(v) => setProperty({ steuerwert: v })}
+                    />
+                    <div className="field-wrap">
+                      <label className="field-label">Hypothekarzinssatz (%)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={prop.hypothekZinssatz ?? 1.5}
+                        onChange={e => setProperty({ hypothekZinssatz: parseFloat(e.target.value) || 1.5 })}
+                        style={{ maxWidth: 120 }}
+                      />
+                    </div>
+                  </div>
+                  <div className="info-callout" style={{ marginTop: 12 }}>
+                    <span className="info-callout-icon">i</span>
+                    <span>Steuerwert: Finden Sie auf Ihrer letzten Steuererklärung. Ist meist ca. 70% des Marktwerts. Lassen Sie das Feld leer für automatische Schätzung.</span>
+                  </div>
+                </>
+              )}
+            </section>
+          )
+        })()}
+
+        {/* F · Zusammenfassung */}
         <section className="block">
           <div className="block-head">
-            <h2 className="block-title"><span className="block-num">E</span>Gesamtübersicht Vorsorge</h2>
+            <h2 className="block-title"><span className="block-num">F</span>Gesamtübersicht Vorsorge</h2>
           </div>
           <div className="ahv-card">
             <div className="ahv-row">

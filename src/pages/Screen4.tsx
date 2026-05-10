@@ -12,6 +12,7 @@ import { fmtCHF, calculateAge } from '../lib/calc'
 import {
   calculateIncomeTax, calculateRetirementTax, calculateCapitalWithdrawalTax,
   calculateThirdPillarSavings, calculatePkPurchaseSavings, calculateRenteVsKapital,
+  calculateEigenmietwert,
   CANTONAL_TAX_URLS, CANTON_NAMES,
 } from '../lib/tax'
 import type { TaxCivilStatus } from '../lib/tax'
@@ -41,6 +42,7 @@ import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
 import { calculateOptimalWithdrawal } from '../utils/withdrawalPlanCalculation'
+import { InfoTooltip } from '../components/Tooltip'
 
 function ScoreRing({ score, verdict }: { score: number; verdict: string }) {
   const r = 54
@@ -144,6 +146,9 @@ export default function Screen4() {
   const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer, lifeEvents, riskProfile } = state
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
+  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false)
+  const [careStartAge, setCareStartAge] = useState(82)
+  const [careType, setCareType] = useState<'spitex_leicht' | 'spitex_mittel' | 'heim_standard' | 'heim_gehoben'>('heim_standard')
 
   const { p1, p2, civilStatus } = useMemo(() => getPersonsForCalc(state), [state])
 
@@ -437,6 +442,42 @@ export default function Screen4() {
     return calculateOptimalWithdrawal(pkCap, pillar3aTotal, num3aAccounts, fzBal, canton, taxStatus, retirementCalendarYear)
   }, [state.persons, p1, ra1, currentAge1, canton, taxStatus])
 
+  const eigenmietwertResult = useMemo(() => {
+    if (!property.has || !property.value) return null
+    const steuerwert = property.steuerwert > 0 ? property.steuerwert : Math.round(property.value * 0.7)
+    const annualRetirementIncome = (analysis.ahv.person1?.yearlyRente ?? 0) + (pkMonthlyForRente * 12)
+    return calculateEigenmietwert(steuerwert, property.mortgage, property.hypothekZinssatz ?? 1.5, canton, taxStatus, annualRetirementIncome, kirchensteuer)
+  }, [property, analysis.ahv.person1, pkMonthlyForRente, canton, taxStatus, kirchensteuer])
+
+  const CARE_COSTS: Record<string, { label: string; monthlyCost: number }> = {
+    spitex_leicht: { label: 'Spitex (leicht)', monthlyCost: 1500 },
+    spitex_mittel: { label: 'Spitex (mittel)', monthlyCost: 3000 },
+    heim_standard: { label: 'Pflegeheim (Standard)', monthlyCost: 8000 },
+    heim_gehoben: { label: 'Pflegeheim (gehoben)', monthlyCost: 12000 },
+  }
+
+  const careScenario = useMemo(() => {
+    const careInfo = CARE_COSTS[careType]
+    const monthlyCost = careInfo.monthlyCost
+    const wealthAtCareStart = wdInitialWealth * Math.pow(1 + 0.02, Math.max(0, careStartAge - ra1))
+    const monthlyIncome = wdMonthlyIncome
+    // EL at home: approx CHF 1000-2000/month for Spitex, more for Heim
+    const elEstimate = monthlyCost > 5000 ? 2000 : monthlyCost > 2000 ? 1000 : 0
+    const monthlyGap = Math.max(0, monthlyCost + monthlyBudget * 0.5 - monthlyIncome - elEstimate)
+    const elFreeWealth = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 50000 : 30000
+    const yearsWealthCovers = monthlyGap > 0
+      ? Math.max(0, (wealthAtCareStart - elFreeWealth) / (monthlyGap * 12))
+      : 99
+    const elEligibilityAge = yearsWealthCovers < 99
+      ? Math.round(careStartAge + yearsWealthCovers)
+      : null
+    return {
+      monthlyCost, elEstimate, monthlyGap, wealthAtCareStart,
+      yearsWealthCovers: Math.min(yearsWealthCovers, 99),
+      elEligibilityAge, elFreeWealth,
+    }
+  }, [careStartAge, careType, wdInitialWealth, ra1, wdMonthlyIncome, monthlyBudget, civilStatus])
+
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
   const [taxSubB, setTaxSubB] = useState(false)
@@ -445,6 +486,7 @@ export default function Screen4() {
   const [taxSubE, setTaxSubE] = useState(false)
   const [taxSubF, setTaxSubF] = useState(false)
   const [taxSubG, setTaxSubG] = useState(false)
+  const [taxSubH, setTaxSubH] = useState(false)
 
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
   const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
@@ -510,75 +552,115 @@ export default function Screen4() {
           </p>
         </div>
 
-        {/* Verdict Hero */}
+        {/* ── Summary: Vorsorgeanalyse auf einen Blick ── */}
         <section className="block" style={{ background: verdictBg, border: `1px solid ${verdictBorder}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             <ScoreRing score={analysis.sustainabilityScore} verdict={analysis.verdict} />
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginBottom: 4 }}>Nachhaltigkeits-Score</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, color: verdictColor, marginBottom: 6 }}>
-                {verdictLabel}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
+                Nachhaltigkeits-Score
+                <InfoTooltip text="Score 0–100: unter 50 = kritisch, 50–70 = Handlungsbedarf, 70–85 = solide, über 85 = sehr gut" />
               </div>
-              <div style={{ fontSize: 14, color: 'var(--ink-600)', marginBottom: 8 }}>
-                Monatliche Renten: <strong>CHF {fmtCHF(analysis.monthlyIncome.total)}</strong>
-                {' · '}Budget: <strong>CHF {fmtCHF(monthlyBudget)}</strong>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: verdictColor }}>{verdictLabel}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>
+                Renten: CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. · Budget: CHF {fmtCHF(monthlyBudget)}/Mt.
               </div>
-              {/* Coverage percentage */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '6px 12px', borderRadius: 20,
-                background: coveragePct >= 100 ? 'var(--green-100)' : '#fef2f2',
-                border: `1px solid ${coveragePct >= 100 ? 'var(--green-300)' : '#fecaca'}`,
-              }}>
-                <span style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18,
-                  color: coveragePct >= 100 ? 'var(--green-700)' : '#dc2626',
-                }}>{coveragePct}%</span>
-                <span style={{ fontSize: 12.5, color: 'var(--ink-600)' }}>
-                  Ihres Bedarfs durch Renten gedeckt
-                </span>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <span style={{ fontSize: 14, color: analysis.surplus >= 0 ? 'var(--green-600)' : 'var(--red-500)', fontWeight: 600 }}>
-                  {analysis.surplus >= 0 ? 'Vorsorgeüberschuss' : 'Vorsorgelücke'}:
-                  {' '}{analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
-                </span>
-              </div>
-              {analysis.ageWhenBroke && !hasEnabledEvents && (
-                <div style={{ marginTop: 6, fontSize: 13, color: 'var(--red-500)' }}>
-                  ⚠ Vermögen reicht bis ca. Alter {analysis.ageWhenBroke}
-                </div>
-              )}
-              {!analysis.ageWhenBroke && !hasEnabledEvents && (
-                <div style={{ marginTop: 6, fontSize: 13, color: 'var(--green-600)' }}>
-                  ✓ Vermögen reicht bis Alter 95+
-                </div>
-              )}
-              {hasEnabledEvents && (
-                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <div style={{ fontSize: 13, color: analysis.ageWhenBroke ? 'var(--red-500)' : 'var(--green-600)' }}>
-                    {analysis.ageWhenBroke
-                      ? `Ohne Ereignisse: bis Alter ${analysis.ageWhenBroke}`
-                      : 'Ohne Ereignisse: bis Alter 95+'}
-                  </div>
-                  <div style={{ fontSize: 13, color: ageWhenBrokeWithEvents ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>
-                    {ageWhenBrokeWithEvents
-                      ? `Mit Ereignissen: bis Alter ${ageWhenBrokeWithEvents} ⚠`
-                      : 'Mit Ereignissen: bis Alter 95+ ✓'}
-                  </div>
-                  {ageWhenBrokeWithEvents && !analysis.ageWhenBroke && (
-                    <div style={{ fontSize: 12, color: '#dc2626' }}>
-                      Geplante Ausgaben CHF {fmtCHF(eventsImpact.totalOutflow)} verkürzen die Reichweite.
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-            <button className="btn btn-primary" onClick={handlePDF} style={{ alignSelf: 'flex-start', whiteSpace: 'nowrap' }}>
-              ↓ Analyse als PDF
+          </div>
+
+          {/* 3 KPI cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+            {/* Card 1: Monthly situation */}
+            {(() => {
+              const surplus = analysis.surplus
+              const cardColor = surplus >= 0 ? 'var(--green-600)' : Math.abs(surplus) <= 500 ? '#d97706' : '#dc2626'
+              const cardBg = surplus >= 0 ? '#ecfdf5' : Math.abs(surplus) <= 500 ? '#fffbeb' : '#fef2f2'
+              const cardBorder = surplus >= 0 ? '#bbf7d0' : Math.abs(surplus) <= 500 ? '#fde68a' : '#fecaca'
+              return (
+                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Monatliche Situation</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>
+                    {surplus >= 0 ? '+' : ''}CHF {fmtCHF(surplus)}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
+                    {surplus >= 0 ? 'Überschuss/Monat' : 'Lücke/Monat'}
+                  </div>
+                </div>
+              )
+            })()}
+            {/* Card 2: Wealth longevity */}
+            {(() => {
+              const age = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)
+              const cardColor = age >= 90 ? 'var(--green-600)' : age >= 85 ? '#d97706' : '#dc2626'
+              const cardBg = age >= 90 ? '#ecfdf5' : age >= 85 ? '#fffbeb' : '#fef2f2'
+              const cardBorder = age >= 90 ? '#bbf7d0' : age >= 85 ? '#fde68a' : '#fecaca'
+              const lifeExp = p1.sex === 'm' ? 85 : 87
+              return (
+                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Vermögen reicht bis</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>
+                    {age >= 99 ? 'Alter 95+' : `Alter ${age}`}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
+                    Lebenserwartung: ~{lifeExp} Jahre
+                  </div>
+                </div>
+              )
+            })()}
+            {/* Card 3: Action level */}
+            {(() => {
+              const recs = RECS[analysis.verdict] ?? []
+              const highCount = recs.filter(r => r.priority === 'hoch').length
+              const label = analysis.verdict === 'green' ? 'Tief' : analysis.verdict === 'yellow' ? 'Mittel' : 'Hoch'
+              const cardColor = analysis.verdict === 'green' ? 'var(--green-600)' : analysis.verdict === 'yellow' ? '#d97706' : '#dc2626'
+              const cardBg = analysis.verdict === 'green' ? '#ecfdf5' : analysis.verdict === 'yellow' ? '#fffbeb' : '#fef2f2'
+              const cardBorder = analysis.verdict === 'green' ? '#bbf7d0' : analysis.verdict === 'yellow' ? '#fde68a' : '#fecaca'
+              return (
+                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Handlungsbedarf</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>{label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
+                    {highCount > 0 ? `${highCount} dringende Massnahme${highCount > 1 ? 'n' : ''}` : `${recs.length} Empfehlungen`}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Top-3 recommendations */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Wichtigste Massnahmen
+            </div>
+            {(RECS[analysis.verdict] ?? []).slice(0, 3).map((rec, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}>
+                <span style={{
+                  flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
+                  background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
+                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+                }}>{i + 1}</span>
+                <span style={{ fontSize: 13, color: 'var(--ink-700)', lineHeight: 1.4 }}>{rec.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA buttons */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={handlePDF} style={{ flex: '0 0 auto' }}>
+              Analyse als PDF
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setShowDetailedAnalysis(v => !v)}
+              style={{ flex: '0 0 auto' }}
+            >
+              {showDetailedAnalysis ? '▲ Detailanalyse ausblenden' : '▼ Detailanalyse anzeigen'}
             </button>
           </div>
         </section>
+
+        {/* ── Detailed Analysis (collapsible) ── */}
+        {showDetailedAnalysis && (<>
 
         {/* Frühpensionierungs-Überbrückungsanalyse */}
         {ra1 < 65 && (() => {
@@ -1228,9 +1310,10 @@ export default function Screen4() {
               </div>
               <div style={{ display: 'flex', gap: 20, fontSize: 12.5, flexWrap: 'wrap' }}>
                 <div>Vermögen bei Pensionierung: <strong>CHF {fmtCHF(wdInitialWealth)}</strong></div>
+                <div>= {wdInitialWealth > 0 ? ((wdEffectiveWithdrawal * 12 / wdInitialWealth) * 100).toFixed(1) : '0'}% des Vermögens/Jahr</div>
                 <div>Nachh. Rate (3.5%): <strong>CHF {fmtCHF(wdStrategies.percentRule35.monthlyAmount)}/Mt.</strong></div>
                 {wdMonthlyGap > wdStrategies.percentRule35.monthlyAmount && (
-                  <div style={{ color: '#fde68a' }}>⚠ Entnahme übersteigt nachhaltige Rate</div>
+                  <div style={{ color: '#fde68a' }}>⚠ Entnahme übersteigt nachhaltige 3.5%-Rate</div>
                 )}
               </div>
             </div>
@@ -1835,7 +1918,7 @@ export default function Screen4() {
                   ))}
                   {analysis.ahv.plafonReduction > 0 && (
                     <div style={{ padding: '10px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: 'var(--ink-600)' }}>
-                      Ehepaar-Plafonierung: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt.)
+                      Ehepaar-Plafonierung<InfoTooltip text={`Für Ehepaare gilt: Die Summe beider AHV-Renten darf maximal 150% einer Einzelrente betragen (max. CHF ${fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Monat für beide zusammen). Kürzung: −CHF ${fmtCHF(analysis.ahv.plafonReduction)}/Mt.`} />: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt.)
                     </div>
                   )}
                 </div>
@@ -2142,7 +2225,7 @@ export default function Screen4() {
                     <div style={{ borderTop: '1px solid var(--navy-100)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
                       Guthaben bei {ra1}: CHF {fmtCHF(projectedCapital1)}
                     </div>
-                    <div>Umwandlungssatz: {(convRate1 * 100).toFixed(1)}%</div>
+                    <div>Umwandlungssatz: {(convRate1 * 100).toFixed(1)}%<InfoTooltip text={`Bestimmt, wie viel Rente Sie pro CHF 100'000 Guthaben erhalten. Beispiel: ${(convRate1*100).toFixed(1)}% von CHF 400'000 = CHF ${fmtCHF(Math.round(400000*convRate1/12))}/Monat. Viele Kassen senken den Umwandlungssatz laufend.`} /></div>
                     <div style={{ fontWeight: 600 }}>Jahresrente: CHF {fmtCHF(pension1.yearly)} → CHF {fmtCHF(pension1.monthly)}/Monat</div>
                   </div>
                 </details>
@@ -2180,7 +2263,7 @@ export default function Screen4() {
                     <li>Projektion basiert auf konstanten Beiträgen und gleichbleibendem Zinssatz. Lohnerhöhungen sind nicht berücksichtigt.</li>
                     <li>Der Umwandlungssatz kann sich bis zur Pensionierung ändern. Viele Kassen haben Senkungen angekündigt.</li>
                     <li>Überobligatorisches Guthaben: Kasse kann den Umwandlungssatz jederzeit für diesen Teil anpassen.</li>
-                    <li>Koordinationsabzug 2026: CHF {fmtCHF(PK_CONSTANTS.COORDINATION_DEDUCTION_2026)} · Eintrittsschwelle: CHF {fmtCHF(PK_CONSTANTS.ENTRY_THRESHOLD_2026)}</li>
+                    <li>Koordinationsabzug<InfoTooltip text={`Der Teil Ihres Lohns, der bereits durch die AHV versichert ist (CHF ${fmtCHF(PK_CONSTANTS.COORDINATION_DEDUCTION_2026)}). Nur der Lohn darüber wird in der PK versichert.`} /> 2026: CHF {fmtCHF(PK_CONSTANTS.COORDINATION_DEDUCTION_2026)} · Eintrittsschwelle: CHF {fmtCHF(PK_CONSTANTS.ENTRY_THRESHOLD_2026)}</li>
                     <li>Tipp: Lassen Sie sich von Ihrer PK eine verbindliche Projektion erstellen.</li>
                   </ul>
                 </div>
@@ -2412,6 +2495,10 @@ export default function Screen4() {
                 {rvkBreakEven && (
                   <div style={{ marginTop: 8, padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12.5 }}>
                     <strong>Break-even Alter {rvkBreakEven}:</strong> Ab diesem Alter hat die Rente mehr ausgezahlt als das Kapital noch wert wäre ({rvkReturnRate * 100}% Rendite angenommen).
+                    {' '}Statistische Lebenserwartung: ca. {p1.sex === 'm' ? 85 : 87} Jahre.
+                    {rvkBreakEven <= (p1.sex === 'm' ? 85 : 87)
+                      ? ' → Da Sie voraussichtlich älter werden als das Break-even-Alter: Rente ist wahrscheinlich vorteilhafter.'
+                      : ' → Das Break-even-Alter liegt über der statistischen Lebenserwartung: Kapital könnte vorteilhafter sein.'}
                   </div>
                 )}
                 {!rvkBreakEven && (
@@ -3018,7 +3105,51 @@ export default function Screen4() {
                         </table>
                       </div>
                       <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
-                        <strong>Hinweis:</strong> Frühzeitige Bezüge (3a, FZ) ab {new Date().getFullYear() + Math.max(1, ra1 - currentAge1) - (withdrawalPlan.optimal.entries.length - (withdrawalPlan.optimal.entries.some(e => e.label.includes('PK')) ? 1 : 0))} möglich. PK-Kapital wird im Pensionierungsjahr bezogen. Steuern basieren auf Sätzchen-Methode und ESTV-Richtwerten für Kanton {CANTON_NAMES[canton] || canton}.
+                        <strong>Hinweis:</strong> Frühzeitige Bezüge (3a, FZ<InfoTooltip text="Freizügigkeitsguthaben: PK-Guthaben aus früheren Arbeitsverhältnissen auf einem separaten Freizügigkeitskonto (z.B. nach Jobwechsel). Kann frühestens 5 Jahre vor Pensionierung bezogen werden." />) ab {new Date().getFullYear() + Math.max(1, ra1 - currentAge1) - (withdrawalPlan.optimal.entries.length - (withdrawalPlan.optimal.entries.some(e => e.label.includes('PK')) ? 1 : 0))} möglich. PK-Kapital wird im Pensionierungsjahr bezogen. Steuern basieren auf Sätzchen-Methode und ESTV-Richtwerten für Kanton {CANTON_NAMES[canton] || canton}.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub H: Eigenmietwert */}
+              {eigenmietwertResult && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubH ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubH(!taxSubH)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>H · Eigenmietwert – Steuereffekt Wohneigentum</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {eigenmietwertResult.additionalTax > 0
+                        ? <span style={{ color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr Mehrsteuer</span>
+                        : <span style={{ color: 'var(--green-600)' }}>Abzüge übersteigen Eigenmietwert</span>}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubH ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubH && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Eigenmietwert (fiktiver Mietertrag)</span>
+                        <span style={{ textAlign: 'right', color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.eigenmietwert)}/Jahr</span>
+                        <span style={{ color: 'var(--ink-600)' }}>− Schuldzinsabzug (Hypothekarzinsen)</span>
+                        <span style={{ textAlign: 'right', color: 'var(--green-600)' }}>−CHF {fmtCHF(eigenmietwertResult.schuldzinsen)}/Jahr</span>
+                        <span style={{ color: 'var(--ink-600)' }}>− Unterhaltskosten (Pauschale 20%)</span>
+                        <span style={{ textAlign: 'right', color: 'var(--green-600)' }}>−CHF {fmtCHF(eigenmietwertResult.unterhaltskosten)}/Jahr</span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Netto-Mehreinkommen (steuerpflichtig)</span>
+                        <span style={{ textAlign: 'right', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6, color: eigenmietwertResult.netAdditionalIncome > 0 ? '#dc2626' : 'var(--green-600)' }}>
+                          CHF {fmtCHF(eigenmietwertResult.netAdditionalIncome)}/Jahr
+                        </span>
+                        <span style={{ color: 'var(--navy-800)', fontWeight: 600 }}>Geschätzte Mehrsteuer/Jahr</span>
+                        <span style={{ textAlign: 'right', fontWeight: 700, color: eigenmietwertResult.additionalTax > 0 ? '#dc2626' : 'var(--green-600)' }}>
+                          CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr
+                        </span>
+                      </div>
+                      <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12.5, color: '#7c2d12' }}>
+                        <strong>Was ist der Eigenmietwert?</strong> Als Wohneigentümer versteuern Sie einen fiktiven Mietertrag (ca. 3–4.5% des Steuerwerts je nach Kanton), erhalten aber kein Geld. Im Gegenzug können Sie Hypothekarzinsen und Unterhaltskosten abziehen.
+                        {eigenmietwertResult.schuldzinsen === 0 && eigenmietwertResult.eigenmietwert > 0 && (
+                          <span> Bei schuldenfreiem Eigentum entfällt der Schuldzinsabzug – die steuerliche Belastung ist entsprechend höher. Eine vollständige Amortisation der Hypothek kann deshalb steuerlich nachteilig sein.</span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3132,6 +3263,140 @@ export default function Screen4() {
             </div>
           )}
         </section>
+
+        {/* H5: Pflegekostenrisiko */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title">
+              <span className="block-num">P</span>Langzeitpflege-Szenario
+            </h2>
+            <span className="block-hint">40% ab Alter 80 brauchen Pflege</span>
+          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
+            Rund 40% der Personen über 80 Jahren benötigen Pflegeleistungen. Die Kosten können das Vermögen schnell aufzehren.
+            Sehen Sie hier, wie sich ein Pflegebedarf auf Ihre finanzielle Situation auswirken würde.
+          </p>
+
+          {/* Interactive inputs */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+                Pflegebedarf ab Alter: <strong>{careStartAge}</strong>
+              </label>
+              <input
+                type="range" min={75} max={90} step={1}
+                value={careStartAge}
+                onChange={e => setCareStartAge(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>
+                <span>75</span><span>82</span><span>90</span>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+                Art der Pflege
+              </label>
+              <select
+                className="select-field"
+                value={careType}
+                onChange={e => setCareType(e.target.value as typeof careType)}
+              >
+                {Object.entries(CARE_COSTS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label} – CHF {fmtCHF(v.monthlyCost)}/Mt.</option>
+                ))}
+              </select>
+              <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
+                Kosten minus KK-Beiträge und ggf. EL/Hilflosenentschädigung
+              </div>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <div style={{ padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Pflegekosten/Monat</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(careScenario.monthlyCost)}</div>
+            </div>
+            <div style={{ padding: '12px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>EL/Hilflosenentschädigung</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#16a34a' }}>≈ CHF {fmtCHF(careScenario.elEstimate)}/Mt.</div>
+            </div>
+            <div style={{ padding: '12px', background: careScenario.monthlyGap > 3000 ? '#fef2f2' : '#fffbeb', border: `1px solid ${careScenario.monthlyGap > 3000 ? '#fecaca' : '#fde68a'}`, borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Monatliche Lücke aus Vermögen</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: careScenario.monthlyGap > 3000 ? '#dc2626' : '#d97706' }}>CHF {fmtCHF(careScenario.monthlyGap)}</div>
+            </div>
+          </div>
+
+          <div style={{ padding: '14px 16px', background: careScenario.yearsWealthCovers >= 5 ? '#ecfdf5' : '#fef2f2', border: `1px solid ${careScenario.yearsWealthCovers >= 5 ? '#bbf7d0' : '#fecaca'}`, borderRadius: 10, marginBottom: 14, fontSize: 13.5, lineHeight: 1.6 }}>
+            {careScenario.monthlyGap > 0 ? (
+              <>
+                Bei einem Pflegebedarf ab Alter <strong>{careStartAge}</strong> ({CARE_COSTS[careType].label}) beträgt Ihre monatliche Lücke ca.{' '}
+                <strong>CHF {fmtCHF(careScenario.monthlyGap)}</strong>. Mit einem geschätzten Vermögen von CHF {fmtCHF(Math.round(careScenario.wealthAtCareStart))} zu diesem Zeitpunkt{' '}
+                {careScenario.yearsWealthCovers >= 99
+                  ? 'können Sie diese Kosten voraussichtlich dauerhaft tragen.'
+                  : <>deckt Ihr Vermögen die Pflege für ca. <strong>{careScenario.yearsWealthCovers.toFixed(1)} Jahre</strong>
+                    {careScenario.elEligibilityAge && <> (bis ca. Alter <strong>{careScenario.elEligibilityAge}</strong>)</>}.
+                    {careScenario.elEligibilityAge && ` Ab Alter ${careScenario.elEligibilityAge} haben Sie voraussichtlich Anspruch auf Ergänzungsleistungen.`}
+                  </>
+                }
+              </>
+            ) : (
+              <>Ihre Renten decken die Pflegekosten vollständig – bei dieser Pflegeoption besteht kein Vermögensverzehr.</>
+            )}
+          </div>
+
+          {/* EL explanation */}
+          <div style={{ padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 12 }}>
+            <strong>Ergänzungsleistungen (EL) bei Heimaufenthalt:</strong> Bei einem Heimaufenthalt haben Sie voraussichtlich Anspruch auf EL,
+            sobald Ihr Vermögen unter CHF {fmtCHF(careScenario.elFreeWealth)} ({civilStatus === 'verheiratet' || civilStatus === 'partnerschaft' ? 'Ehepaar' : 'Alleinstehend'}) fällt.
+            Die EL decken die anerkannten Heimkosten abzüglich Ihrer Rente und eines Vermögensverzehrs (1/10 des Vermögens über Freibetrag/Jahr).
+            <span style={{ color: '#dc2626' }}> ⚠ Achtung: Vermögen, das in den letzten 10 Jahren verschenkt wurde, wird weiterhin angerechnet.</span>
+          </div>
+
+          {/* Risk mitigation */}
+          <div style={{ padding: '12px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+            <strong>Möglichkeiten zur Absicherung:</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, lineHeight: 1.7 }}>
+              <li>Pflegezusatzversicherung (Abschluss idealerweise vor Alter 60)</li>
+              <li>Ausreichend liquides Vermögen behalten (nicht alles in Immobilie binden)</li>
+              <li>Patientenverfügung und Vorsorgeauftrag erstellen</li>
+              <li>Frühzeitig mit der Familie besprechen und planen</li>
+            </ul>
+          </div>
+        </section>
+
+        {/* Nächste Schritte */}
+        <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>
+          <div className="block-head">
+            <h2 className="block-title" style={{ color: 'var(--navy-800)' }}>
+              <span className="block-num" style={{ background: 'var(--navy-700)', color: 'white' }}>✓</span>
+              Nächste Schritte
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { icon: '📞', text: 'IK-Auszug bestellen (AHV-Kontoauszug)', link: 'https://www.ahv-iv.ch', linkText: 'ahv-iv.ch' },
+              { icon: '📄', text: 'PK-Projektion bei Ihrer Pensionskasse anfordern (Ausweis anfordern)', link: null, linkText: null },
+              { icon: '🏦', text: 'PK-Einkaufspotenzial mit Ihrer Pensionskasse besprechen', link: null, linkText: null },
+              { icon: '📊', text: 'Diese Analyse mit einem Finanzplaner (CFP) besprechen', link: null, linkText: null },
+              { icon: '📥', text: 'Analyse als PDF herunterladen und ablegen', link: null, linkText: null, action: handlePDF },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: 'white', borderRadius: 8, border: '1px solid var(--navy-100)' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
+                <div style={{ flex: 1, fontSize: 13, color: 'var(--ink-700)' }}>
+                  {item.text}
+                  {item.link && <> · <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy-600)', textDecoration: 'underline' }}>{item.linkText}</a></>}
+                </div>
+                {item.action && (
+                  <button className="btn btn-primary" onClick={item.action} style={{ fontSize: 12, padding: '4px 10px', flexShrink: 0 }}>PDF</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        </>)} {/* end showDetailedAnalysis */}
 
         {/* Actions */}
         <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>

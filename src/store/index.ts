@@ -66,6 +66,8 @@ export interface PropertyData {
   has: boolean
   value: number
   mortgage: number
+  steuerwert: number       // Steuerwert der Liegenschaft (≈70% Marktwert)
+  hypothekZinssatz: number // Hypothekarzinssatz in % (z.B. 1.5)
 }
 
 export interface ExpensesData {
@@ -197,7 +199,7 @@ export const useStore = create<WealthWiseState>()(
         { ...defaultPerson2Base, ...defaultVorsorge(2) },
       ],
       freeAssets: 0,
-      property: { has: false, value: 0, mortgage: 0 },
+      property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
 
       expenses: {
         mode: 'simple',
@@ -251,7 +253,7 @@ export const useStore = create<WealthWiseState>()(
           { ...defaultPerson2Base, ...defaultVorsorge(2) },
         ],
         freeAssets: 0,
-        property: { has: false, value: 0, mortgage: 0 },
+        property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0, kkPremium1: 0, kkPremium2: 0, kkFranchise: 300 },
         kirchensteuer: false,
         riskProfile: 'balanced',
