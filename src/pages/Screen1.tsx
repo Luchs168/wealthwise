@@ -549,6 +549,11 @@ export default function Screen1() {
               {isPaar && ` · Haushalt gesamt: CHF ${fmtCHF(Math.round((p1.income + p2.income) / 12))}/Monat`}
             </div>
           )}
+          {curP.income > 0 && curP.income < 22_000 && (
+            <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+              ℹ Einkommen unter CHF 22'050 liegt unter dem AHV-Mindestbeitrag für Vollzeitbeschäftigte. Bitte prüfen Sie die Eingabe – ist dies ein Teilzeiteinkommen?
+            </div>
+          )}
         </section>
 
         {/* Block D – Familiäre Situation */}
@@ -786,6 +791,16 @@ function RetireSlider({ name, dob, value, onChange }: SliderProps) {
           ))}
         </div>
       </div>
+      {value < 62 && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#991b1b' }}>
+          ⚠ Frühpensionierung vor 62: Erhebliche AHV-Kürzung (max. 13.6%) und Lücke bis AHV-Alter. Brückenrente notwendig.
+        </div>
+      )}
+      {value >= 62 && value < 65 && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+          ℹ Frühpensionierung vor 65: PK-Leistungen werden gekürzt und die AHV muss überbrückt werden. Details in der Analyse.
+        </div>
+      )}
     </div>
   )
 }

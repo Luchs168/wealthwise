@@ -1,8 +1,8 @@
 import jsPDF from 'jspdf'
 import { fmtCHF } from './calc'
-import { ProAnalysisResult } from './cashflow'
+import type { ProAnalysisResult } from './cashflow'
 
-interface PdfData {
+export interface PdfData {
   person1Name: string
   person2Name?: string
   location?: { plz: string; ort: string; kanton: string }
@@ -10,205 +10,597 @@ interface PdfData {
   retirementAge2?: number
   analysis: ProAnalysisResult
   monthlyBudget: number
+  // Extended fields for professional report
+  riskProfile?: 'conservative' | 'balanced' | 'growth'
+  canton?: string
+  kirchensteuer?: boolean
+  wealthAtRetirement?: number
+  depletionAge?: number | null
+  pkCapital1?: number
+  pkRate1?: number
+  balance3a1?: number
+  fzBalance1?: number
+  hasProperty?: boolean
+  propertyValue?: number
+  scenarios?: {
+    optimistic: ProAnalysisResult
+    neutral: ProAnalysisResult
+    pessimistic: ProAnalysisResult
+  }
 }
+
+// ─── Colour palette ────────────────────────────────────────────────────────
+const NAVY  = [26, 43, 74]   as [number, number, number]
+const NAVY2 = [46, 72, 120]  as [number, number, number]
+const GREEN = [22, 163, 74]  as [number, number, number]
+const RED   = [220, 38, 38]  as [number, number, number]
+const AMBER = [217, 119, 6]  as [number, number, number]
+const WHITE = [255, 255, 255] as [number, number, number]
+const INK   = [15, 23, 42]   as [number, number, number]
+const INK5  = [100, 116, 139] as [number, number, number]
+const INK1  = [241, 245, 249] as [number, number, number]
+
+const W = 210
+const PAGE_H = 297
+const ML = 18  // margin left
+const MR = 18  // margin right
+const CW = W - ML - MR
 
 export async function exportPDF(data: PdfData): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = 210, pageH = 297
-  const margin = 20
-  const contentW = W - 2 * margin
-
-  const navy = [26, 43, 74] as [number, number, number]
-  const green = [34, 197, 94] as [number, number, number]
-  const red = [239, 68, 68] as [number, number, number]
-  const amber = [245, 158, 11] as [number, number, number]
-  const ink = [15, 23, 42] as [number, number, number]
-  const inkLight = [100, 116, 139] as [number, number, number]
 
   const { analysis } = data
-  const verdictColor = analysis.verdict === 'green' ? green : analysis.verdict === 'yellow' ? amber : red
+  const verdictColor = analysis.verdict === 'green' ? GREEN : analysis.verdict === 'yellow' ? AMBER : RED
+  const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
+  const surplus = analysis.surplus
+  const names = data.person2Name ? `${data.person1Name} & ${data.person2Name}` : data.person1Name
+  const dateStr = new Date().toLocaleDateString('de-CH')
+  const riskLabel = data.riskProfile === 'conservative' ? 'Konservativ' : data.riskProfile === 'growth' ? 'Wachstum' : 'Ausgewogen'
 
   let y = 0
 
-  function addPage() {
-    doc.addPage()
-    y = margin
-    // Header on every page
-    doc.setFillColor(...navy)
-    doc.rect(0, 0, W, 14, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(9)
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  function pageHeader(pageNum: number) {
+    doc.setFillColor(...NAVY)
+    doc.rect(0, 0, W, 12, 'F')
+    doc.setFillColor(...NAVY2)
+    doc.rect(0, 12, W, 2, 'F')
+    doc.setTextColor(...WHITE)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
-    doc.text('WealthWise · Vorsorgeanalyse', margin, 9)
+    doc.text('WealthWise', ML, 8)
     doc.setFont('helvetica', 'normal')
-    doc.text(new Date().toLocaleDateString('de-CH'), W - margin, 9, { align: 'right' })
-    y = 24
+    doc.text('Persönliche Vorsorgeanalyse', ML + 22, 8)
+    doc.setTextColor(160, 190, 220)
+    doc.text(names, W / 2, 8, { align: 'center' })
+    doc.text(`${dateStr} · Seite ${pageNum}`, W - MR, 8, { align: 'right' })
+    y = 22
   }
 
-  function checkPageBreak(needed: number) {
-    if (y + needed > pageH - margin) addPage()
+  function addPage(pageNum: number) {
+    doc.addPage()
+    pageHeader(pageNum)
   }
 
-  // ---- Cover ----
-  doc.setFillColor(...navy)
-  doc.rect(0, 0, W, pageH, 'F')
+  function section(title: string, subtitle?: string) {
+    doc.setFillColor(...NAVY)
+    doc.rect(ML, y, CW, 1, 'F')
+    y += 4
+    doc.setTextColor(...NAVY)
+    doc.setFontSize(15)
+    doc.setFont('helvetica', 'bold')
+    doc.text(title, ML, y)
+    y += 7
+    if (subtitle) {
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...INK5)
+      doc.text(subtitle, ML, y)
+      y += 6
+    }
+  }
 
+  function checkBreak(needed: number, pageNum: number) {
+    if (y + needed > PAGE_H - 18) addPage(pageNum)
+  }
+
+  function row2col(label: string, value: string, bold = false, highlight?: [number, number, number]) {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.setTextColor(...(highlight ?? INK))
+    doc.text(label, ML + 2, y)
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.text(value, W - MR, y, { align: 'right' })
+    y += 6
+    doc.setDrawColor(220, 230, 240)
+    doc.line(ML, y - 1, W - MR, y - 1)
+  }
+
+  function kpiBox(x: number, yy: number, w: number, h: number, label: string, value: string, sub: string, color: [number, number, number]) {
+    doc.setFillColor(color[0], color[1], color[2])
+    doc.setGState(new (doc as unknown as { GState: new (o: unknown) => unknown }).GState({ opacity: 0.12 }))
+    doc.roundedRect(x, yy, w, h, 4, 4, 'F')
+    doc.setGState(new (doc as unknown as { GState: new (o: unknown) => unknown }).GState({ opacity: 1 }))
+    doc.setDrawColor(...color)
+    doc.setLineWidth(0.7)
+    doc.roundedRect(x, yy, w, h, 4, 4, 'S')
+    doc.setLineWidth(0.2)
+    doc.setTextColor(...INK5)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text(label, x + w / 2, yy + 8, { align: 'center' })
+    doc.setTextColor(...color)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text(value, x + w / 2, yy + 18, { align: 'center' })
+    doc.setTextColor(...INK5)
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    const subLines = doc.splitTextToSize(sub, w - 4)
+    doc.text(subLines, x + w / 2, yy + 24, { align: 'center' })
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 1: DECKBLATT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  doc.setFillColor(...NAVY)
+  doc.rect(0, 0, W, PAGE_H, 'F')
+
+  // Decorative band
+  doc.setFillColor(...NAVY2)
+  doc.rect(0, 80, W, 2, 'F')
+  doc.rect(0, 185, W, 2, 'F')
+
+  // Logo area
+  doc.setFillColor(255, 255, 255)
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(28)
+  doc.setFontSize(32)
   doc.setFont('helvetica', 'bold')
-  doc.text('Vorsorgeanalyse', margin, 70)
-
-  doc.setFontSize(16)
+  doc.text('W', ML + 2, 55)
+  doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(200, 210, 230)
-  const names = data.person2Name ? `${data.person1Name} & ${data.person2Name}` : data.person1Name
-  doc.text(names, margin, 85)
+  doc.setTextColor(160, 200, 240)
+  doc.text('WealthWise', ML, 63)
+  doc.text('Digitale Vorsorgeplanung Schweiz', ML, 70)
+
+  // Title
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(26)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Persönliche', ML, 100)
+  doc.text('Vorsorgeanalyse', ML, 112)
+
+  // Name & location
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(180, 210, 240)
+  doc.text(names, ML, 128)
   if (data.location) {
-    doc.text(`${data.location.plz} ${data.location.ort}, Kanton ${data.location.kanton}`, margin, 95)
+    doc.setFontSize(11)
+    doc.setTextColor(130, 165, 200)
+    doc.text(`${data.location.ort}, Kanton ${data.location.kanton}`, ML, 136)
   }
 
   // Verdict box
   doc.setFillColor(...verdictColor)
-  doc.roundedRect(margin, 115, contentW, 40, 6, 6, 'F')
+  doc.roundedRect(ML, 150, CW, 32, 6, 6, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'bold')
-  const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
-  doc.text(verdictLabel, margin + 10, 133)
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Score: ${analysis.sustainabilityScore}/100`, margin + 10, 143)
-  doc.text(`Monatliche Renten: CHF ${fmtCHF(analysis.monthlyIncome.total)}`, margin + 80, 133)
-  doc.text(`Monatliches Budget: CHF ${fmtCHF(data.monthlyBudget)}`, margin + 80, 143)
-
-  doc.setTextColor(150, 170, 200)
-  doc.setFontSize(9)
-  doc.text('Erstellt mit WealthWise · wealthwise.ch', margin, pageH - 20)
-  doc.text(new Date().toLocaleDateString('de-CH'), W - margin, pageH - 20, { align: 'right' })
-  doc.setFontSize(8)
-  doc.text('Diese Analyse ersetzt keine professionelle Finanzberatung.', margin, pageH - 14)
-
-  // ---- Page 2: Income Overview ----
-  addPage()
-
-  doc.setTextColor(...navy)
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Einnahmen im Alter', margin, y)
-  y += 12
-
-  const rows = [
-    ['AHV – 1. Säule', `CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt.`, `CHF ${fmtCHF(analysis.ahv.combinedYearlyInkl13)}/Jahr (inkl. 13.)`],
-    ['Pensionskasse – 2. Säule', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`, `CHF ${fmtCHF(analysis.pk.combinedYearly)}/Jahr`],
-    ['Total Renten', `CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, `CHF ${fmtCHF(analysis.monthlyIncome.total * 12)}/Jahr`],
-    ['Monatliches Budget', `CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ''],
-    ['Monatliche Differenz', `CHF ${fmtCHF(analysis.surplus)}/Mt.`, analysis.surplus >= 0 ? 'Überschuss' : 'Lücke'],
-  ]
-
-  rows.forEach((row, i) => {
-    checkPageBreak(14)
-    const isTotal = i === 2
-    const isBudget = i === 3
-    const isGap = i === 4
-    if (isTotal || isBudget) {
-      doc.setFillColor(...(isTotal ? navy : [241, 245, 249] as [number, number, number]))
-      doc.rect(margin, y, contentW, 12, 'F')
-    }
-    doc.setTextColor(...(isTotal ? ([255, 255, 255] as [number, number, number]) : isGap && analysis.surplus < 0 ? red : ink))
-    doc.setFontSize(11)
-    doc.setFont('helvetica', isTotal ? 'bold' : 'normal')
-    doc.text(row[0], margin + 4, y + 8)
-    doc.text(row[1], W - margin - 60, y + 8)
-    doc.setFontSize(9)
-    doc.setTextColor(...inkLight)
-    if (row[2]) doc.text(row[2], W - margin - 4, y + 8, { align: 'right' })
-    y += 13
-  })
-
-  y += 10
-
-  // AHV detail
-  doc.setTextColor(...navy)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text('AHV-Details', margin, y)
-  y += 8
+  doc.text(verdictLabel, ML + 10, 163)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Score ${analysis.sustainabilityScore}/100`, ML + 10, 173)
+  doc.text(`Renten: CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, ML + 60, 163)
+  doc.text(`Budget: CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ML + 60, 173)
 
-  const ahvDetails = [
-    [data.person1Name || 'Person 1', `CHF ${fmtCHF(analysis.ahv.person1.monthlyRente)}/Mt.`,
-     `Durchschn.-Einkommen: CHF ${fmtCHF(analysis.ahv.person1.avgIncomeUsed)}`],
-    ...(analysis.ahv.person2 && data.person2Name ? [
-      [data.person2Name, `CHF ${fmtCHF(analysis.ahv.person2.monthlyRente)}/Mt.`, '']
-    ] : []),
-    ...(analysis.ahv.plafonReduction > 0 ? [
-      ['Ehepaar-Plafonierung', `− CHF ${fmtCHF(analysis.ahv.plafonReduction)}/Mt.`, 'Max. 150% der Maximalrente']
-    ] : []),
+  // Date
+  doc.setTextColor(130, 165, 200)
+  doc.setFontSize(9)
+  doc.text(`Erstellt am ${dateStr} auf Basis Ihrer Angaben`, ML, PAGE_H - 22)
+  doc.setFontSize(8)
+  doc.setTextColor(100, 140, 180)
+  doc.text('Diese Analyse ersetzt keine professionelle Finanz- oder Vorsorgeberatung.', ML, PAGE_H - 14)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 2: ZUSAMMENFASSUNG
+  // ═══════════════════════════════════════════════════════════════════════════
+  addPage(2)
+
+  section('Zusammenfassung', 'Ihre Vorsorgesituation auf einen Blick')
+
+  // 3 KPI boxes
+  const kpiW = (CW - 8) / 3
+  const kpiH = 32
+
+  const surplusColor = surplus >= 0 ? GREEN : Math.abs(surplus) <= 500 ? AMBER : RED
+  const surplusVal = `${surplus >= 0 ? '+' : ''}CHF ${fmtCHF(surplus)}/Mt.`
+  kpiBox(ML, y, kpiW, kpiH, 'Monatliche Situation', surplusVal, surplus >= 0 ? 'Überschuss nach Pensionierung' : 'Lücke pro Monat', surplusColor)
+
+  const depAge = data.depletionAge ?? (analysis.ageWhenBroke ?? 99)
+  const depColor = depAge >= 90 ? GREEN : depAge >= 85 ? AMBER : RED
+  kpiBox(ML + kpiW + 4, y, kpiW, kpiH, 'Vermögen reicht bis', depAge >= 99 ? 'Alter 95+' : `Alter ${depAge}`, 'Stat. Lebenserwartung ~85–87 J.', depColor)
+
+  const urgency = analysis.verdict === 'green' ? 'Tief' : analysis.verdict === 'yellow' ? 'Mittel' : 'Hoch'
+  kpiBox(ML + (kpiW + 4) * 2, y, kpiW, kpiH, 'Handlungsbedarf', urgency, analysis.verdict === 'green' ? 'Vorsorge solide aufgestellt' : 'Massnahmen empfohlen', verdictColor)
+
+  y += kpiH + 10
+
+  // Income vs budget table
+  section('Einnahmen & Ausgaben im Ruhestand')
+
+  const incomeRows = [
+    ['AHV (1. Säule)', `CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt.`, `inkl. 13. AHV: CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`],
+    ['Pensionskasse (2. Säule)', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`, ''],
+    ['Total Renteneinnahmen', `CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, `${data.monthlyBudget > 0 ? Math.round(analysis.monthlyIncome.total / data.monthlyBudget * 100) : 0}% des Bedarfs`],
+    ['Monatliches Budget', `CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ''],
   ]
 
-  ahvDetails.forEach((row) => {
-    checkPageBreak(10)
+  incomeRows.forEach((r, i) => {
+    checkBreak(10, 2)
+    const isTot = i === 2
+    if (isTot) {
+      doc.setFillColor(...NAVY)
+      doc.rect(ML, y - 4, CW, 10, 'F')
+      doc.setTextColor(...WHITE)
+    } else if (i % 2 === 0) {
+      doc.setFillColor(...INK1)
+      doc.rect(ML, y - 4, CW, 10, 'F')
+      doc.setTextColor(...INK)
+    } else {
+      doc.setTextColor(...INK)
+    }
     doc.setFontSize(10)
+    doc.setFont('helvetica', isTot ? 'bold' : 'normal')
+    doc.text(r[0], ML + 3, y)
+    doc.text(r[1], W - MR - 3, y, { align: 'right' })
+    if (r[2]) {
+      doc.setFontSize(8)
+      doc.setTextColor(...(isTot ? ([200, 220, 255] as [number, number, number]) : INK5))
+      doc.text(r[2], W - MR - 40, y)
+    }
+    y += 10
+  })
+
+  // Surplus/Gap row
+  checkBreak(14, 2)
+  y += 2
+  doc.setFillColor(...(surplus >= 0 ? ([236, 253, 245] as [number, number, number]) : ([254, 242, 242] as [number, number, number])))
+  doc.roundedRect(ML, y, CW, 12, 3, 3, 'F')
+  doc.setTextColor(...(surplus >= 0 ? GREEN : RED))
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text(surplus >= 0 ? 'Monatlicher Überschuss' : 'Monatliche Vorsorgelücke', ML + 4, y + 8)
+  doc.text(`${surplus >= 0 ? '+' : ''}CHF ${fmtCHF(surplus)}/Mt.`, W - MR - 4, y + 8, { align: 'right' })
+  y += 18
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 3: VERMÖGENSVERLAUF
+  // ═══════════════════════════════════════════════════════════════════════════
+  addPage(3)
+  section('Vermögensverlauf', `Entwicklung bis Alter 95 · Risikoprofil: ${riskLabel}`)
+
+  // Scenario table
+  const scenarioRates = data.riskProfile === 'conservative'
+    ? { opt: 1.5, base: 0.8, pess: 0 }
+    : data.riskProfile === 'growth'
+    ? { opt: 5.0, base: 2.5, pess: 0 }
+    : { opt: 3.5, base: 2.0, pess: 0 }
+
+  const scenariosDisplay = [
+    {
+      label: 'Optimistisch', color: GREEN,
+      income: data.scenarios?.optimistic.monthlyIncome.total ?? Math.round(analysis.monthlyIncome.total * 1.05),
+      ageWhenBroke: data.scenarios?.optimistic.ageWhenBroke ?? null,
+      rate: scenarioRates.opt, inflation: 1.0,
+    },
+    {
+      label: 'Neutral', color: NAVY,
+      income: data.scenarios?.neutral.monthlyIncome.total ?? analysis.monthlyIncome.total,
+      ageWhenBroke: data.scenarios?.neutral.ageWhenBroke ?? analysis.ageWhenBroke,
+      rate: scenarioRates.base, inflation: 1.5,
+    },
+    {
+      label: 'Pessimistisch', color: RED,
+      income: data.scenarios?.pessimistic.monthlyIncome.total ?? Math.round(analysis.monthlyIncome.total * 0.95),
+      ageWhenBroke: data.scenarios?.pessimistic.ageWhenBroke ?? null,
+      rate: scenarioRates.pess, inflation: 2.5,
+    },
+  ]
+
+  // Header
+  doc.setFillColor(...NAVY)
+  doc.rect(ML, y, CW, 9, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  const cols = [ML + 3, ML + 38, ML + 85, ML + 120, W - MR - 3]
+  const hdrs = ['Szenario', 'Rendite p.a.', 'Renten/Mt.', 'Differenz', 'Vermögen reicht bis']
+  hdrs.forEach((h, i) => doc.text(h, i === 4 ? cols[i] : cols[i], y + 6, { align: i === 4 ? 'right' : 'left' }))
+  y += 9
+
+  scenariosDisplay.forEach((sc, idx) => {
+    checkBreak(12, 3)
+    doc.setFillColor(idx % 2 === 0 ? INK1[0] : 255, idx % 2 === 0 ? INK1[1] : 255, idx % 2 === 0 ? INK1[2] : 255)
+    doc.rect(ML, y, CW, 11, 'F')
+    doc.setFillColor(...sc.color)
+    doc.rect(ML, y, 3, 11, 'F')
+    doc.setTextColor(...INK)
+    doc.setFontSize(9.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text(sc.label, cols[0] + 5, y + 7)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...ink)
-    doc.text(row[0], margin + 4, y + 6)
-    doc.text(row[1], W - margin - 60, y + 6)
-    doc.setFontSize(8)
-    doc.setTextColor(...inkLight)
-    if (row[2]) doc.text(row[2], W - margin - 4, y + 6, { align: 'right' })
-    doc.setDrawColor(220, 230, 240)
-    doc.line(margin, y + 10, W - margin, y + 10)
+    doc.text(`${sc.rate}% / ${sc.inflation}% Infl.`, cols[1], y + 7)
+    doc.text(`CHF ${fmtCHF(sc.income)}`, cols[2], y + 7)
+    const diff = sc.income - data.monthlyBudget
+    doc.setTextColor(...(diff >= 0 ? GREEN : RED))
+    doc.text(`${diff >= 0 ? '+' : ''}CHF ${fmtCHF(diff)}`, cols[3], y + 7)
+    doc.setTextColor(...INK)
+    const depLabel = sc.ageWhenBroke ? `Bis Alter ${sc.ageWhenBroke}` : 'Bis Alter 95+'
+    doc.text(depLabel, cols[4], y + 7, { align: 'right' })
     y += 11
   })
 
-  // ---- Page 3: Scenarios ----
-  addPage()
-  doc.setTextColor(...navy)
-  doc.setFontSize(18)
+  y += 8
+
+  // Wealth composition (if available)
+  if (data.wealthAtRetirement && data.wealthAtRetirement > 0) {
+    checkBreak(30, 3)
+    section('Vermögen bei Pensionierung')
+
+    const wealthRows = [
+      data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a', `CHF ${fmtCHF(data.balance3a1)}`] : null,
+      data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
+      data.pkCapital1 && data.pkCapital1 > 0 ? ['PK-Kapitalbezug', `CHF ${fmtCHF(data.pkCapital1)}`] : null,
+      ['Freies Vermögen', `CHF ${fmtCHF(Math.max(0, data.wealthAtRetirement - (data.balance3a1 ?? 0) - (data.fzBalance1 ?? 0) - (data.pkCapital1 ?? 0)))}`],
+      ['Total Vermögen', `CHF ${fmtCHF(data.wealthAtRetirement)}`],
+    ].filter(Boolean) as [string, string][]
+
+    wealthRows.forEach((r, i) => {
+      const isTotal = i === wealthRows.length - 1
+      if (isTotal) {
+        doc.setFillColor(...NAVY)
+        doc.rect(ML, y - 4, CW, 10, 'F')
+        doc.setTextColor(...WHITE)
+      } else {
+        doc.setTextColor(...INK)
+      }
+      doc.setFontSize(10)
+      doc.setFont('helvetica', isTotal ? 'bold' : 'normal')
+      doc.text(r[0], ML + 3, y)
+      doc.text(r[1], W - MR - 3, y, { align: 'right' })
+      y += 10
+    })
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 4: VORSORGEÜBERSICHT
+  // ═══════════════════════════════════════════════════════════════════════════
+  addPage(4)
+  section('Vorsorgeübersicht', 'Ihre drei Vorsorgesäulen im Detail')
+
+  // AHV
+  y += 2
+  doc.setFillColor(...NAVY2)
+  doc.roundedRect(ML, y, CW, 8, 2, 2, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text('Szenarien', margin, y)
+  doc.text('1. Säule – AHV', ML + 4, y + 5.5)
   y += 12
 
-  const scenarios = [
-    { label: 'Optimistisch', color: green, income: Math.round(analysis.monthlyIncome.total * 1.08) },
-    { label: 'Neutral', color: navy, income: analysis.monthlyIncome.total },
-    { label: 'Pessimistisch', color: red, income: Math.round(analysis.monthlyIncome.total * 0.9) },
+  const ahvRows = [
+    [`${data.person1Name || 'Person 1'} – AHV-Rente`, `CHF ${fmtCHF(analysis.ahv.person1?.monthlyRente ?? 0)}/Mt.`],
+    ...(analysis.ahv.person2 && data.person2Name ? [[`${data.person2Name} – AHV-Rente`, `CHF ${fmtCHF(analysis.ahv.person2?.monthlyRente ?? 0)}/Mt.`]] : []),
+    ...(analysis.ahv.plafonReduction > 0 ? [['Plafonierung (Ehepaar)', `−CHF ${fmtCHF(analysis.ahv.plafonReduction)}/Mt.`]] : []),
+    ['13. AHV-Rente (inkl.)', `+CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly / 12))}/Mt.`],
+    ['Gesamt AHV inkl. 13.', `CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`],
   ]
+  ahvRows.forEach(r => { checkBreak(8, 4); row2col(r[0], r[1], r[0].startsWith('Gesamt')) })
+  y += 6
 
-  scenarios.forEach((sc) => {
-    checkPageBreak(28)
-    doc.setFillColor(...sc.color)
-    doc.roundedRect(margin, y, contentW, 22, 4, 4, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(12)
+  // PK
+  checkBreak(40, 4)
+  doc.setFillColor(...NAVY2)
+  doc.roundedRect(ML, y, CW, 8, 2, 2, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('2. Säule – Pensionskasse', ML + 4, y + 5.5)
+  y += 12
+
+  const pkRows = [
+    [`${data.person1Name || 'P1'} – PK-Kapital`, data.pkCapital1 ? `CHF ${fmtCHF(data.pkCapital1)}` : '–'],
+    [`${data.person1Name || 'P1'} – PK-Rente`, `CHF ${fmtCHF(analysis.pk.person1?.monthlyRente ?? 0)}/Mt.`],
+    ...(data.pkRate1 ? [['Umwandlungssatz', `${data.pkRate1}%`]] : []),
+    ['Gesamt PK-Renten', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`],
+  ]
+  pkRows.forEach(r => { checkBreak(8, 4); row2col(r[0], r[1], r[0].startsWith('Gesamt')) })
+  y += 6
+
+  // 3a/FZ/Property
+  checkBreak(40, 4)
+  doc.setFillColor(...NAVY2)
+  doc.roundedRect(ML, y, CW, 8, 2, 2, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('3. Säule – Privates Vermögen', ML + 4, y + 5.5)
+  y += 12
+
+  const p3Rows = [
+    data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (Guthaben)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
+    data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
+    data.hasProperty ? ['Wohneigentum', `CHF ${fmtCHF(data.propertyValue ?? 0)} (Marktwert)`] : null,
+  ].filter(Boolean) as [string, string][]
+
+  if (p3Rows.length === 0) {
+    doc.setTextColor(...INK5)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Keine privaten Vorsorgewerte erfasst.', ML + 3, y)
+    y += 8
+  } else {
+    p3Rows.forEach(r => { checkBreak(8, 4); row2col(r[0], r[1]) })
+  }
+
+  y += 6
+  // Summary total
+  checkBreak(16, 4)
+  doc.setFillColor(...NAVY)
+  doc.roundedRect(ML, y, CW, 14, 3, 3, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Total monatliches Einkommen nach Pensionierung', ML + 4, y + 7)
+  doc.text(`CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, W - MR - 4, y + 7, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Pensionierungsalter: ${data.retirementAge1} Jahre`, ML + 4, y + 12)
+  y += 18
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 5: HANDLUNGSEMPFEHLUNGEN
+  // ═══════════════════════════════════════════════════════════════════════════
+  addPage(5)
+  section('Handlungsempfehlungen', `Priorisierte Massnahmen · Bewertung: ${verdictLabel}`)
+
+  const allRecs: Array<{ text: string; priority: 'hoch' | 'mittel' | 'niedrig'; detail: string }> = (
+    analysis.verdict === 'green' ? [
+      { text: 'Beziehen Sie Säule-3a-Gelder gestaffelt über mehrere Jahre.', priority: 'mittel', detail: `Bei gestaffeltem Bezug über ${data.balance3a1 ? 3 : 2} Jahre sparen Sie durch den Progressionsvorteil Steuern. Planen Sie die Bezüge 3–5 Jahre vor Pensionierung.` },
+      { text: 'Überprüfen Sie Ihre Anlagestrategie auf das Pensionierungsrisiko.', priority: 'mittel', detail: 'Reduktion der Aktienquote 5–10 Jahre vor Pensionierung auf max. 40–50% reduziert das Sequence-of-Returns-Risiko.' },
+      { text: 'Prüfen Sie einen PK-Einkauf zur steuerlichen Optimierung.', priority: 'niedrig', detail: 'PK-Einkäufe sind steuerlich abzugsfähig. Bei Grenzsteuersatz 25–30% spart ein Einkauf von CHF 50\'000 ca. CHF 12\'500–15\'000 Steuern.' },
+      { text: 'Überprüfen Sie Ihre Nachlassplanung.', priority: 'niedrig', detail: 'Testamentarische Verfügung, Begünstigungsklauseln in der PK und Lebensversicherung prüfen.' },
+    ] : analysis.verdict === 'yellow' ? [
+      { text: 'Schliessen Sie allfällige AHV-Beitragslücken.', priority: 'hoch', detail: 'Jede fehlende Beitragsjahr kürzt die AHV-Rente um ca. 2.3% – lebenslang. Kontaktieren Sie die SVA für eine Nachzahlung.' },
+      { text: 'Prüfen Sie Einkäufe in die Pensionskasse.', priority: 'hoch', detail: `Bei einem Grenzsteuersatz von ~25% spart ein PK-Einkauf von CHF 50\'000 ca. CHF 12\'500 Steuern und erhöht Ihre PK-Rente um ca. CHF ${fmtCHF(Math.round(50000 * 0.054 / 12))}/Mt.` },
+      { text: 'Maximieren Sie die 3a-Einzahlungen.', priority: 'mittel', detail: 'Maximum 2026: CHF 7\'258/Jahr (mit PK). Jeder Franken reduziert das steuerbare Einkommen direkt.' },
+      { text: 'Prüfen Sie eine schrittweise Pensionierung (Teilpensionierung).', priority: 'mittel', detail: 'Pensionierung in zwei Schritten (z.B. 80% ab 63, 100% ab 65) reduziert den Einkommensverlust und die Steuerbelastung.' },
+      { text: 'Analysieren Sie Ihre Ausgaben auf Sparpotenzial.', priority: 'niedrig', detail: 'Berufsbedingte Kosten entfallen nach Pensionierung. Ihr effektiver Bedarf könnte tiefer liegen als geplant.' },
+    ] : [
+      { text: 'Dringend: PK-Einkauf prüfen', priority: 'hoch', detail: 'Der PK-Einkauf ist die wirksamste Massnahme. Kontaktieren Sie Ihre Pensionskasse für einen individuellen Einkaufsplan. Auch kurzfristige Einkäufe bis 3 Jahre vor Pensionierung sind möglich.' },
+      { text: 'AHV-Aufschub prüfen', priority: 'hoch', detail: 'Aufschub um 1 Jahr erhöht die AHV-Rente um 5.2% – lebenslang. Bis 70 möglich (max. +31.3%). Bei gutem Gesundheitszustand sehr attraktiv.' },
+      { text: 'Ausgaben reduzieren oder Rentenbeginn verschieben', priority: 'hoch', detail: `Jedes zusätzliche Erwerbsjahr erhöht AHV, PK und reduziert den Vermögensverzehr. Eine Pensionierung mit ${data.retirementAge1 + 2} statt ${data.retirementAge1} Jahren verbessert die Situation erheblich.` },
+      { text: 'Professionelle Vorsorgeberatung', priority: 'hoch', detail: 'Bei einer kritischen Vorsorgelücke ist eine individuelle CFP-Beratung (Certified Financial Planner) dringend empfohlen. fpvs.ch vermittelt zertifizierte Berater.' },
+      { text: 'Partielle Kapitalauszahlung aus PK prüfen', priority: 'mittel', detail: 'Falls PK-Kapital vorhanden: Eine Kombination aus Rente + Kapital kann die Flexibilität erhöhen und die Lücke überbrücken.' },
+    ]
+  )
+
+  allRecs.slice(0, 5).forEach((rec, i) => {
+    checkBreak(32, 5)
+    const pColor = rec.priority === 'hoch' ? RED : rec.priority === 'mittel' ? AMBER : GREEN
+    const pLabel = rec.priority === 'hoch' ? 'Dringend' : rec.priority === 'mittel' ? 'Empfohlen' : 'Optional'
+
+    doc.setFillColor(250, 250, 252)
+    doc.roundedRect(ML, y, CW, 28, 3, 3, 'F')
+    doc.setFillColor(...pColor)
+    doc.roundedRect(ML, y, 3, 28, 1, 1, 'F')
+
+    // Priority badge
+    doc.setFillColor(...pColor)
+    doc.setTextColor(...WHITE)
+    doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
-    doc.text(sc.label, margin + 8, y + 10)
-    doc.setFont('helvetica', 'normal')
+    const pBadgeW = pLabel.length * 1.8 + 6
+    doc.roundedRect(ML + 6, y + 4, pBadgeW, 6, 2, 2, 'F')
+    doc.text(pLabel, ML + 6 + pBadgeW / 2, y + 8.5, { align: 'center' })
+
+    doc.setTextColor(...INK)
     doc.setFontSize(10)
-    doc.text(`Monatliche Renten: CHF ${fmtCHF(sc.income)}/Mt.`, margin + 8, y + 18)
-    const diff = sc.income - data.monthlyBudget
-    doc.text(`Differenz: ${diff >= 0 ? '+' : ''}CHF ${fmtCHF(diff)}/Mt.`, W - margin - 8, y + 18, { align: 'right' })
-    y += 26
+    doc.setFont('helvetica', 'bold')
+    doc.text(`${i + 1}. ${rec.text}`, ML + 6, y + 16)
+
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...INK5)
+    const detailLines = doc.splitTextToSize(rec.detail, CW - 10)
+    doc.text(detailLines.slice(0, 2), ML + 6, y + 22)
+
+    y += 32
   })
 
-  y += 8
-  doc.setTextColor(...ink)
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Annahmen Neutral-Szenario: Inflation 1.5% p.a., Anlagerendite 2.5% p.a.', margin, y)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEITE 6: ANNAHMEN & DISCLAIMER
+  // ═══════════════════════════════════════════════════════════════════════════
+  addPage(6)
+  section('Annahmen & Grundlagen', 'Verwendete Parameter für diese Analyse')
+
+  const assumptions = [
+    ['AHV-Daten', 'AHV-Rentenskala 44, Stand 2026 (BSV)'],
+    ['BVG / PK', `Umwandlungssatz: ${data.pkRate1 ?? 5.4}%, BVG-Kennzahlen 2026`],
+    ['Risikoprofil', riskLabel],
+    ['Inflation (Neutral)', '1.5% p.a.'],
+    ['Anlagerendite (Neutral)', data.riskProfile === 'conservative' ? '0.8% p.a.' : data.riskProfile === 'growth' ? '2.5% p.a.' : '2.0% p.a.'],
+    ['Planungshorizont', 'Bis Alter 95'],
+    ['Steuerkanton', data.location?.kanton ?? '–'],
+    ['Kirchensteuer', data.kirchensteuer ? 'Ja' : 'Nein'],
+    ['Steuergrundlagen', 'DBG 2026, kantonale Richtwerte (ESTV)'],
+    ['Lebenserw. Planung', 'Mann: 85 Jahre, Frau: 87 Jahre (BFS)'],
+    ['Kapitalbezug PK', 'Sätzchen-Methode (Steuerverwaltung)'],
+    ['3a-Maximum 2026', 'CHF 7\'258 (mit PK) / CHF 36\'288 (ohne PK)'],
+  ]
+
+  // Two-column table
+  const aColW = (CW - 6) / 2
+  assumptions.forEach((a, i) => {
+    checkBreak(9, 6)
+    const xOffset = (i % 2) * (aColW + 6) + ML
+    if (i % 2 === 0) {
+      if (Math.floor(i / 2) % 2 === 0) {
+        doc.setFillColor(...INK1)
+        doc.rect(ML, y - 4, CW, 9, 'F')
+      }
+    }
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...NAVY)
+    doc.text(a[0], xOffset + 2, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...INK)
+    doc.text(a[1], xOffset + 2 + aColW * 0.4, y)
+    if (i % 2 === 1) y += 9
+  })
+  if (assumptions.length % 2 === 1) y += 9
   y += 6
-  doc.text('Optimistisch: Inflation 1.0%, Rendite 4.5% · Pessimistisch: Inflation 2.5%, Rendite 1.0%', margin, y)
 
-  // ---- Disclaimer ----
-  y = pageH - 60
-  doc.setFillColor(241, 245, 249)
-  doc.rect(margin, y, contentW, 40, 'F')
-  doc.setTextColor(...inkLight)
-  doc.setFontSize(8)
-  doc.text('WICHTIGER HINWEIS', margin + 4, y + 8)
+  // Important notice
+  checkBreak(50, 6)
+  doc.setFillColor(248, 248, 252)
+  doc.roundedRect(ML, y, CW, 48, 4, 4, 'F')
+  doc.setDrawColor(...NAVY)
+  doc.setLineWidth(0.8)
+  doc.roundedRect(ML, y, CW, 48, 4, 4, 'S')
+  doc.setLineWidth(0.2)
+
+  doc.setTextColor(...NAVY)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Wichtiger Hinweis', ML + 6, y + 9)
+
+  doc.setTextColor(...INK)
+  doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
-  const disclaimer = 'Diese Analyse wurde von WealthWise auf Basis Ihrer Angaben erstellt und dient ausschliesslich der Orientierung. Sie ersetzt keine professionelle Finanz- oder Vorsorgeberatung. Die Berechnungen basieren auf den gesetzlichen Grundlagen 2026 und können sich durch Gesetzesänderungen verändern. Für verbindliche Auskünfte wenden Sie sich bitte an eine anerkannte Vorsorge- oder Steuerberatung.'
-  const lines = doc.splitTextToSize(disclaimer, contentW - 8)
-  doc.text(lines, margin + 4, y + 16)
+  const disclaimer = 'Diese Analyse wurde von WealthWise auf Basis Ihrer persönlichen Angaben erstellt und dient ausschliesslich der Orientierung. Sie ersetzt keine professionelle Finanz- oder Vorsorgeberatung durch eine qualifizierte Fachperson (CFP, Vorsorgeberater).\n\nAlle Berechnungen sind Richtwerte, die auf vereinfachten Annahmen basieren. Änderungen der gesetzlichen Grundlagen, Ihrer persönlichen Situation oder der Kapitalmarktentwicklung können die Ergebnisse wesentlich beeinflussen.\n\nFür verbindliche Auskünfte wenden Sie sich an Ihre Pensionskasse, die zuständige Ausgleichskasse oder einen zertifizierten Finanzplaner.'
+  const dLines = doc.splitTextToSize(disclaimer, CW - 12)
+  doc.text(dLines, ML + 6, y + 17)
 
-  doc.save(`WealthWise-Analyse-${(data.person1Name || 'Analyse').replace(/\s/g, '-')}.pdf`)
+  y += 56
+
+  // Footer with branding
+  doc.setFillColor(...NAVY)
+  doc.rect(ML, y, CW, 14, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('WealthWise', ML + 4, y + 6)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Digitale Vorsorgeplanung Schweiz · wealthwise.ch', ML + 4, y + 11)
+  doc.setTextColor(160, 190, 220)
+  doc.text(dateStr, W - MR - 4, y + 6, { align: 'right' })
+  doc.text(`Analyse für: ${names}`, W - MR - 4, y + 11, { align: 'right' })
+
+  // Save
+  doc.save(`WealthWise-Analyse-${(data.person1Name || 'Analyse').replace(/\s+/g, '-')}.pdf`)
 }

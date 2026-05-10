@@ -816,7 +816,20 @@ export default function Screen3() {
               <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
                 CHF {fmtCHF(baseTotal * 12)}/Jahr
               </div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 4 }}>
+                ⌀ CH-Vergleich (BFS 2022): {isPaar ? 'Rentnerpaare CHF 10\'300/Mt.' : 'Einzelhaushalte CHF 5\'200/Mt.'}
+              </div>
             </div>
+            {totalIncome > 0 && baseTotal > totalIncome / 12 * 1.2 && (
+              <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+                ⚠ Das geplante Budget liegt über 120% Ihres aktuellen Nettoeinkommens. Bitte überprüfen Sie Ihre Eingabe.
+              </div>
+            )}
+            {baseTotal > 0 && baseTotal < 3000 && (
+              <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                ℹ Sehr tiefes Budget unter CHF 3'000/Mt. – allein die Krankenkassenprämien und Grundausgaben in der Schweiz übersteigen oft diesen Betrag.
+              </div>
+            )}
           </section>
         )}
 
@@ -1033,6 +1046,16 @@ export default function Screen3() {
                   <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 4 }}>
                     ℹ Ihre monatliche KK-Prämie (Grundversicherung + allfällige Zusatzversicherungen). Finden Sie auf Ihrer letzten Prämienrechnung.
                   </div>
+                  {val > 0 && val < 200 && (
+                    <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
+                      ⚠ KK-Prämie unter CHF 200/Mt. scheint sehr tief – Schweizer Mindestprämie liegt bei ca. CHF 300/Mt. Bitte prüfen.
+                    </div>
+                  )}
+                  {val > 1200 && (
+                    <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
+                      ⚠ KK-Prämie über CHF 1'200/Mt. – dies könnte eine Kombination aus Grund- und Zusatzversicherungen sein. Falls nur Grundversicherung: bitte prüfen.
+                    </div>
+                  )}
                 </div>
               )
             })}

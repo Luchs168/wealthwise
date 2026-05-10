@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
 const FAQS = [
@@ -32,6 +32,24 @@ export default function Landing() {
   const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [checked, setChecked] = useState<Set<number>>(new Set())
+  const [hasResume, setHasResume] = useState(false)
+  const [resumeDismissed, setResumeDismissed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('wealthwise.v1')
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const ts = parsed?.state?._persistedAt ?? parsed?._persistedAt
+      if (ts) {
+        const age = Date.now() - ts
+        if (age < 30 * 24 * 60 * 60 * 1000) setHasResume(true)
+      } else if (parsed?.state?.persons) {
+        setHasResume(true)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   const toggleCheck = (i: number) => setChecked(prev => {
     const next = new Set(prev)
     if (next.has(i)) next.delete(i); else next.add(i)
@@ -57,6 +75,40 @@ export default function Landing() {
           </div>
         </div>
       </nav>
+
+      {/* Resume banner */}
+      {hasResume && !resumeDismissed && (
+        <div style={{
+          background: 'var(--navy-800)', color: '#fff',
+          padding: '10px 20px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+            <span style={{ fontSize: 16 }}>💾</span>
+            <span><strong>Gespeicherte Analyse gefunden</strong> – Sie können dort weitermachen, wo Sie aufgehört haben.</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => navigate('/schritt/1')}
+              style={{
+                background: '#fff', color: 'var(--navy-900)', border: 'none',
+                borderRadius: 8, padding: '6px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 13,
+              }}
+            >
+              Weiterfahren →
+            </button>
+            <button
+              onClick={() => setResumeDismissed(true)}
+              style={{
+                background: 'transparent', color: 'rgba(255,255,255,.6)', border: '1px solid rgba(255,255,255,.2)',
+                borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* HERO */}
       <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-200)' }}>

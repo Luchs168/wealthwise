@@ -526,6 +526,18 @@ export default function Screen4() {
       retirementAge1: ra1,
       analysis,
       monthlyBudget,
+      riskProfile: riskProfile || 'ausgewogen',
+      canton,
+      kirchensteuer,
+      wealthAtRetirement: wdInitialWealth,
+      depletionAge: wdRealistDepletionAge ?? undefined,
+      pkCapital1: p1.hasPK && p1.pkBezugsart !== 'rente' ? p1.pkCapital : undefined,
+      pkRate1: p1.pkRate,
+      balance3a1: p1.has3a ? p1.balance3a : undefined,
+      fzBalance1: p1.fzBalance,
+      hasProperty: property.has,
+      propertyValue: property.has ? property.value : undefined,
+      scenarios,
     })
   }
 

@@ -554,6 +554,9 @@ export default function Screen2() {
               </div>
             </div>
           </div>
+          <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-500)', padding: '6px 10px', background: 'var(--navy-50)', borderRadius: 6 }}>
+            ⌀ CH-Vergleich (BSV 2024): Männer CHF 1'900/Mt. · Frauen CHF 1'750/Mt. · Ehepaar max. CHF 3'555/Mt. (inkl. 13.)
+          </div>
 
           <button
             className="link-toggle"
@@ -1048,14 +1051,34 @@ export default function Screen2() {
                 </div>
 
                 {/* Validierungshinweise */}
-                {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital < 100000 && proj.currentAge > 50 && (
+                {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital < 50000 && proj.currentAge > 50 && (
+                  <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                    ⚠ Das Guthaben liegt unter CHF 50'000 für Alter {proj.currentAge}. Bitte überprüfen Sie Ihre Eingabe – typisch für Ihr Alter: CHF 200'000–450'000.
+                  </div>
+                )}
+                {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital >= 50000 && cur.pkCurrentCapital < 100000 && proj.currentAge > 50 && (
                   <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
                     ℹ Das Guthaben liegt unter CHF 100'000 für Alter {proj.currentAge}. Mögliche Gründe: Teilzeitarbeit, späte Einwanderung, Scheidung oder ein früherer Kapitalbezug.
+                  </div>
+                )}
+                {cur.pkCurrentCapital > 2_000_000 && (
+                  <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                    ⚠ PK-Guthaben über CHF 2 Mio. – bitte Eingabe prüfen. Ab CHF 1.08 Mio. (2026) kann eine überobligatorische Lösung mit tieferem UWS gelten.
+                  </div>
+                )}
+                {cur.pkRate < 4 && cur.pkRate > 0 && (
+                  <div style={{ marginTop: 10, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+                    ⚠ Ein Umwandlungssatz unter 4.0% ist sehr ungewöhnlich. Schweizer Durchschnitt: ca. 5.0–5.8%. Bitte prüfen Sie Ihre Angabe.
                   </div>
                 )}
                 {cur.pkRate > 6.8 && (
                   <div style={{ marginTop: 10, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
                     ⚠ Ein Umwandlungssatz über 6.8% liegt über dem BVG-Minimum. Bitte prüfen Sie Ihre Angabe.
+                  </div>
+                )}
+                {cur.pkCurrentCapital > 0 && (
+                  <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)' }}>
+                    ⌀ CH-Vergleich (BFS 2022, Alter 55–64): Frauen CHF 360'000 · Männer CHF 500'000 Altersguthaben
                   </div>
                 )}
               </>
@@ -1142,6 +1165,11 @@ export default function Screen2() {
                 </div>
               </div>
 
+              {cur.balance3a > 250_000 && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+                  ⚠ 3a-Guthaben über CHF 250'000 – bitte Angabe prüfen. Ab CHF 7'258/Jahr (2026) dauert es über 30 Jahre, um diesen Betrag anzusparen.
+                </div>
+              )}
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
                 <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug über mehrere Jahre staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>

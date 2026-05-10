@@ -1329,4 +1329,30 @@ select.input { cursor: pointer; }
   .footer-meta { order: -1; width: 100%; }
   .person-card { padding: 18px 16px; }
   .block { padding: 22px 18px; }
+
+  /* Touch targets ≥ 44px */
+  button, .btn, .btn-primary, .btn-ghost, .tab, .option-card,
+  .child-radio, .link-toggle, select, input[type="range"] {
+    min-height: 44px;
+  }
+  input[type="text"], input[type="number"], input[type="date"], select {
+    min-height: 44px; font-size: 16px;
+  }
+  .pct-radio { min-height: 60px; }
+  .segmented button { min-height: 44px; }
+
+  /* Tables: horizontal scroll */
+  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Font size ≥ 16px for all inputs (prevents iOS zoom) */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Range slider touch-friendly */
+  input[type="range"] { height: 44px; cursor: pointer; }
+
+  /* Prevent horizontal overflow */
+  .app { overflow-x: hidden; }
+
+  /* Stack KPI cards */
+  .kpi-row { flex-direction: column; }
 }
