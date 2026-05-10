@@ -57,6 +57,33 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ============ ACCESSIBILITY: GLOBAL FOCUS RING ============ */
+/* Keyboard-only focus indicator (WCAG 2.4.7 Level AA) */
+:focus-visible {
+  outline: 3px solid var(--navy-700);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Inputs: box-shadow statt outline für bessere Optik */
+.input:focus-visible,
+.amount-wrap input:focus-visible,
+.amount-input:focus-visible,
+.cat-amount:focus-visible,
+.date-input:focus-visible,
+.select:focus-visible,
+.loc-input:focus-visible,
+.child-year:focus-visible,
+.ww-chat-input input:focus-visible {
+  outline: none;
+  border-color: var(--navy-800);
+  box-shadow: 0 0 0 3px rgba(26, 43, 74, 0.25);
+}
+/* Range slider: kein visueller outline nötig (thumb hat eigenen Stil) */
+.range:focus-visible { outline: none; }
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(26, 43, 74, 0.3);
+}
+
 /* ============ LANDING NAV ============ */
 .nav {
   position: sticky; top: 0; z-index: 20;
@@ -581,6 +608,7 @@ h1.title { font-family: var(--font-display); font-weight: 600; font-size: 40px; 
   width: 100%;
 }
 .input:focus { outline: none; border-color: var(--navy-800); }
+.input:focus-visible { border-color: var(--navy-800); }
 .input::placeholder { color: var(--ink-400); }
 select.input { cursor: pointer; }
 
@@ -607,7 +635,7 @@ select.input { cursor: pointer; }
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 6px;
   border-radius: 3px; background: var(--ink-200);
-  outline: none; cursor: pointer;
+  cursor: pointer;
 }
 .range::-webkit-slider-thumb {
   -webkit-appearance: none; width: 22px; height: 22px;
@@ -749,7 +777,7 @@ select.input { cursor: pointer; }
   font-family: var(--font-mono); font-size: 14px; color: var(--ink-900);
   transition: border-color .15s;
 }
-.cat-amount:focus { outline: none; border-color: var(--navy-800); }
+.cat-amount:focus { border-color: var(--navy-800); }
 
 /* Variant toggle */
 .variant-toggle {
@@ -1081,7 +1109,7 @@ select.input { cursor: pointer; }
   border: 1.5px solid var(--ink-200); font: inherit; font-size: 14px;
   transition: border-color .15s; background: var(--bg);
 }
-.ww-chat-input input:focus { outline: none; border-color: var(--navy-800); }
+.ww-chat-input input:focus { border-color: var(--navy-800); }
 .ww-chat-input button {
   padding: 9px 14px; background: var(--navy-800); color: #fff;
   border: none; border-radius: 8px; cursor: pointer; display: grid; place-items: center;
@@ -1155,11 +1183,11 @@ select.input { cursor: pointer; }
 
 /* Date input */
 .date-input { font: inherit; font-family: var(--font-body); font-size: 17px; padding: 14px 16px; border: 1px solid var(--ink-300); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink-900); width: 100%; transition: border-color .15s; }
-.date-input:focus { outline: none; border-color: var(--navy-800); box-shadow: 0 0 0 3px rgba(26,43,74,.15); }
+.date-input:focus { border-color: var(--navy-800); box-shadow: 0 0 0 3px rgba(26,43,74,.15); }
 
 /* Select */
 .select { font: inherit; font-family: var(--font-body); font-size: 17px; padding: 14px 44px 14px 16px; border: 1px solid var(--ink-300); border-radius: var(--radius-sm); background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 14px center; color: var(--ink-900); width: 100%; appearance: none; -webkit-appearance: none; transition: border-color .15s; cursor: pointer; }
-.select:focus { outline: none; border-color: var(--navy-800); }
+.select:focus { border-color: var(--navy-800); }
 
 /* Segmented toggle */
 .segmented { display: inline-flex; padding: 4px; background: var(--ink-100); border: 1px solid var(--ink-200); border-radius: 10px; }
@@ -1208,7 +1236,7 @@ select.input { cursor: pointer; }
 
 /* Location field (original design) */
 .loc-input { width: 100%; padding: 14px 16px; border: 1px solid var(--ink-200); border-radius: var(--radius-md); background: var(--surface); font: inherit; font-family: var(--font-body); font-size: 17px; color: var(--ink-900); transition: border-color .15s; }
-.loc-input:focus { outline: none; border-color: var(--navy-800); box-shadow: 0 0 0 4px rgba(26,43,74,.08); }
+.loc-input:focus { border-color: var(--navy-800); box-shadow: 0 0 0 4px rgba(26,43,74,.08); }
 .loc-suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--ink-200); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(15,23,42,.08); z-index: 50; overflow: hidden; }
 .loc-suggest-item { padding: 12px 16px; font-size: 16px; color: var(--ink-900); cursor: pointer; display: flex; gap: 8px; align-items: baseline; border-bottom: 1px solid var(--ink-100); }
 .loc-suggest-item:last-child { border-bottom: 0; }
@@ -1230,7 +1258,7 @@ select.input { cursor: pointer; }
 .child-row { display: flex; gap: 12px; align-items: center; padding: 12px 14px; background: var(--ink-50); border-radius: var(--radius-md); }
 .child-row label { font-size: 14px; color: var(--ink-500); min-width: 120px; }
 .child-year { width: 110px; padding: 8px 12px; border: 1px solid var(--ink-200); border-radius: 8px; background: var(--surface); font: inherit; font-family: var(--font-mono); font-size: 16px; }
-.child-year:focus { outline: none; border-color: var(--navy-800); }
+.child-year:focus { border-color: var(--navy-800); }
 .child-remove { margin-left: auto; background: transparent; border: 0; color: var(--ink-500); cursor: pointer; font-size: 13px; padding: 6px 8px; text-decoration: underline; }
 .child-add { align-self: flex-start; margin-top: 8px; background: transparent; border: 1px dashed var(--ink-300); border-radius: var(--radius-md); padding: 10px 16px; cursor: pointer; font: inherit; color: var(--ink-700); font-size: 14px; display: inline-flex; gap: 6px; align-items: center; transition: all .15s; }
 .child-add:hover { border-color: var(--navy-800); color: var(--navy-800); }
@@ -1242,10 +1270,10 @@ select.input { cursor: pointer; }
 /* Amount field (Screen 2 style — CHF prefix/suffix with padding) */
 .amount-wrap { position: relative; }
 .amount-wrap input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--ink-200); border-radius: var(--radius-sm); background: var(--surface); font: inherit; font-size: 15px; color: var(--ink-900); transition: border-color .15s; }
-.amount-wrap input:focus { outline: none; border-color: var(--navy-800); }
+.amount-wrap input:focus { border-color: var(--navy-800); }
 .amount-prefix { font-family: var(--font-mono); font-size: 15px; color: var(--ink-500); padding: 14px 14px 14px 16px; border: 1px solid var(--ink-300); border-right: none; border-radius: var(--radius-sm) 0 0 var(--radius-sm); background: var(--ink-100); white-space: nowrap; }
 .amount-input { font: inherit; font-family: var(--font-body); font-size: 17px; padding: 14px 16px; border: 1px solid var(--ink-300); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--surface); color: var(--ink-900); width: 100%; transition: border-color .15s; }
-.amount-input:focus { outline: none; border-color: var(--navy-800); }
+.amount-input:focus { border-color: var(--navy-800); }
 .amount-suffix { padding: 14px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-500); }
 
 /* Switch (Screen2 variant) */
