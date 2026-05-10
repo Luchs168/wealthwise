@@ -621,6 +621,80 @@ export default function Screen2() {
                 {' '}→ Bestellen Sie Ihren IK-Auszug kostenlos unter{' '}
                 <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
               </p>
+
+              {/* KZG – Kinderziehungsgutschriften */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>
+                  Erziehungsgutschriften (KZG)
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10, lineHeight: 1.5 }}>
+                  Erziehungsgutschriften werden für Jahre mit Kindern unter 16 angerechnet und erhöhen Ihr massgebendes Durchschnittseinkommen – damit auch Ihre AHV-Rente.
+                  {civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
+                    ? ' Bei Ehepaaren werden die Gutschriften hälftig aufgeteilt.'
+                    : ''}
+                </div>
+                {[
+                  { id: 1 as const, name: person1.name || 'Person 1' },
+                  ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2' }] : []),
+                ].map(({ id, name }) => {
+                  const cur2 = persons.find(p => p.id === id)!
+                  return (
+                    <div key={id} style={{ marginBottom: 12 }}>
+                      {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 6 }}>{name}</div>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={cur2.hasKZG ?? false}
+                          onChange={e => updatePerson(id, { hasKZG: e.target.checked })}
+                          style={{ width: 16, height: 16, accentColor: 'var(--navy-700)', flexShrink: 0 }}
+                        />
+                        <span style={{ fontSize: 13, color: 'var(--ink-700)' }}>Ich habe Kinder erzogen (unter 16 Jahren)</span>
+                      </div>
+                      {cur2.hasKZG && (
+                        <div className="form-grid" style={{ marginLeft: 26 }}>
+                          <div className="field">
+                            <label>Anzahl Kinder</label>
+                            <select
+                              className="input"
+                              value={cur2.kzgChildren ?? 0}
+                              onChange={e => updatePerson(id, { kzgChildren: parseInt(e.target.value) })}
+                              style={{ appearance: 'auto' }}
+                            >
+                              {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Kind' : 'Kinder'}</option>)}
+                            </select>
+                          </div>
+                          <div className="field">
+                            <label>Jahre mit Kindern unter 16</label>
+                            <select
+                              className="input"
+                              value={cur2.kzgYears ?? 0}
+                              onChange={e => updatePerson(id, { kzgYears: parseInt(e.target.value) })}
+                              style={{ appearance: 'auto' }}
+                            >
+                              {Array.from({ length: 32 }, (_, i) => i + 1).map(y => (
+                                <option key={y} value={y}>{y} {y === 1 ? 'Jahr' : 'Jahre'}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                      {cur2.hasKZG && cur2.kzgChildren > 0 && cur2.kzgYears > 0 && (() => {
+                        const KZG_YEARLY = 44100
+                        const totalYears = Math.min(cur2.kzgYears, 16 * cur2.kzgChildren)
+                        const isMarried2 = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
+                        const kzgPerPerson = KZG_YEARLY * totalYears * (isMarried2 ? 0.5 : 1)
+                        const effectiveYears = Math.max(1, (cur2.ahvContributionYears || 44) - (cur2.ahvContributionGaps || 0))
+                        const boost = Math.round(kzgPerPerson / effectiveYears)
+                        return (
+                          <div style={{ marginLeft: 26, marginTop: 6, fontSize: 12, color: '#166534', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7 }}>
+                            KZG-Einkommenserhöhung: +CHF {boost.toLocaleString('de-CH')}/Jahr (Ø-Einkommen für AHV-Berechnung)
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
@@ -1031,7 +1105,7 @@ export default function Screen2() {
             <>
               <div className="form-grid">
                 <CHFField
-                  label="Aktuelles 3a-Guthaben"
+                  label="Aktuelles 3a-Guthaben (Total)"
                   value={cur.balance3a}
                   onChange={(v) => updatePerson(activeTab, { balance3a: v })}
                 />
@@ -1041,6 +1115,21 @@ export default function Screen2() {
                   onChange={(v) => updatePerson(activeTab, { yearly3a: v })}
                   max={cur.hasPK ? CONSTANTS.PK_3A_MAX_WITH_PK : CONSTANTS.PK_3A_MAX_WITHOUT_PK}
                 />
+              </div>
+
+              <div className="form-grid" style={{ marginTop: 10 }}>
+                <div className="field-wrap">
+                  <label className="field-label">Anzahl 3a-Konten</label>
+                  <select
+                    className="select-field"
+                    value={cur.num3aAccounts || 1}
+                    onChange={(e) => updatePerson(activeTab, { num3aAccounts: Number(e.target.value) })}
+                  >
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <option key={n} value={n}>{n} {n === 1 ? 'Konto' : 'Konten'}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="proj-card" style={{ marginTop: 14 }}>
@@ -1055,7 +1144,7 @@ export default function Screen2() {
 
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
-                <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>
+                <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug über mehrere Jahre staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>
               </div>
             </>
           )}

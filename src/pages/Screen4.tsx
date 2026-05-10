@@ -40,6 +40,7 @@ import { WEALTH_CONSTANTS } from '../constants/wealthConstants'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
 import { exportPDF } from '../lib/pdf'
+import { calculateOptimalWithdrawal } from '../utils/withdrawalPlanCalculation'
 
 function ScoreRing({ score, verdict }: { score: number; verdict: string }) {
   const r = 54
@@ -140,21 +141,22 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer, lifeEvents } = state
+  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer, lifeEvents, riskProfile } = state
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
 
   const { p1, p2, civilStatus } = useMemo(() => getPersonsForCalc(state), [state])
 
   const monthlyBudget = useMemo(() => {
-    if (expenses.simpleTotal > 0) return expenses.simpleTotal
+    const kkTotal = (expenses.kkPremium1 || 0) + (hasPartner ? (expenses.kkPremium2 || 0) : 0)
+    if (expenses.simpleTotal > 0) return expenses.simpleTotal + kkTotal
     if (expenses.mode === 'detailed') {
       const CATS = ['wohnen', 'gesundheit', 'nahrung', 'mobilitaet', 'freizeit', 'bekleidung', 'kommunikation', 'uebrige']
       const DEFAULTS: Record<string, number> = { wohnen: 1476, gesundheit: 615, nahrung: 1080, mobilitaet: 650, freizeit: 580, bekleidung: 180, kommunikation: 200, uebrige: 600 }
-      return CATS.reduce((s, id) => s + (expenses.detailed[id] ?? DEFAULTS[id]), 0)
+      return CATS.reduce((s, id) => s + (expenses.detailed[id] ?? DEFAULTS[id]), 0) + kkTotal
     }
-    return 4000
-  }, [expenses])
+    return 4000 + kkTotal
+  }, [expenses, hasPartner])
 
   // canton declared early — used in both inputData and tax section
   const canton = location?.kanton ?? 'ZH'
@@ -169,7 +171,8 @@ export default function Screen4() {
     monthlyExpenses: monthlyBudget,
     hasProperty: property.has,
     monthlyMortgageCost: property.has ? property.mortgage : 0,
-  }), [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, monthlyBudget, property])
+    riskProfile,
+  }), [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, monthlyBudget, property, riskProfile])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])
@@ -422,6 +425,18 @@ export default function Screen4() {
     )
   , [ra1, wdMonthlyIncome, monthlyBudget, wdInitialWealth, wdReturnRate, wdInflation, wdAdjustInflation])
 
+  const withdrawalPlan = useMemo(() => {
+    const p1stored = state.persons.find(p => p.id === 1)
+    const pkCap = p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0
+      ? (p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital)
+      : 0
+    const pillar3aTotal = p1.has3a ? (p1.balance3a || 0) : 0
+    const num3aAccounts = p1stored?.num3aAccounts || 1
+    const fzBal = p1.hasFZ ? (p1.fzBalance || 0) : 0
+    const retirementCalendarYear = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
+    return calculateOptimalWithdrawal(pkCap, pillar3aTotal, num3aAccounts, fzBal, canton, taxStatus, retirementCalendarYear)
+  }, [state.persons, p1, ra1, currentAge1, canton, taxStatus])
+
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
   const [taxSubB, setTaxSubB] = useState(false)
@@ -429,6 +444,7 @@ export default function Screen4() {
   const [taxSubD, setTaxSubD] = useState(false)
   const [taxSubE, setTaxSubE] = useState(false)
   const [taxSubF, setTaxSubF] = useState(false)
+  const [taxSubG, setTaxSubG] = useState(false)
 
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
   const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
@@ -2933,6 +2949,76 @@ export default function Screen4() {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub G: Optimaler Bezugsplan */}
+              {withdrawalPlan.hasAnything && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubG ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onClick={() => setTaxSubG(!taxSubG)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>G · Optimaler Bezugsplan – Gestaffelt statt auf einmal</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {withdrawalPlan.savings > 0 && <span style={{ color: 'var(--green-600)', fontWeight: 600 }}>CHF {fmtCHF(withdrawalPlan.savings)} Steuerersparnis</span>}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubG ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                  </button>
+                  {taxSubG && (
+                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      {/* Summary cards */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                        <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
+                          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Alle im gleichen Jahr (Worst case)</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(withdrawalPlan.worst.totalTax)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Steuer auf CHF {fmtCHF(withdrawalPlan.worst.totalGross)}</div>
+                        </div>
+                        <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Optimal gestaffelt</div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#16a34a' }}>CHF {fmtCHF(withdrawalPlan.optimal.totalTax)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Netto: CHF {fmtCHF(withdrawalPlan.optimal.totalNet)}</div>
+                        </div>
+                      </div>
+                      {withdrawalPlan.savings > 0 && (
+                        <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534', marginBottom: 14, fontWeight: 600 }}>
+                          Steuerersparnis durch Staffelung: CHF {fmtCHF(withdrawalPlan.savings)}
+                        </div>
+                      )}
+                      {/* Timeline table */}
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
+                              {['Jahr', 'Bezug', 'Brutto', 'Steuer', 'Netto'].map(h => (
+                                <th key={h} style={{ padding: '7px 10px', textAlign: h === 'Jahr' || h === 'Bezug' ? 'left' : 'right', fontWeight: 600 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {withdrawalPlan.optimal.entries.map((entry, i) => (
+                              <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--navy-50)', borderBottom: '1px solid var(--ink-100)' }}>
+                                <td style={{ padding: '5px 10px', color: 'var(--navy-800)', fontWeight: 600 }}>{entry.calendarYear}</td>
+                                <td style={{ padding: '5px 10px', color: 'var(--ink-700)' }}>{entry.label}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right' }}>CHF {fmtCHF(entry.amount)}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right', color: '#dc2626' }}>CHF {fmtCHF(entry.tax)}</td>
+                                <td style={{ padding: '5px 10px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>CHF {fmtCHF(entry.netAmount)}</td>
+                              </tr>
+                            ))}
+                            <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
+                              <td colSpan={2} style={{ padding: '6px 10px', fontWeight: 700 }}>Total</td>
+                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalGross)}</td>
+                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalTax)}</td>
+                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalNet)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                        <strong>Hinweis:</strong> Frühzeitige Bezüge (3a, FZ) ab {new Date().getFullYear() + Math.max(1, ra1 - currentAge1) - (withdrawalPlan.optimal.entries.length - (withdrawalPlan.optimal.entries.some(e => e.label.includes('PK')) ? 1 : 0))} möglich. PK-Kapital wird im Pensionierungsjahr bezogen. Steuern basieren auf Sätzchen-Methode und ESTV-Richtwerten für Kanton {CANTON_NAMES[canton] || canton}.
                       </div>
                     </div>
                   )}

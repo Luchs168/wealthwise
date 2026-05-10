@@ -600,9 +600,56 @@ function LifeEventCard({
   )
 }
 
+const KK_CANTON_DEFAULTS: Record<string, number> = {
+  ZH: 650, BE: 580, LU: 520, BS: 620, GE: 780,
+  AG: 560, SG: 540, VD: 700, BL: 600, SH: 560,
+  TG: 550, SZ: 540, ZG: 560, NW: 530, OW: 530,
+  GR: 560, TI: 640, VS: 580, FR: 600, SO: 570,
+  NE: 630, JU: 590, UR: 530, GL: 560, AI: 530, AR: 570,
+}
+
+const RISK_PROFILES = [
+  {
+    id: 'conservative' as const,
+    icon: '🛡️',
+    title: 'Sicherheitsorientiert',
+    sub: 'Sparkonto, Obligationen, wenig Schwankungen',
+    return: '0.5–1.5%',
+    desc: 'Ihr Vermögen schwankt kaum, wächst aber langsam.',
+    for: 'Sie möchten kein Risiko und keine Verluste.',
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    border: '#bbf7d0',
+  },
+  {
+    id: 'balanced' as const,
+    icon: '⚖️',
+    title: 'Ausgewogen',
+    sub: 'Mix aus Aktien und Obligationen',
+    return: '2–3.5%',
+    desc: 'Moderate Schwankungen, besseres Wachstum.',
+    for: 'Sie akzeptieren vorübergehende Verluste für mehr Ertrag.',
+    color: 'var(--navy-700)',
+    bg: 'var(--navy-50)',
+    border: 'var(--navy-200)',
+  },
+  {
+    id: 'growth' as const,
+    icon: '📈',
+    title: 'Wachstumsorientiert',
+    sub: 'Überwiegend Aktien, höhere Schwankungen',
+    return: '3.5–5%',
+    desc: 'Grössere Schwankungen, höheres Wachstumspotenzial.',
+    for: 'Sie haben langen Horizont und ertragen −30%+ Verluste.',
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+  },
+]
+
 export default function Screen3() {
   const navigate = useNavigate()
-  const { expenses, setExpenses, persons, person1, hasPartner, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent } = useStore()
+  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile } = useStore()
   const isPaar = hasPartner
 
   const [showLoading, setShowLoading] = useState(false)
@@ -941,11 +988,159 @@ export default function Screen3() {
           </section>
         )}
 
-        {/* Block C: Geplante Lebensereignisse */}
+        {/* Block C: Krankenkasse */}
+        {baseTotal > 0 && (
+          <section className="block">
+            <div className="block-head">
+              <h2 className="block-title">
+                <span className="block-num">C</span>Krankenkasse
+              </h2>
+              <span className="block-hint">Prämien 2026</span>
+            </div>
+
+            <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
+              Krankenkassenprämien variieren stark nach Kanton (CHF 520–780/Mt.) und sind eine der grössten Ausgaben im Ruhestand.
+              Erfassen Sie Ihre effektive Prämie für eine präzise Analyse.
+            </p>
+
+            {[
+              { label: isPaar ? `${person1.name || 'Person 1'} – KK-Prämie` : 'KK-Prämie (Grundversicherung)', key: 'kkPremium1' as const },
+              ...(isPaar ? [{ label: `${persons.find(p => p.id === 2)?.income !== undefined ? (persons.find(p => p.id === 2) as { income: number }) && '' : ''} Person 2 – KK-Prämie`, key: 'kkPremium2' as const }] : []),
+            ].map(({ label, key }) => {
+              const canton = location?.kanton ?? 'ZH'
+              const cantonDefault = KK_CANTON_DEFAULTS[canton] ?? 600
+              const val = expenses[key] ?? 0
+              return (
+                <div key={key} style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+                    {isPaar ? label : 'Monatliche KK-Prämie (Grundversicherung)'}
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink-400)', flexShrink: 0 }}>CHF</span>
+                    <input
+                      className="input"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={String(cantonDefault)}
+                      value={val > 0 ? fmtCHF(val) : ''}
+                      onChange={e => setExpenses({ [key]: parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0 })}
+                      style={{ maxWidth: 140 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--ink-400)' }}>
+                      /Mt. · ⌀ {canton}: CHF {cantonDefault}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 4 }}>
+                    ℹ Ihre monatliche KK-Prämie (Grundversicherung + allfällige Zusatzversicherungen). Finden Sie auf Ihrer letzten Prämienrechnung.
+                  </div>
+                </div>
+              )
+            })}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+                Franchise
+              </label>
+              <select
+                className="input"
+                value={expenses.kkFranchise ?? 300}
+                onChange={e => setExpenses({ kkFranchise: parseInt(e.target.value) })}
+                style={{ appearance: 'auto', maxWidth: 220 }}
+              >
+                {[300, 500, 1000, 1500, 2000, 2500].map(f => (
+                  <option key={f} value={f}>CHF {f.toLocaleString('de-CH')} Franchise</option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const franchise = expenses.kkFranchise ?? 300
+              const sbMax = 700
+              const annualOop = franchise + sbMax
+              const monthlyOop = Math.round(annualOop / 12)
+              const kkP1 = expenses.kkPremium1 ?? 0
+              const kkP2 = isPaar ? (expenses.kkPremium2 ?? 0) : 0
+              const totalKK = (kkP1 || (KK_CANTON_DEFAULTS[location?.kanton ?? 'ZH'] ?? 600)) + kkP2 + monthlyOop
+              return (
+                <div style={{ padding: '12px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 13 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>Erwartete Gesundheitskosten / Monat</div>
+                  <div style={{ color: 'var(--ink-600)', display: 'grid', gap: 2 }}>
+                    <span>KK-Prämie{isPaar ? ' (beide)' : ''}: CHF {fmtCHF(kkP1 + kkP2)}/Mt.</span>
+                    <span>Franchise + Selbstbehalt (max): CHF {franchise.toLocaleString('de-CH')} + CHF {sbMax} = CHF {annualOop.toLocaleString('de-CH')}/Jahr ≈ CHF {monthlyOop}/Mt.</span>
+                    <div style={{ marginTop: 6, fontWeight: 600, color: 'var(--navy-800)', fontSize: 14 }}>
+                      Total Gesundheitskosten: ca. CHF {fmtCHF(totalKK)}/Mt.
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+              ℹ <strong>Prämienverbilligung (IPV):</strong> Im Ruhestand können Sie je nach Kanton und Einkommen Anspruch auf eine Prämienverbilligung haben.
+              Bei tiefen Renteneinkommen (ca. &lt; CHF 30'000–45'000/Jahr) prüfen Sie Ihren Anspruch beim kantonalen Sozialamt oder auf{' '}
+              <a href="https://www.priminfo.admin.ch" target="_blank" rel="noreferrer" style={{ color: '#92400e' }}>priminfo.admin.ch</a>.
+            </div>
+          </section>
+        )}
+
+        {/* Block D: Anlagestrategie */}
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">C</span>Geplante Lebensereignisse
+              <span className="block-num">D</span>Anlagestrategie
+            </h2>
+            <span className="block-hint">Beeinflusst Vermögensentwicklung</span>
+          </div>
+
+          <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
+            Wie soll Ihr Vermögen nach der Pensionierung angelegt werden? Das beeinflusst, wie lange es reicht.
+          </p>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            {RISK_PROFILES.map(profile => (
+              <button
+                key={profile.id}
+                onClick={() => setRiskProfile(profile.id)}
+                style={{
+                  textAlign: 'left', padding: '14px 16px', borderRadius: 12,
+                  border: `2px solid ${riskProfile === profile.id ? profile.color : 'var(--ink-200)'}`,
+                  background: riskProfile === profile.id ? profile.bg : 'var(--surface)',
+                  cursor: 'pointer', transition: 'all .15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontSize: 20 }}>{profile.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: riskProfile === profile.id ? profile.color : 'var(--navy-800)' }}>
+                      {profile.title}
+                      {riskProfile === profile.id && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, opacity: 0.8 }}>✓ Ausgewählt</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-500)' }}>{profile.sub}</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: profile.color, flexShrink: 0 }}>
+                    {profile.return} p.a.
+                  </div>
+                </div>
+                {riskProfile === profile.id && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 6, paddingLeft: 30 }}>
+                    {profile.desc} <span style={{ color: 'var(--ink-400)' }}>{profile.for}</span>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+            ⚠ Erwartete Renditen basieren auf historischen Durchschnittswerten und sind keine Garantie.
+            In einzelnen Jahren können Verluste von 20–40% eintreten.
+          </div>
+        </section>
+
+        {/* Block E: Geplante Lebensereignisse */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title">
+              <span className="block-num">E</span>Geplante Lebensereignisse
             </h2>
             <span className="block-hint">
               {lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0

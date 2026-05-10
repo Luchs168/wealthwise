@@ -7,6 +7,7 @@ import type { AhvPersonResult } from './calc'
 import {
   calculateAHVPension,
   applyPlafonierung,
+  computeKZGAdjustedIncome,
 } from '../utils/ahvCalculation'
 import {
   calculateRetirementTax,
@@ -39,6 +40,9 @@ export interface CashflowInput {
     dob?: string
     hasFZ?: boolean
     fzBalance?: number
+    hasKZG?: boolean
+    kzgChildren?: number
+    kzgYears?: number
     [key: string]: unknown
   }
   person2?: {
@@ -64,6 +68,9 @@ export interface CashflowInput {
     dob?: string
     hasFZ?: boolean
     fzBalance?: number
+    hasKZG?: boolean
+    kzgChildren?: number
+    kzgYears?: number
     [key: string]: unknown
   } | null
   civilStatus?: string
@@ -92,6 +99,9 @@ function normalizeP(p: CashflowInput['person1']) {
     ahvBezugAge: p.ahvBezugAge || p.retirementAge || p.retireAge || 65,
     hasFZ: p.hasFZ ?? false,
     fzBalance: p.fzBalance ?? 0,
+    hasKZG: p.hasKZG ?? false,
+    kzgChildren: p.kzgChildren ?? 0,
+    kzgYears: p.kzgYears ?? 0,
   }
 }
 
@@ -114,8 +124,9 @@ function buildAhvHousehold(
   const FULL_YEARS = 44
   const years1 = Math.min(FULL_YEARS, Math.max(0, (p1.ahvContributionYears || FULL_YEARS) - (p1.ahvContributionGaps || 0)))
   const bezug1 = Math.min(70, Math.max(63, p1.ahvBezugAge || p1.retirementAge || 65))
+  const avgIncome1 = computeKZGAdjustedIncome(p1.grossIncome || 0, years1, p1.hasKZG, p1.kzgChildren, p1.kzgYears, civilStatus)
 
-  const r1 = calculateAHVPension({ avgIncome: p1.grossIncome || 0, bezugAge: bezug1, effectiveContributionYears: years1 })
+  const r1 = calculateAHVPension({ avgIncome: avgIncome1, bezugAge: bezug1, effectiveContributionYears: years1 })
 
   let r2Monthly = 0
   let r2Income = 0
@@ -124,7 +135,8 @@ function buildAhvHousehold(
   if (p2) {
     const years2 = Math.min(FULL_YEARS, Math.max(0, (p2.ahvContributionYears || FULL_YEARS) - (p2.ahvContributionGaps || 0)))
     const bezug2 = Math.min(70, Math.max(63, p2.ahvBezugAge || p2.retirementAge || 65))
-    const r2raw = calculateAHVPension({ avgIncome: p2.grossIncome || 0, bezugAge: bezug2, effectiveContributionYears: years2 })
+    const avgIncome2 = computeKZGAdjustedIncome(p2.grossIncome || 0, years2, p2.hasKZG, p2.kzgChildren, p2.kzgYears, civilStatus)
+    const r2raw = calculateAHVPension({ avgIncome: avgIncome2, bezugAge: bezug2, effectiveContributionYears: years2 })
     r2Monthly = r2raw.monthlyRente
     r2Income = p2.grossIncome || 0
     r2Result = { monthlyRente: r2raw.monthlyRente, yearlyRente: r2raw.yearlyRente, yearlyInkl13: r2raw.yearlyInkl13, avgIncomeUsed: r2Income }
@@ -384,11 +396,19 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
   }
 }
 
+const SCENARIO_RETURNS: Record<string, { optimistic: number; pessimistic: number }> = {
+  conservative: { optimistic: 0.015, pessimistic: 0 },
+  balanced:     { optimistic: 0.035, pessimistic: 0 },
+  growth:       { optimistic: 0.05,  pessimistic: 0 },
+}
+
 export function calculateScenarios(data: CashflowInput) {
+  const profile = data.riskProfile || 'balanced'
+  const rates = SCENARIO_RETURNS[profile]
   return {
-    optimistic: calculateProAnalysis({ ...data, inflationRate: 0.01, investmentReturn: CONSTANTS.RETURNS.growth }),
+    optimistic: calculateProAnalysis({ ...data, inflationRate: 0.01, investmentReturn: rates.optimistic }),
     neutral: calculateProAnalysis({ ...data }),
-    pessimistic: calculateProAnalysis({ ...data, inflationRate: 0.025, investmentReturn: CONSTANTS.RETURNS.conservative }),
+    pessimistic: calculateProAnalysis({ ...data, inflationRate: 0.025, investmentReturn: rates.pessimistic }),
   }
 }
 

@@ -29,6 +29,7 @@ export interface PersonVorsorge {
   pkKapitalanteil: number
   has3a: boolean
   balance3a: number
+  num3aAccounts: number
   yearly3a: number
   form3a: Form3a
   hasFZ: boolean
@@ -36,6 +37,10 @@ export interface PersonVorsorge {
   ahvContributionYears: number
   ahvContributionGaps: number
   ahvBezugAge: number
+  // KZG (Kinderziehungsgutschriften)
+  hasKZG: boolean
+  kzgChildren: number
+  kzgYears: number
   // PK enhanced fields
   pkCurrentCapital: number      // today's actual balance (0 = not entered)
   pkAnnualContribution: number  // total annual contribution AN+AG (0 = auto-estimate)
@@ -69,6 +74,9 @@ export interface ExpensesData {
   detailed: Record<string, number>
   goal: '70' | '80' | '90' | 'custom'
   customAmount: number
+  kkPremium1: number
+  kkPremium2: number
+  kkFranchise: number
 }
 
 export interface WealthWiseState {
@@ -93,6 +101,9 @@ export interface WealthWiseState {
   // Tax
   kirchensteuer: boolean
 
+  // Risk profile / Anlagestrategie
+  riskProfile: 'conservative' | 'balanced' | 'growth'
+
   // Life events
   lifeEvents: LifeEvent[]
 
@@ -110,6 +121,7 @@ export interface WealthWiseState {
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
   setKirchensteuer: (v: boolean) => void
+  setRiskProfile: (v: 'conservative' | 'balanced' | 'growth') => void
   addLifeEvent: (e: LifeEvent) => void
   updateLifeEvent: (id: string, patch: Partial<LifeEvent>) => void
   removeLifeEvent: (id: string) => void
@@ -149,6 +161,7 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     pkKapitalanteil: 50,
     has3a: true,
     balance3a: id === 1 ? 50000 : 30000,
+    num3aAccounts: 1,
     yearly3a: 7258,
     form3a: 'sparkonto',
     hasFZ: false,
@@ -156,6 +169,9 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     ahvContributionYears: 44,
     ahvContributionGaps: 0,
     ahvBezugAge: 65,
+    hasKZG: false,
+    kzgChildren: 0,
+    kzgYears: 0,
     pkCurrentCapital: 0,
     pkAnnualContribution: 0,
     pkInterestRate: 0.0125,
@@ -189,9 +205,13 @@ export const useStore = create<WealthWiseState>()(
         detailed: {},
         goal: '80',
         customAmount: 0,
+        kkPremium1: 0,
+        kkPremium2: 0,
+        kkFranchise: 300,
       },
 
       kirchensteuer: false,
+      riskProfile: 'balanced',
       lifeEvents: [],
 
       setGoal: (g) => set({ selectedGoal: g }),
@@ -210,6 +230,7 @@ export const useStore = create<WealthWiseState>()(
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
       setKirchensteuer: (v) => set({ kirchensteuer: v }),
+      setRiskProfile: (v) => set({ riskProfile: v }),
       addLifeEvent: (e) => set(state => ({ lifeEvents: [...state.lifeEvents, e] })),
       updateLifeEvent: (id, patch) =>
         set(state => ({
@@ -231,8 +252,9 @@ export const useStore = create<WealthWiseState>()(
         ],
         freeAssets: 0,
         property: { has: false, value: 0, mortgage: 0 },
-        expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0 },
+        expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0, kkPremium1: 0, kkPremium2: 0, kkFranchise: 300 },
         kirchensteuer: false,
+        riskProfile: 'balanced',
         lifeEvents: [],
       }),
     }),
@@ -262,7 +284,7 @@ export function getPersonsForCalc(state: WealthWiseState) {
     pkCapitalAt65: vorsorge.pkCapital,
     pkConversionRate: vorsorge.pkRate,
     pillar3aBalance: vorsorge.balance3a,
-    pillar3aAccounts: 3,
+    pillar3aAccounts: vorsorge.num3aAccounts || 1,
     hasPensionFund: vorsorge.hasPK,
     birthDate: base.dob,
   })

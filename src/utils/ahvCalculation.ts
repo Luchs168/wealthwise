@@ -28,6 +28,24 @@ export function calcBaseRente(avgIncome: number): number {
   return Math.round(MIN_MONTHLY + t * (MAX_MONTHLY - MIN_MONTHLY))
 }
 
+export const KZG_YEARLY_2026 = 44100
+
+export function computeKZGAdjustedIncome(
+  grossIncome: number,
+  effectiveYears: number,
+  hasKZG: boolean,
+  kzgChildren: number,
+  kzgYears: number,
+  civilStatus: string,
+): number {
+  if (!hasKZG || kzgChildren <= 0 || kzgYears <= 0 || effectiveYears <= 0) return grossIncome
+  const totalYears = Math.min(kzgYears, 16 * kzgChildren)
+  const isMarried = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
+  const kzgTotal = KZG_YEARLY_2026 * totalYears * (isMarried ? 0.5 : 1)
+  const adjusted = grossIncome + kzgTotal / effectiveYears
+  return Math.min(AHV_2026.MAX_AVG_INCOME, adjusted)
+}
+
 export interface AHVInput {
   avgIncome: number
   bezugAge: number
