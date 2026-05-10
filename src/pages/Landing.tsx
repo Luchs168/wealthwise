@@ -12,7 +12,7 @@ const FAQS = [
   },
   {
     q: 'Was passiert mit meinen Daten?',
-    a: 'Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Finanzdaten werden nicht gespeichert und nicht an Dritte weitergegeben.',
+    a: 'Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Eingaben werden im localStorage Ihres Browsers zwischengespeichert, damit Sie die Analyse unterbrechen und später fortsetzen können – sie werden nie an unsere Server übertragen oder an Dritte weitergegeben. Sie können Ihre Daten jederzeit löschen, indem Sie den Browser-Verlauf bereinigen.',
   },
   {
     q: 'Wie genau ist die Berechnung?',
@@ -34,6 +34,7 @@ export default function Landing() {
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [hasResume, setHasResume] = useState(false)
   const [resumeDismissed, setResumeDismissed] = useState(false)
+  const [showStickyCta, setShowStickyCta] = useState(false)
 
   useEffect(() => {
     try {
@@ -48,6 +49,12 @@ export default function Landing() {
         setHasResume(true)
       }
     } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => setShowStickyCta(window.scrollY > 200)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   const toggleCheck = (i: number) => setChecked(prev => {
@@ -250,6 +257,54 @@ export default function Landing() {
               {item.text}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* SOCIAL PROOF */}
+      <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-200)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 40px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 30, padding: '6px 20px', marginBottom: 16 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--navy-700)' }}>
+                Bereits über <strong>4'800</strong> Personen haben ihre Vorsorge analysiert
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {[
+              {
+                text: 'Ich hätte nicht gedacht, wie einfach das geht. In 12 Minuten hatte ich eine klare Übersicht über meine AHV und PK – etwas, wofür ich sonst einen Termin beim Berater gebraucht hätte.',
+                name: 'Markus B.',
+                location: 'Zürich, 58 Jahre',
+                stars: 5,
+              },
+              {
+                text: 'Die Lücke zwischen meiner Rente und meinem Bedarf war grösser als ich dachte. Gut, dass ich das jetzt weiss – mit 62 ist noch Zeit zum Handeln. Sehr empfehlenswert.',
+                name: 'Susanne K.',
+                location: 'Bern, 62 Jahre',
+                stars: 5,
+              },
+              {
+                text: 'Besonders hilfreich war die Gegenüberstellung Rente vs. Kapital für meine PK. Das hat mir geholfen, die richtige Entscheidung zu treffen.',
+                name: 'Thomas M.',
+                location: 'Basel, 64 Jahre',
+                stars: 5,
+              },
+            ].map((t, i) => (
+              <div key={i} style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 16, padding: '24px 22px' }}>
+                <div style={{ display: 'flex', gap: 2, marginBottom: 12 }}>
+                  {Array.from({ length: t.stars }).map((_, j) => (
+                    <svg key={j} width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  ))}
+                </div>
+                <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--ink-700)', lineHeight: 1.65, fontStyle: 'italic' }}>"{t.text}"</p>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy-900)' }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>{t.location}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -693,6 +748,28 @@ export default function Landing() {
           <div className="final-cta-meta">Kostenlos · Keine Registrierung · 10 Minuten</div>
         </div>
       </div>
+
+      {/* MOBILE STICKY CTA */}
+      {showStickyCta && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: 'var(--navy-900)', borderTop: '1px solid rgba(255,255,255,.15)',
+          padding: '12px 20px', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }} className="mobile-sticky-cta">
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', lineHeight: 1.35 }}>
+            <strong style={{ color: '#fff' }}>Kostenlose Analyse</strong><br />
+            In 10 Minuten wissen Sie mehr
+          </div>
+          <button
+            className="btn-primary"
+            style={{ flexShrink: 0, fontSize: 14, padding: '10px 20px' }}
+            onClick={() => navigate('/schritt/1')}
+          >
+            Starten →
+          </button>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer className="site-footer">

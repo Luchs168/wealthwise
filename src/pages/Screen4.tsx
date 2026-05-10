@@ -639,6 +639,35 @@ export default function Screen4() {
             })()}
           </div>
 
+          {/* Was bedeutet das? */}
+          {(() => {
+            const surplus = analysis.surplus
+            const ageOk = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)
+            const lifeExp = p1.sex === 'm' ? 85 : 87
+            let summaryText = ''
+            if (analysis.verdict === 'green') {
+              summaryText = `Ihre Vorsorgesituation ist solide: Mit CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. Rente decken Sie ${coveragePct}% Ihres geplanten Budgets. Ihr Vermögen reicht voraussichtlich bis Alter ${ageOk >= 99 ? '95+' : ageOk} – ${ageOk >= lifeExp ? 'deutlich über' : 'bis'} Ihre statistische Lebenserwartung (ca. ${lifeExp} Jahre). Sie haben einen monatlichen Überschuss von CHF ${fmtCHF(Math.abs(surplus))}.`
+            } else if (analysis.verdict === 'yellow') {
+              summaryText = `Ihre Vorsorge ist grundsolide, aber es gibt Optimierungspotenzial. Mit CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. Rente decken Sie ${coveragePct}% Ihres Budgets – ${surplus < 0 ? `es entsteht eine Lücke von CHF ${fmtCHF(Math.abs(surplus))}/Mt.` : `Sie haben einen knappen Überschuss von CHF ${fmtCHF(Math.abs(surplus))}/Mt.`} Ihr Vermögen reicht bis Alter ${ageOk >= 99 ? '95+' : ageOk}. Mit den unten empfohlenen Massnahmen können Sie Ihre Situation deutlich verbessern.`
+            } else {
+              summaryText = `Ihre Vorsorge weist eine bedeutende Lücke auf: Ihren Renten von CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. stehen Ausgaben von CHF ${fmtCHF(monthlyBudget)}/Mt. gegenüber – das ergibt eine monatliche Unterdeckung von CHF ${fmtCHF(Math.abs(surplus))}. Ihr Vermögen wird voraussichtlich bis Alter ${ageOk >= 99 ? '95+' : ageOk} reichen. Handeln Sie jetzt: Die unten aufgeführten Massnahmen können Ihre Situation wesentlich verbessern.`
+            }
+            return (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '14px 16px',
+                background: 'rgba(255,255,255,0.6)',
+                border: `1px solid ${verdictBorder}`,
+                borderRadius: 10,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  Was bedeutet das?
+                </div>
+                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-700)', lineHeight: 1.6 }}>{summaryText}</p>
+              </div>
+            )
+          })()}
+
           {/* Top-3 recommendations */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

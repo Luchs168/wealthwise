@@ -1002,8 +1002,7 @@ export default function Screen3() {
         )}
 
         {/* Block C: Krankenkasse */}
-        {baseTotal > 0 && (
-          <section className="block">
+        <section className="block">
             <div className="block-head">
               <h2 className="block-title">
                 <span className="block-num">C</span>Krankenkasse
@@ -1107,7 +1106,6 @@ export default function Screen3() {
               <a href="https://www.priminfo.admin.ch" target="_blank" rel="noreferrer" style={{ color: '#92400e' }}>priminfo.admin.ch</a>.
             </div>
           </section>
-        )}
 
         {/* Block D: Anlagestrategie */}
         <section className="block">
@@ -1308,7 +1306,10 @@ export default function Screen3() {
       </main>
 
       <div className="footer">
-        <div className="footer-meta">Schritt 3 von 4 · Ausgaben</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div className="footer-meta">Schritt 3 von 4 · Ausgaben</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => navigate('/schritt/2')}>← Zurück</button>
           <button

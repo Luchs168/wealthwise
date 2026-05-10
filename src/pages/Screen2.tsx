@@ -157,14 +157,27 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
 
   return (
     <div style={{ marginBottom: 20 }}>
+      {/* Demo-mode disclaimer before upload */}
+      {status === 'idle' && (
+        <div style={{
+          marginBottom: 10, padding: '10px 14px',
+          background: '#fffbeb', border: '1px solid #fde68a',
+          borderRadius: 10, fontSize: 12.5, color: '#92400e',
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
+          <span><strong>Demo-Modus:</strong> Die automatische Extraktion aus dem PDF ist eine Simulation. Die angezeigten Werte sind Beispieldaten – bitte überprüfen und manuell anpassen.</span>
+        </div>
+      )}
+
       <div
         onClick={() => fileRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
         style={{
-          border: `2px dashed ${status === 'done' ? 'var(--navy-400)' : 'var(--ink-200)'}`,
+          border: `2px dashed ${status === 'done' ? '#f59e0b' : 'var(--ink-200)'}`,
           borderRadius: 12,
-          background: status === 'done' ? 'var(--navy-50)' : 'var(--surface)',
+          background: status === 'done' ? '#fffbeb' : 'var(--surface)',
           padding: '20px 24px',
           cursor: 'pointer',
           display: 'flex',
@@ -191,8 +204,8 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
           )}
           {status === 'done' && (
             <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--navy-900)' }}>Werte übernommen</div>
-              <div style={{ fontSize: 13, color: 'var(--navy-700)', marginTop: 2 }}>PK-Kapital und Umwandlungssatz wurden aus {fileName} extrahiert</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#92400e' }}>Demo-Werte übernommen</div>
+              <div style={{ fontSize: 13, color: '#b45309', marginTop: 2 }}>Beispieldaten aus {fileName} – bitte unten überprüfen und anpassen</div>
             </>
           )}
           {status === 'error' && (
@@ -219,6 +232,17 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
       <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 4 }}>
         🔒 Wird nur lokal verarbeitet – verlässt Ihren Browser nicht
       </div>
+      {status === 'done' && (
+        <div style={{
+          marginTop: 10, padding: '10px 14px',
+          background: '#fffbeb', border: '1px solid #fde68a',
+          borderRadius: 10, fontSize: 12.5, color: '#92400e',
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
+          <span>Die <strong>gelb markierten Felder</strong> unten enthalten Demo-Beispielwerte. Bitte kontrollieren Sie PK-Kapital und Umwandlungssatz anhand Ihres echten PK-Ausweises und passen Sie die Werte ggf. an.</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -227,6 +251,7 @@ export default function Screen2() {
   const navigate = useNavigate()
   const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
+  const [subStep, setSubStep] = useState<0 | 1>(0)
   const [ahvExpanded, setAhvExpanded] = useState(false)
   const [showTransition, setShowTransition] = useState(false)
   const [pkInterestMode, setPkInterestMode] = useState<[string, string]>(['bvg', 'bvg'])
@@ -363,12 +388,15 @@ export default function Screen2() {
 
       <main>
         <div className="page-head">
-          <div className="eyebrow">Schritt 2 · Vorsorge</div>
-          <h1 className="title">Ihre finanzielle Ausgangslage</h1>
+          <div className="eyebrow">{subStep === 0 ? 'Schritt 2a · AHV / 1. Säule' : 'Schritt 2b · Pensionskasse & Vermögen'}</div>
+          <h1 className="title">{subStep === 0 ? 'AHV – Ihre 1. Säule' : 'Pensionskasse, 3a & Vermögen'}</h1>
           <p className="subtitle">
-            AHV, Pensionskasse und Säule 3a – Ihre drei Vorsorgesäulen auf einen Blick.
+            {subStep === 0 ? 'Berechnen Sie Ihre voraussichtliche AHV-Rente basierend auf Ihren Beitragsjahren und Ihrem Einkommen.' : 'Erfassen Sie Ihre 2. und 3. Säule sowie Ihr weiteres Vermögen.'}
           </p>
         </div>
+
+        {/* Sub-step 0: AHV */}
+        {subStep === 0 && <>
 
         {/* Completion indicator with section labels */}
         <div style={{
@@ -717,6 +745,40 @@ export default function Screen2() {
             />
           </div>
         </section>
+
+        </>}
+
+        {/* Sub-step 1: PK / 3a / Vermögen */}
+        {subStep === 1 && <>
+
+        {/* AHV summary bridge */}
+        <div style={{
+          padding: '14px 18px',
+          background: '#f0fdf4', border: '1px solid #bbf7d0',
+          borderRadius: 12, marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 10,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+              ✓ AHV abgeschlossen
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#166534', fontFamily: 'var(--font-display)' }}>
+              AHV-Rente: CHF {fmtCHF(ahvCombinedMonthly)}/Mt.
+              {isPaar && plafonierung.plafonReduction > 0 && (
+                <span style={{ fontSize: 12, fontWeight: 400, color: '#16a34a', marginLeft: 6 }}>
+                  (inkl. Plafonierung)
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setSubStep(0)}
+            style={{ fontSize: 12, color: '#16a34a', background: 'none', border: '1px solid #bbf7d0', borderRadius: 8, padding: '5px 12px', cursor: 'pointer' }}
+          >
+            AHV bearbeiten ↑
+          </button>
+        </div>
 
         {/* B · Pensionskasse */}
         <section className="block">
@@ -1320,14 +1382,19 @@ export default function Screen2() {
           <Link to="/datenschutz" style={{ color: 'var(--ink-400)' }}>Datenschutz</Link>
           {' · '}© 2026 WealthWise
         </div>
+
+        </>}
       </main>
 
       <div className="footer">
-        <div className="footer-meta">Schritt 2 von 4 · Vorsorge</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div className="footer-meta">{subStep === 0 ? 'Schritt 2a von 4 · AHV' : 'Schritt 2b von 4 · Pensionskasse & Vermögen'}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" onClick={() => navigate('/schritt/1')}>← Zurück</button>
-          <button className="btn btn-primary" onClick={() => setShowTransition(true)}>
-            Weiter
+          <button className="btn btn-ghost" onClick={() => subStep === 0 ? navigate('/schritt/1') : setSubStep(0)}>← Zurück</button>
+          <button className="btn btn-primary" onClick={() => subStep === 0 ? setSubStep(1) : setShowTransition(true)}>
+            {subStep === 0 ? 'Weiter zu PK & Vermögen' : 'Weiter'}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/>
             </svg>

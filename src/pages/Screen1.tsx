@@ -708,7 +708,10 @@ export default function Screen1() {
       </main>
 
       <div className="footer">
-        <div className="footer-meta">Schritt 1 von 4 · Situation</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div className="footer-meta">Schritt 1 von 4 · Situation</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" disabled>← Zurück</button>
           <button className="btn btn-primary" onClick={() => setShowTransition(true)}>

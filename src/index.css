@@ -1038,6 +1038,11 @@ select.input { cursor: pointer; }
 .suffix { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 13px; color: var(--ink-500); pointer-events: none; }
 
 /* Responsive */
+.mobile-sticky-cta { display: none; }
+@media (max-width: 960px) {
+  .mobile-sticky-cta { display: flex; }
+}
+
 @media (max-width: 960px) {
   .hero { grid-template-columns: 1fr; padding: 56px 28px 48px; gap: 48px; }
   .hero h1 { font-size: 42px; }
