@@ -654,11 +654,25 @@ export default function Landing() {
           <div className="faq-grid">
             {FAQS.map((f, i) => (
               <div key={i} className={`faq-item${openFaq === i ? ' open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                <button
+                  className="faq-question"
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
                   {f.q}
-                  <span className="faq-toggle">{openFaq === i ? '−' : '+'}</span>
+                  <span className="faq-toggle" aria-hidden="true">{openFaq === i ? '−' : '+'}</span>
                 </button>
-                {openFaq === i && <div className="faq-answer">{f.a}</div>}
+                {openFaq === i && (
+                  <div
+                    id={`faq-answer-${i}`}
+                    role="region"
+                    aria-label={f.q}
+                    className="faq-answer"
+                  >
+                    {f.a}
+                  </div>
+                )}
               </div>
             ))}
           </div>

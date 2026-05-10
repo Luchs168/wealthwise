@@ -581,7 +581,7 @@ export default function Screen4() {
           </div>
 
           {/* 3 KPI cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div aria-live="polite" aria-atomic="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
             {/* Card 1: Monthly situation */}
             {(() => {
               const surplus = analysis.surplus
@@ -1089,6 +1089,7 @@ export default function Screen4() {
               {/* Bridging income chart */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Einkommensverlauf (monatlich)</div>
+                <div role="img" aria-label="Balkendiagramm: Monatlicher Einkommensverlauf von Frühpensionierung bis Alter 70. Zeigt Erwerbseinkommen, PK-Rente, AHV-Rente und Überbrückungsrente im Vergleich zum Monatsbedarf.">
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={bridgingChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
@@ -1103,6 +1104,7 @@ export default function Screen4() {
                     <Line type="monotone" dataKey="bedarf" name="Monatsbedarf" stroke="#ef4444" strokeWidth={2} dot={false} />
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               </div>
 
               {/* Disclaimer */}
@@ -1217,6 +1219,7 @@ export default function Screen4() {
           )}
 
           {chartData.length > 0 ? (
+            <div role="img" aria-label="Flächendiagramm: Vermögensentwicklung im Ruhestand. Zeigt das Gesamtvermögen von der Pensionierung bis zum prognostizierten Aufbrauch-Alter, inklusive monatlicher Renteneinnahmen und Ausgaben.">
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                 <defs>
@@ -1261,6 +1264,7 @@ export default function Screen4() {
                 )}
               </AreaChart>
             </ResponsiveContainer>
+            </div>
           ) : (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-400)', fontSize: 14 }}>
               Bitte geben Sie Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
@@ -1381,6 +1385,7 @@ export default function Screen4() {
                 ))}
               </div>
             </div>
+            <div role="img" aria-label="Liniendiagramm: Vermögensentwicklung nach Entnahmestrategie in drei Szenarien (Optimistisch, Realistisch, Pessimistisch). Zeigt wie lange das Kapital reicht bis es auf null sinkt.">
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={wdChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
@@ -1394,6 +1399,7 @@ export default function Screen4() {
                 <Line type="monotone" dataKey="Pessimistisch" stroke="#ef4444" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
+            </div>
 
             {/* Scenario summary table */}
             <div style={{ overflowX: 'auto', marginBottom: 20, marginTop: 10 }}>
@@ -1849,6 +1855,7 @@ export default function Screen4() {
           </div>
 
           {scenarioChartData.length > 0 && (
+            <div role="img" aria-label="Liniendiagramm: Szenarien-Vergleich der Vermögensentwicklung. Drei Kurven (Optimistisch, Neutral, Pessimistisch) zeigen wie lange das Vermögen unter verschiedenen Rendite-Annahmen reicht.">
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={scenarioChartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
@@ -1865,6 +1872,7 @@ export default function Screen4() {
                 <Line type="monotone" dataKey="pessimistisch" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="4 4" />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           )}
         </section>
 
@@ -2007,6 +2015,7 @@ export default function Screen4() {
                       )}
                     </div>
                   )}
+                  <div role="img" aria-label="Liniendiagramm: AHV-Kumulativvergleich für verschiedene Bezugszeitpunkte (Vorbezug 63/64, Ordentlich 65, Aufschub 66/67). Zeigt welche Variante unter welchem Alter mehr ausbezahlt.">
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={breakEvenData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
@@ -2031,6 +2040,7 @@ export default function Screen4() {
                       <Line type="monotone" dataKey="v67" stroke="#16a34a" strokeWidth={1.5} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -2143,6 +2153,7 @@ export default function Screen4() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
                       Altersguthaben-Entwicklung
                     </div>
+                    <div role="img" aria-label="Flächendiagramm: PK-Altersguthabenentwicklung bis zur Pensionierung. Zeigt das Wachstum des Pensionskassen-Guthabens durch Beiträge und Verzinsung.">
                     <ResponsiveContainer width="100%" height={220}>
                       <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                         <defs>
@@ -2165,6 +2176,7 @@ export default function Screen4() {
                         <Area type="monotone" dataKey="kapital" stroke="#1a2b4a" strokeWidth={2.5} fill="url(#pkGrad)" name="kapital" />
                       </AreaChart>
                     </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
 
@@ -2489,6 +2501,7 @@ export default function Screen4() {
                     ))}
                   </div>
                 </div>
+                <div role="img" aria-label="Liniendiagramm: PK-Rentabilität – Vergleich von Kapital-Restbetrag und kumulierter Rentenauszahlung. Zeigt ab welchem Alter (Break-even) die Rente gegenüber dem Kapitalbezug vorteilhafter ist.">
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={rvkChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
@@ -2504,6 +2517,7 @@ export default function Screen4() {
                     <Line type="monotone" dataKey="kumuliertRente" name="Kumulierte Rente" stroke="#22c55e" strokeWidth={2} dot={false} strokeDasharray="5 3" />
                   </LineChart>
                 </ResponsiveContainer>
+                </div>
                 {rvkBreakEven && (
                   <div style={{ marginTop: 8, padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12.5 }}>
                     <strong>Break-even Alter {rvkBreakEven}:</strong> Ab diesem Alter hat die Rente mehr ausgezahlt als das Kapital noch wert wäre ({rvkReturnRate * 100}% Rendite angenommen).

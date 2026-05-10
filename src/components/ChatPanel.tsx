@@ -159,18 +159,29 @@ export default function ChatPanel({ currentStep }: Props) {
 
   return (
     <>
-      {!open && (
-        <button className="ww-chat-fab" onClick={() => setOpen(true)} aria-label="Beratung öffnen">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <span>Beratung</span>
-          {messages.length > 0 && <span className="ww-chat-fab-dot" />}
-        </button>
-      )}
+      <button
+        className="ww-chat-fab"
+        onClick={() => setOpen(v => !v)}
+        aria-label={open ? 'Hilfe-Chat schliessen' : 'Hilfe-Chat öffnen'}
+        aria-expanded={open}
+        aria-controls="ww-chat-panel"
+        style={{ display: open ? 'none' : undefined }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span>Beratung</span>
+        {messages.length > 0 && <span className="ww-chat-fab-dot" />}
+      </button>
 
       {open && (
-        <aside className="ww-chat-panel">
+        <aside
+          id="ww-chat-panel"
+          className="ww-chat-panel"
+          role="dialog"
+          aria-modal="false"
+          aria-label="WealthWise Hilfe-Chat"
+        >
           <header className="ww-chat-head">
             <div className="ww-chat-head-left">
               <div className="ww-chat-avatar">
@@ -192,7 +203,7 @@ export default function ChatPanel({ currentStep }: Props) {
             </button>
           </header>
 
-          <div className="ww-chat-body" ref={scrollRef}>
+          <div className="ww-chat-body" ref={scrollRef} aria-live="polite" aria-label="Chat-Nachrichten" role="log">
             {messages.length === 0 && !isTyping && (
               <div className="ww-chat-empty">
                 <div className="ww-chat-empty-icon">💬</div>
@@ -259,9 +270,14 @@ export default function ChatPanel({ currentStep }: Props) {
           )}
 
           <form className="ww-chat-input" onSubmit={(e) => { e.preventDefault(); sendMessage(input) }}>
-            <input type="text" placeholder="Frage stellen …" value={input}
+            <input
+              type="text"
+              placeholder="Frage stellen …"
+              value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={isTyping} aria-label="Nachricht" />
+              disabled={isTyping}
+              aria-label="Nachricht eingeben"
+            />
             <button type="submit" disabled={!input.trim() || isTyping}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />

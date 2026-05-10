@@ -355,6 +355,7 @@ export default function Screen1() {
                     id="dob1"
                     type="date"
                     className="date-input"
+                    autoComplete="bday"
                     value={person1.dob}
                     onChange={(e) => setPerson1({ dob: e.target.value })}
                   />
@@ -440,6 +441,7 @@ export default function Screen1() {
                     id="dob2"
                     type="date"
                     className="date-input"
+                    autoComplete="bday"
                     value={person2.dob}
                     onChange={(e) => setPerson2({ dob: e.target.value })}
                   />
@@ -514,12 +516,13 @@ export default function Screen1() {
 
           <div className="form-grid">
             <div className="field">
-              <label>
+              <label htmlFor={`income-p${activeTab}`}>
                 Brutto-Jahreseinkommen <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <div className="amount-wrap">
                 <span className="prefix">CHF</span>
                 <IncomeInput
+                  id={`income-p${activeTab}`}
                   value={curP.income}
                   onChange={(v) => updatePerson(activeTab, { income: v })}
                 />
@@ -527,9 +530,10 @@ export default function Screen1() {
               <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />
             </div>
             <div className="field">
-              <label>Beschäftigungsgrad</label>
+              <label htmlFor={`employment-grade-p${activeTab}`}>Beschäftigungsgrad</label>
               <div className="amount-wrap">
                 <input
+                  id={`employment-grade-p${activeTab}`}
                   type="text"
                   inputMode="numeric"
                   value={curP.employmentGrade}
@@ -719,14 +723,16 @@ export default function Screen1() {
 }
 
 /* ---- Income input with CHF formatting ---- */
-function IncomeInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function IncomeInput({ value, onChange, id }: { value: number; onChange: (v: number) => void; id?: string }) {
   const [raw, setRaw] = useState('')
   const [focused, setFocused] = useState(false)
 
   return (
     <input
+      id={id}
       type="text"
       inputMode="numeric"
+      autoComplete="off"
       value={focused ? raw : (value > 0 ? fmtCHF(value) : '')}
       onFocus={() => { setFocused(true); setRaw(value > 0 ? String(value) : '') }}
       onBlur={() => { setFocused(false); onChange(parseInt(raw.replace(/[^0-9]/g, '')) || 0) }}

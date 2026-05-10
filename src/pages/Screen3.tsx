@@ -1023,14 +1023,16 @@ export default function Screen3() {
               const canton = location?.kanton ?? 'ZH'
               const cantonDefault = KK_CANTON_DEFAULTS[canton] ?? 600
               const val = expenses[key] ?? 0
+              const inputId = `kk-premium-${key}`
               return (
                 <div key={key} style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+                  <label htmlFor={inputId} style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
                     {isPaar ? label : 'Monatliche KK-Prämie (Grundversicherung)'}
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink-400)', flexShrink: 0 }}>CHF</span>
+                    <span style={{ fontSize: 13, color: 'var(--ink-500)', flexShrink: 0 }}>CHF</span>
                     <input
+                      id={inputId}
                       className="input"
                       type="text"
                       inputMode="numeric"
@@ -1061,10 +1063,11 @@ export default function Screen3() {
             })}
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
+              <label htmlFor="kk-franchise" style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
                 Franchise
               </label>
               <select
+                id="kk-franchise"
                 className="input"
                 value={expenses.kkFranchise ?? 300}
                 onChange={e => setExpenses({ kkFranchise: parseInt(e.target.value) })}
@@ -1119,10 +1122,12 @@ export default function Screen3() {
             Wie soll Ihr Vermögen nach der Pensionierung angelegt werden? Das beeinflusst, wie lange es reicht.
           </p>
 
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div role="radiogroup" aria-label="Anlagestrategie wählen" style={{ display: 'grid', gap: 10 }}>
             {RISK_PROFILES.map(profile => (
               <button
                 key={profile.id}
+                role="radio"
+                aria-checked={riskProfile === profile.id}
                 onClick={() => setRiskProfile(profile.id)}
                 style={{
                   textAlign: 'left', padding: '14px 16px', borderRadius: 12,

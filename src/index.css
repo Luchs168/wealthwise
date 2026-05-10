@@ -602,7 +602,7 @@ h1.title { font-family: var(--font-display); font-weight: 600; font-size: 40px; 
 }
 .input {
   padding: 11px 14px; border-radius: var(--radius-sm);
-  border: 1.5px solid var(--ink-200); background: var(--surface);
+  border: 1.5px solid #cbd5e1; background: var(--surface);
   font-size: 15px; color: var(--ink-900); font-family: var(--font-body);
   transition: border-color .15s;
   width: 100%;
@@ -646,7 +646,7 @@ select.input { cursor: pointer; }
 .range-labels {
   display: flex; justify-content: space-between;
   margin-top: 10px; font-family: var(--font-mono);
-  font-size: 11px; color: var(--ink-400);
+  font-size: 12px; color: var(--ink-500);
 }
 .range-val {
   text-align: center; font-family: var(--font-display);
@@ -768,7 +768,7 @@ select.input { cursor: pointer; }
 .cat-card:hover { border-color: var(--navy-100); }
 .cat-icon { font-size: 22px; flex-shrink: 0; width: 32px; text-align: center; }
 .cat-label { font-size: 15px; font-weight: 500; color: var(--ink-900); }
-.cat-avg { font-size: 12px; color: var(--ink-400); margin-top: 2px; }
+.cat-avg { font-size: 12px; color: var(--ink-500); margin-top: 2px; }
 .cat-input { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .cat-amount {
   width: 90px; text-align: right;
@@ -913,7 +913,7 @@ select.input { cursor: pointer; }
   font-family: var(--font-display); font-weight: 700;
   font-size: 22px; letter-spacing: -.02em; color: var(--navy-900);
 }
-.result-stat-sub { font-size: 12px; color: var(--ink-400); margin-top: 2px; }
+.result-stat-sub { font-size: 12px; color: var(--ink-500); margin-top: 2px; }
 
 /* Reach bar */
 .reach-bar-wrap { margin: 20px 0; }
@@ -1021,7 +1021,7 @@ select.input { cursor: pointer; }
   display: grid; place-items: center; flex-shrink: 0;
 }
 .ww-chat-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--navy-900); }
-.ww-chat-sub { font-size: 12px; color: var(--ink-400); }
+.ww-chat-sub { font-size: 12px; color: var(--ink-500); }
 .ww-chat-close {
   background: none; border: none; cursor: pointer;
   color: var(--ink-500); padding: 6px; border-radius: 6px;
@@ -1172,7 +1172,7 @@ select.input { cursor: pointer; }
 .goal-check svg { display: none; }
 .goal.active .goal-check svg { display: block; }
 .goal-label { font-family: var(--font-display); font-weight: 600; font-size: 15.5px; letter-spacing: -.005em; line-height: 1.25; color: var(--ink-900); }
-.goal-pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-500); background: var(--surface); border: 1px solid var(--ink-200); padding: 3px 7px; border-radius: 999px; margin-top: 10px; }
+.goal-pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-500); background: var(--surface); border: 1px solid #cbd5e1; padding: 3px 7px; border-radius: 999px; margin-top: 10px; }
 
 /* Tab (original design) */
 .tab { font: inherit; background: none; border: none; cursor: pointer; padding: 12px 18px; font-family: var(--font-display); font-weight: 500; font-size: 15px; color: var(--ink-500); border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 8px; transition: color .15s, border-color .15s; }
@@ -1328,6 +1328,7 @@ select.input { cursor: pointer; }
   .steps-grid, .feat-grid, .compare { grid-template-columns: 1fr; }
   .steps-grid::before { display: none; }
   .nav-links a:not(.nav-cta) { display: none; }
+  .nav-cta { min-height: 44px; display: inline-flex; align-items: center; }
   .goal-grid { grid-template-columns: repeat(2, 1fr); }
   .form-grid { grid-template-columns: 1fr; }
   .topbar { padding: 14px 20px; }
@@ -1360,7 +1361,7 @@ select.input { cursor: pointer; }
 
   /* Touch targets ≥ 44px */
   button, .btn, .btn-primary, .btn-ghost, .tab, .option-card,
-  .child-radio, .link-toggle, select, input[type="range"] {
+  .child-radio, .link-toggle, .btn-link, .faq-question, select, input[type="range"] {
     min-height: 44px;
   }
   input[type="text"], input[type="number"], input[type="date"], select {

@@ -121,10 +121,17 @@ function CHFField({ label, value, onChange, hint, max }: {
 
 function Switch({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
-    <div className="switch-wrap" onClick={onToggle}>
-      <div className={`switch ${on ? 'on' : ''}`} />
+    <button
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onToggle}
+      className="switch-wrap"
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%', textAlign: 'left' }}
+    >
+      <div className={`switch ${on ? 'on' : ''}`} aria-hidden="true" />
       <span style={{ fontSize: 14, color: 'var(--ink-700)' }}>{label}</span>
-    </div>
+    </button>
   )
 }
 
@@ -600,8 +607,9 @@ export default function Screen2() {
                       </div>
                     </div>
                     <div className="field">
-                      <label>Beitragslücken</label>
+                      <label htmlFor={`ahv-gaps-p${id}`}>Beitragslücken</label>
                       <select
+                        id={`ahv-gaps-p${id}`}
                         className="input"
                         value={gaps}
                         onChange={(e) => updatePerson(id, { ahvContributionGaps: parseInt(e.target.value) })}
@@ -935,8 +943,8 @@ export default function Screen2() {
 
                 {/* 5. Bezugsart */}
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>Bezugsart</label>
-                  <div className="option-grid-3">
+                  <div id="bezugsart-label" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 8 }}>Bezugsart</div>
+                  <div className="option-grid-3" role="radiogroup" aria-labelledby="bezugsart-label">
                     {[
                       { id: 'rente', label: 'Rente', hint: 'Lebenslang, planbar' },
                       { id: 'kapital', label: 'Kapital', hint: 'Flexibel, Steuer fällig' },
@@ -944,6 +952,8 @@ export default function Screen2() {
                     ].map((opt) => (
                       <button
                         key={opt.id}
+                        role="radio"
+                        aria-checked={cur.pkBezugsart === opt.id}
                         className={`option-card ${cur.pkBezugsart === opt.id ? 'active' : ''}`}
                         onClick={() => updatePerson(activeTab, { pkBezugsart: opt.id as 'rente' | 'kapital' | 'mix' })}
                       >
