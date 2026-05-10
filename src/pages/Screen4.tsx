@@ -40,7 +40,6 @@ import { generateYearlyProjection, exportProjectionToCSV, downloadCSV } from '..
 import { WEALTH_CONSTANTS } from '../constants/wealthConstants'
 import { CATEGORY_CONFIG } from '../types/lifeEvents'
 import { calculateProAnalysis, calculateScenarios } from '../lib/cashflow'
-import { exportPDF } from '../lib/pdf'
 import { calculateOptimalWithdrawal } from '../utils/withdrawalPlanCalculation'
 import { InfoTooltip } from '../components/Tooltip'
 
@@ -519,6 +518,7 @@ export default function Screen4() {
   }, [scenarios, ra1])
 
   const handlePDF = async () => {
+    const { exportPDF } = await import('../lib/pdf')
     await exportPDF({
       person1Name: person1.name || 'Person 1',
       person2Name: hasPartner ? (person2.name || 'Person 2') : undefined,
