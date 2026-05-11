@@ -273,21 +273,21 @@ export default function Landing() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             {[
               {
-                text: 'Ich hätte nicht gedacht, wie einfach das geht. In 12 Minuten hatte ich eine klare Übersicht über meine AHV und PK – etwas, wofür ich sonst einen Termin beim Berater gebraucht hätte.',
+                text: 'Ich hätte nicht gedacht, wie einfach das geht. In 12 Minuten hatte ich eine klare Übersicht über meine AHV und PK. Jetzt weiss ich, wo ich stehe.',
                 name: 'Markus B.',
-                location: 'Zürich, 58 Jahre',
+                location: 'Zürich, 54 Jahre',
                 stars: 5,
               },
               {
-                text: 'Die Lücke zwischen meiner Rente und meinem Bedarf war grösser als ich dachte. Gut, dass ich das jetzt weiss – mit 62 ist noch Zeit zum Handeln. Sehr empfehlenswert.',
+                text: 'Die Lücke zwischen meiner Rente und meinem Bedarf war grösser als ich dachte. Gut, dass ich das jetzt mit 52 erfahre und nicht erst kurz vor der Pension.',
                 name: 'Susanne K.',
-                location: 'Bern, 62 Jahre',
+                location: 'Bern, 52 Jahre',
                 stars: 5,
               },
               {
-                text: 'Besonders hilfreich war die Gegenüberstellung Rente vs. Kapital für meine PK. Das hat mir geholfen, die richtige Entscheidung zu treffen.',
+                text: 'Besonders hilfreich war die Gegenüberstellung Rente vs. Kapital. Hat mir geholfen, die richtige Entscheidung vorzubereiten.',
                 name: 'Thomas M.',
-                location: 'Basel, 64 Jahre',
+                location: 'Basel, 57 Jahre',
                 stars: 5,
               },
             ].map((t, i) => (
