@@ -263,26 +263,30 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (p1Retired) pkRenteIncome += pk1Monthly * 12
     if (p2raw && p2RetiredSimple) pkRenteIncome += pk2Monthly * 12
 
-    // K3: correct Sätzchen capital withdrawal tax from tax.ts (canton-aware)
-    if (isRetirementYearP1 && cap1 > 0) {
-      pkKapitalWithdrawal += cap1
-      wealth += cap1 - calculateCapitalTax(cap1, canton, taxStatus).totalTax
+    // K3+K4: Kapitalbezüge im gleichen Pensionierungsjahr zusammenfassen (höhere Progression vermeiden)
+    // P1-Pensionierungsjahr: PK-Kapital + Säule-3a + FZ werden kombiniert besteuert
+    if (isRetirementYearP1) {
+      const fz1 = p1raw.hasFZ && p1raw.fzBalance > 0 ? p1raw.fzBalance : 0
+      const the3a = start3a > 0 && yearsFromNow === ra1 - currentAge ? start3a : 0
+      const totalP1Capital = cap1 + the3a + fz1
+      if (totalP1Capital > 0) {
+        const combinedTax = calculateCapitalTax(totalP1Capital, canton, taxStatus).totalTax
+        if (cap1 > 0) { pkKapitalWithdrawal += cap1; wealth += cap1 }
+        if (the3a > 0) pillar3aWithdrawal = the3a   // principal already in wealth from start3a
+        if (fz1 > 0) wealth += fz1
+        wealth -= combinedTax
+      }
     }
-    if (isRetirementYearP2 && cap2 > 0) {
-      pkKapitalWithdrawal += cap2
-      wealth += cap2 - calculateCapitalTax(cap2, canton, taxStatus).totalTax
-    }
-    if (isRetirementYearP1 && start3a > 0 && yearsFromNow === ra1 - currentAge) {
-      pillar3aWithdrawal = start3a
-      wealth -= calculateCapitalTax(start3a, canton, taxStatus).totalTax
-    }
-
-    // K4: Freizügigkeitsguthaben (FZ) — add net capital at retirement
-    if (isRetirementYearP1 && p1raw.hasFZ && p1raw.fzBalance > 0) {
-      wealth += p1raw.fzBalance - calculateCapitalTax(p1raw.fzBalance, canton, taxStatus).totalTax
-    }
-    if (isRetirementYearP2 && p2raw && p2raw.hasFZ && p2raw.fzBalance > 0) {
-      wealth += p2raw.fzBalance - calculateCapitalTax(p2raw.fzBalance, canton, taxStatus).totalTax
+    // P2-Pensionierungsjahr: PK-Kapital + FZ kombiniert (3a bereits im P1-Jahr besteuert)
+    if (isRetirementYearP2) {
+      const fz2 = p2raw && p2raw.hasFZ && p2raw.fzBalance > 0 ? p2raw.fzBalance : 0
+      const totalP2Capital = cap2 + fz2
+      if (totalP2Capital > 0) {
+        const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
+        if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
+        if (fz2 > 0) wealth += fz2
+        wealth -= combinedTax
+      }
     }
 
     if (p1Retired || p2RetiredSimple) {

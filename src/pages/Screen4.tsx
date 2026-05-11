@@ -372,7 +372,7 @@ export default function Screen4() {
   const wdMonthlyGap = Math.max(0, monthlyBudget - wdMonthlyIncome)
   const wdEffectiveWithdrawal = wdCustomWithdrawal ?? wdMonthlyGap
 
-  // Wealth at retirement: free assets + 3a (if any) + PK capital (if Kapitalbezug) - taxes
+  // Wealth at retirement: free assets + 3a (if any) + PK capital (if Kapitalbezug) + FZ - taxes
   const wdInitialWealth = useMemo(() => {
     let w = freeAssets || 0
     if (p1.has3a && p1.balance3a > 0) w += p1.balance3a
@@ -381,8 +381,12 @@ export default function Screen4() {
       const tax = calculateCapitalWithdrawalTax(capAmount, canton, taxStatus)
       w += tax.netAmount
     }
+    if (p1.hasFZ && p1.fzBalance > 0) {
+      const tax = calculateCapitalWithdrawalTax(p1.fzBalance, canton, taxStatus)
+      w += tax.netAmount
+    }
     return w
-  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, canton, taxStatus])
+  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, p1.hasFZ, p1.fzBalance, canton, taxStatus])
 
   const wdScenarios = useMemo(() =>
     buildDepletionScenarios(wdInitialWealth, wdEffectiveWithdrawal, ra1)
@@ -1386,7 +1390,14 @@ export default function Screen4() {
                         const tax = calculateCapitalWithdrawalTax(cap, canton, taxStatus)
                         return [
                           { label: `PK-Kapital (${p1.pkBezugsart === 'mix' ? '50%' : '100%'} Kapitalbezug)`, value: cap, positive: true },
-                          { label: '– Kapitalbezugssteuer', value: tax.totalTax, positive: false },
+                          { label: '– Kapitalbezugssteuer PK', value: tax.totalTax, positive: false },
+                        ]
+                      })() : []),
+                      ...(p1.hasFZ && p1.fzBalance > 0 ? (() => {
+                        const tax = calculateCapitalWithdrawalTax(p1.fzBalance, canton, taxStatus)
+                        return [
+                          { label: 'Freizügigkeitsguthaben (FZ)', value: p1.fzBalance, positive: true },
+                          { label: '– Kapitalbezugssteuer FZ', value: tax.totalTax, positive: false },
                         ]
                       })() : []),
                     ].map((row, i) => (
