@@ -1178,10 +1178,51 @@ export default function Screen3() {
           <div className="info-callout" style={{ marginBottom: 16 }}>
             <span className="info-callout-icon">i</span>
             <span>
-              Grössere Ausgaben oder Veränderungen in den nächsten Jahren beeinflussen Ihren Vermögensverlauf erheblich.
-              Erfassen Sie hier geplante Ereignisse – sie werden direkt in Ihre Analyse übernommen.
+              Grössere Ausgaben oder Veränderungen beeinflussen Ihren Vermögensverlauf. Wählen Sie unten, was auf Sie zutrifft.
             </span>
           </div>
+
+          {/* Quick-buttons */}
+          {lifeEvents.length === 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10 }}>Was planen Sie in den nächsten Jahren?</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {[
+                  { label: '🔨 Renovation geplant', category: 'renovation' as LifeEventCategory },
+                  { label: '⏰ Teilzeit vor Pension', category: 'teilzeit' as LifeEventCategory },
+                  { label: '🛒 Grössere Anschaffung', category: 'sonstiges' as LifeEventCategory },
+                  { label: '✓ Nichts davon', category: null },
+                ].map((btn) => (
+                  <button
+                    key={btn.label}
+                    onClick={() => {
+                      if (btn.category !== null) {
+                        const cfg = CATEGORY_CONFIG[btn.category]
+                        addLifeEvent({
+                          id: uid(),
+                          category: btn.category,
+                          year: currentYear + 2,
+                          amount: cfg.defaultAmount,
+                          art: cfg.defaultArt,
+                          duration: cfg.defaultDuration,
+                          enabled: true,
+                          details: {},
+                        })
+                      }
+                    }}
+                    style={{
+                      padding: '12px 10px', borderRadius: 10,
+                      border: '1.5px solid var(--ink-200)', background: '#fff',
+                      color: 'var(--ink-700)', fontSize: 13, fontWeight: 500,
+                      cursor: 'pointer', transition: 'all .15s', textAlign: 'left',
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Event list */}
           {lifeEvents.map((evt) => (
@@ -1197,19 +1238,17 @@ export default function Screen3() {
             />
           ))}
 
-          {/* Add button */}
+          {/* Add button – subtle link style */}
           <button
             onClick={handleAddLifeEvent}
             style={{
-              width: '100%', padding: '11px 16px', borderRadius: 10,
-              border: '2px dashed var(--navy-200)', background: 'var(--navy-50)',
-              color: 'var(--navy-700)', fontSize: 13.5, fontWeight: 600,
-              cursor: 'pointer', transition: 'all .15s', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', gap: 8,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--navy-600)', fontSize: 13, fontWeight: 500,
+              padding: '8px 4px', display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            <span style={{ fontSize: 18, fontWeight: 300 }}>+</span>
-            Ereignis hinzufügen
+            <span style={{ fontSize: 16, fontWeight: 300 }}>+</span>
+            Weitere Ereignisse hinzufügen
           </button>
 
           {/* Timeline */}

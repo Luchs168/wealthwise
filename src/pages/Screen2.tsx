@@ -157,16 +157,16 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
 
   return (
     <div style={{ marginBottom: 20 }}>
-      {/* Demo-mode disclaimer before upload */}
+      {/* Ausfüllhilfe disclaimer before upload */}
       {status === 'idle' && (
         <div style={{
           marginBottom: 10, padding: '10px 14px',
-          background: '#fffbeb', border: '1px solid #fde68a',
-          borderRadius: 10, fontSize: 12.5, color: '#92400e',
+          background: '#eff6ff', border: '1px solid #bae6fd',
+          borderRadius: 10, fontSize: 12.5, color: '#1e40af',
           display: 'flex', alignItems: 'flex-start', gap: 8,
         }}>
-          <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
-          <span><strong>Demo-Modus:</strong> Die automatische Extraktion aus dem PDF ist eine Simulation. Die angezeigten Werte sind Beispieldaten – bitte überprüfen und manuell anpassen.</span>
+          <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
+          <span><strong>Ausfüllhilfe:</strong> Wir lesen die Struktur Ihres Dokuments und schlagen Werte vor. Bitte prüfen und korrigieren Sie die Felder anhand Ihres eigentlichen PK-Ausweises.</span>
         </div>
       )}
 
@@ -204,8 +204,8 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
           )}
           {status === 'done' && (
             <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#92400e' }}>Demo-Werte übernommen</div>
-              <div style={{ fontSize: 13, color: '#b45309', marginTop: 2 }}>Beispieldaten aus {fileName} – bitte unten überprüfen und anpassen</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#0369a1' }}>Werte vorgeschlagen</div>
+              <div style={{ fontSize: 13, color: '#0369a1', marginTop: 2 }}>Vorgeschlagene Werte aus {fileName} – bitte unten prüfen und anpassen</div>
             </>
           )}
           {status === 'error' && (
@@ -235,12 +235,12 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
       {status === 'done' && (
         <div style={{
           marginTop: 10, padding: '10px 14px',
-          background: '#fffbeb', border: '1px solid #fde68a',
-          borderRadius: 10, fontSize: 12.5, color: '#92400e',
+          background: '#eff6ff', border: '1px solid #bae6fd',
+          borderRadius: 10, fontSize: 12.5, color: '#1e40af',
           display: 'flex', alignItems: 'flex-start', gap: 8,
         }}>
-          <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
-          <span>Die <strong>gelb markierten Felder</strong> unten enthalten Demo-Beispielwerte. Bitte kontrollieren Sie PK-Kapital und Umwandlungssatz anhand Ihres echten PK-Ausweises und passen Sie die Werte ggf. an.</span>
+          <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
+          <span>Die <strong>vorgeschlagenen Werte</strong> unten basieren auf der Dokumentstruktur. Bitte kontrollieren Sie PK-Kapital und Umwandlungssatz anhand Ihres echten PK-Ausweises und passen Sie die Werte ggf. an.</span>
         </div>
       )}
     </div>
@@ -254,7 +254,7 @@ export default function Screen2() {
   const [subStep, setSubStep] = useState<0 | 1>(0)
   const [ahvExpanded, setAhvExpanded] = useState(false)
   const [showTransition, setShowTransition] = useState(false)
-  const [pkInterestMode, setPkInterestMode] = useState<[string, string]>(['bvg', 'bvg'])
+  const [pkInterestMode, setPkInterestMode] = useState<[string, string]>(['moderat', 'moderat'])
   const [pkContribMode, setPkContribMode] = useState<['auto' | 'manuell', 'auto' | 'manuell']>(['auto', 'auto'])
   const [pkEinkaufExpanded, setPkEinkaufExpanded] = useState(false)
   const [pkDetailsExpanded, setPkDetailsExpanded] = useState(false)
@@ -624,7 +624,7 @@ export default function Screen2() {
                       }}>
                         {autoY} Jahre
                         <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-500)', marginLeft: 8, fontFamily: 'inherit' }}>
-                          {autoY < 44 ? `Skala ${autoY}` : 'Skala 44 (voll)'}
+                          {autoY < 44 ? `${autoY} von 44 Beitragsjahren (${Math.round(autoY / 44 * 100)}% der vollen Rente)` : 'Volle AHV-Rente (44 Beitragsjahre)'}
                         </span>
                       </div>
                     </div>
@@ -651,7 +651,7 @@ export default function Screen2() {
                   </div>
                   {autoY < 44 && (
                     <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
-                      ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erreichen Sie max. Skala {autoY} – das kürzt Ihre Rente zusätzlich zur Vorbezugskürzung.
+                      ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erhalten Sie {Math.round(autoY / 44 * 100)}% der vollen AHV-Rente ({44 - autoY} Beitragsjahr{44 - autoY === 1 ? ' fehlt' : 'e fehlen'}). Das sind ca. CHF {fmtCHF(Math.round((44 - autoY) / 44 * 2520))} weniger pro Monat – zusätzlich zur Vorbezugskürzung.
                     </div>
                   )}
                 </div>
@@ -665,7 +665,7 @@ export default function Screen2() {
               {/* KZG – Kinderziehungsgutschriften */}
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>
-                  Erziehungsgutschriften (KZG)
+                  Haben Sie Kinder unter 16 Jahren erzogen?
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10, lineHeight: 1.5 }}>
                   Erziehungsgutschriften werden für Jahre mit Kindern unter 16 angerechnet und erhöhen Ihr massgebendes Durchschnittseinkommen – damit auch Ihre AHV-Rente.
@@ -819,20 +819,44 @@ export default function Screen2() {
             const einkaufspotenzial = cur.pkMaxGuthaben > cur.pkCurrentCapital
               ? cur.pkMaxGuthaben - cur.pkCurrentCapital : 0
 
+            const estimatedCapital = (() => {
+              const income = cur.income || 0
+              const age = proj.currentAge
+              if (income <= 0) return 0
+              const multiplier = age >= 60 ? 3.0 : age >= 55 ? 2.5 : age >= 50 ? 2.0 : 1.5
+              return Math.round(income * multiplier / 10000) * 10000
+            })()
+            const isEstimated = cur.pkCurrentCapital === 0 && estimatedCapital > 0
+            const pkCapitalDisplay = isEstimated ? estimatedCapital : cur.pkCurrentCapital
+
             return (
               <>
+                {isEstimated && (
+                  <div style={{ marginBottom: 14, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 13, color: '#1e40af' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Haben Sie Ihren Vorsorgeausweis nicht zur Hand? Kein Problem.</div>
+                    Wir schätzen Ihr PK-Guthaben basierend auf Alter ({proj.currentAge}) und Einkommen.{' '}
+                    <strong>Tipp: Mit Ihrem PK-Ausweis wird die Analyse deutlich genauer.</strong>
+                  </div>
+                )}
                 <PkUpload onExtract={(capital, rate) => updatePKAndProject(activeTab, { pkCurrentCapital: capital, pkRate: rate })} />
 
                 {/* 1. Aktuelles Altersguthaben */}
                 <div style={{ marginBottom: 4 }}>
                   <CHFField
                     label="Aktuelles Altersguthaben"
-                    value={cur.pkCurrentCapital}
+                    value={pkCapitalDisplay}
                     onChange={(v) => updatePKAndProject(activeTab, { pkCurrentCapital: v })}
                   />
-                  <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 3, paddingLeft: 2 }}>
-                    → Vorsorgeausweis: «Altersguthaben» oder «Sparguthaben» (Seite 1)
-                  </div>
+                  {isEstimated ? (
+                    <div style={{ fontSize: 12, color: '#0369a1', marginTop: 3, paddingLeft: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 4, padding: '1px 7px', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>Geschätzt</span>
+                      Ersetzen Sie diesen Wert mit der Zahl von Ihrem PK-Ausweis
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 3, paddingLeft: 2 }}>
+                      → Vorsorgeausweis: «Altersguthaben» oder «Sparguthaben» (Seite 1)
+                    </div>
+                  )}
                 </div>
 
                 {/* Optional: Aufschlüsselung obligatorisch/überobligatorisch */}
@@ -917,7 +941,7 @@ export default function Screen2() {
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 6 }}>
                     {[
-                      { id: 'bvg', label: 'BVG-Min', sub: '1.25%', val: 0.0125 },
+                      { id: 'bvg', label: 'Ges. Minimum', sub: '1.25%', val: 0.0125 },
                       { id: 'moderat', label: 'Moderat', sub: '2.0%', val: 0.02 },
                       { id: 'gut', label: 'Gut', sub: '3.0%', val: 0.03 },
                       { id: 'manuell', label: 'Manuell', sub: `${(cur.pkInterestRate * 100).toFixed(2)}%`, val: null },
@@ -1000,7 +1024,7 @@ export default function Screen2() {
                     <span className="suffix">%</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
-                    BVG-Minimum (6.8%) gilt nur für den obligatorischen Teil. Die meisten Kassen wenden einen «umhüllenden» Satz von 5.0–5.8% an.
+                    80% der Schweizer Pensionskassen liegen zwischen 5.0–5.8%. BVG-Minimum (6.8%) gilt nur für den obligatorischen Teil.
                     Finden Sie auf Ihrem Vorsorgeausweis.
                   </div>
                 </div>
@@ -1026,6 +1050,11 @@ export default function Screen2() {
                       </button>
                     ))}
                   </div>
+                  {cur.pkBezugsart === 'rente' && (
+                    <div style={{ marginTop: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12, color: '#166534' }}>
+                      Für die meisten Angestellten ist die Rente die sicherste Wahl. In der Analyse zeigen wir Ihnen den Vergleich im Detail.
+                    </div>
+                  )}
                 </div>
 
                 {/* 6. Einkaufspotenzial (optional) */}

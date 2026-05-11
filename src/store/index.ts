@@ -176,7 +176,7 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     kzgYears: 0,
     pkCurrentCapital: 0,
     pkAnnualContribution: 0,
-    pkInterestRate: 0.0125,
+    pkInterestRate: 0.02,
     pkObligatorisch: 0,
     pkMaxGuthaben: 0,
   }

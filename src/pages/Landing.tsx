@@ -32,6 +32,7 @@ export default function Landing() {
   const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [checked, setChecked] = useState<Set<number>>(new Set())
+  const [optionalExpanded, setOptionalExpanded] = useState(false)
   const [hasResume, setHasResume] = useState(false)
   const [resumeDismissed, setResumeDismissed] = useState(false)
   const [showStickyCta, setShowStickyCta] = useState(false)
@@ -363,134 +364,39 @@ export default function Landing() {
         <div className="section-wrap">
           <div className="section-head">
             <div className="eyebrow">Vorbereitung</div>
-            <h2 className="sec-title">Diese Unterlagen sollten Sie bereithalten</h2>
-            <p className="sec-sub">Je vollständiger Ihre Angaben, desto präziser Ihre Analyse. Falls Sie nicht alle Dokumente zur Hand haben, können Sie jederzeit mit Schätzwerten starten.</p>
+            <h2 className="sec-title">So starten Sie in 5 Minuten</h2>
+            <p className="sec-sub">Das brauchen Sie für eine erste Analyse. Alles Weitere ist optional – fehlende Werte schätzen wir für Sie.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 14, marginBottom: 28 }}>
-            {[
-              {
-                icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 10l8-5 8 5"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/>
-                  </svg>
-                ),
-                color: 'var(--navy-800)', bg: 'var(--navy-50)', borderColor: 'var(--navy-200)',
-                title: 'Pensionskassenausweis (2. Säule)',
-                details: [
-                  'Ihr aktueller Vorsorgeausweis (jährlich von Ihrer Pensionskasse)',
-                  'Enthält: Altersguthaben, voraussichtliche Rente, Umwandlungssatz, Einkaufspotenzial',
-                ],
-                link: null,
-                note: null,
-                optional: false,
-              },
-              {
-                icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/>
-                  </svg>
-                ),
-                color: '#0369a1', bg: '#f0f9ff', borderColor: '#bae6fd',
-                title: 'IK-Auszug AHV (1. Säule)',
-                details: [
-                  'Auszug aus Ihrem individuellen AHV-Konto',
-                  'Enthält: Beitragsjahre und eingetragene Einkommen',
-                ],
-                link: { href: 'https://www.ahv-iv.ch', label: 'www.ahv-iv.ch', suffix: ' (kostenlos, ca. 2 Wochen Lieferzeit)' },
-                note: 'Falls nicht vorhanden, können Sie mit Schätzwerten starten.',
-                optional: false,
-              },
-              {
-                icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/>
-                  </svg>
-                ),
-                color: '#7c3aed', bg: '#faf5ff', borderColor: '#e9d5ff',
-                title: 'Säule 3a – Kontoauszüge',
-                details: [
-                  'Aktueller Stand aller 3a-Konten (Bank und/oder Versicherung)',
-                  'Anzahl Ihrer 3a-Konten (relevant für Stafelbezug)',
-                ],
-                link: null,
-                note: null,
-                optional: false,
-              },
-              {
+          {/* Tier 1: minimal requirement */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+              Das reicht für den Start:
+            </div>
+            {(() => {
+              const doc = {
                 icon: (
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/>
                   </svg>
                 ),
                 color: '#b45309', bg: '#fffbeb', borderColor: '#fde68a',
-                title: 'Lohnausweis oder Steuererklärung',
-                details: [
-                  'Für Ihr aktuelles Bruttoeinkommen',
-                  'Alternativ: Letzter Lohnausweis genügt',
-                ],
-                link: null,
-                note: null,
-                optional: false,
-              },
-              {
-                icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="8" width="3" height="12"/><rect x="16" y="4" width="3" height="16"/>
-                  </svg>
-                ),
-                color: '#16a34a', bg: '#f0fdf4', borderColor: '#bbf7d0',
-                title: 'Vermögensübersicht',
-                details: [
-                  'Bankkonten und Sparkonten',
-                  'Wertschriftendepots (Kurswert)',
-                  'Immobilien: Verkehrswert und Hypothek',
-                ],
-                link: null,
-                note: null,
-                optional: false,
-              },
-              {
-                icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                  </svg>
-                ),
-                color: 'var(--ink-600)', bg: 'var(--bg)', borderColor: 'var(--ink-200)',
-                title: 'Monatliche Ausgaben',
-                details: [
-                  'Budget oder ungefähre monatliche Kosten',
-                ],
-                link: null,
-                note: 'Falls nicht bekannt, verwenden wir Schweizer Durchschnittswerte als Ausgangspunkt.',
-                optional: true,
-              },
-            ].map((doc, i) => {
-              const isDone = checked.has(i)
+                title: 'Ihr aktuelles Einkommen',
+                details: ['Bruttolohn oder letzter Lohnausweis genügt'],
+              }
+              const isDone = checked.has(3)
               return (
                 <div
-                  key={i}
-                  onClick={() => toggleCheck(i)}
+                  onClick={() => toggleCheck(3)}
                   style={{
                     background: isDone ? doc.bg : '#fff',
                     border: `1.5px solid ${isDone ? doc.borderColor : 'var(--ink-200)'}`,
                     borderRadius: 14, padding: '18px 20px',
                     cursor: 'pointer', transition: 'border-color .2s, background .2s',
-                    position: 'relative',
+                    maxWidth: 420,
                   }}
                 >
-                  {/* Optional badge */}
-                  {doc.optional && (
-                    <div style={{
-                      position: 'absolute', top: 14, right: 14,
-                      fontSize: 10.5, color: 'var(--ink-400)', background: 'var(--ink-100)',
-                      padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--font-mono)',
-                      letterSpacing: '.04em',
-                    }}>Optional</div>
-                  )}
-                  {/* Checkbox + icon row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                     <div style={{
                       width: 40, height: 40, borderRadius: 11, flexShrink: 0,
                       background: isDone ? doc.color : doc.bg,
@@ -501,91 +407,169 @@ export default function Landing() {
                     }}>
                       {isDone
                         ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 12 10 17 19 7"/></svg>
-                        : doc.icon
-                      }
+                        : doc.icon}
                     </div>
-                    <div style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14.5,
-                      color: isDone ? doc.color : 'var(--navy-900)', lineHeight: 1.3,
-                      flex: 1,
-                    }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14.5, color: isDone ? doc.color : 'var(--navy-900)', lineHeight: 1.3 }}>
                       {doc.title}
                     </div>
                   </div>
-                  {/* Details */}
                   <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'none' }}>
                     {doc.details.map((d, j) => (
-                      <li key={j} style={{
-                        fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.55,
-                        marginBottom: j < doc.details.length - 1 ? 4 : 0,
-                        paddingLeft: 0, display: 'flex', alignItems: 'flex-start', gap: 6,
-                      }}>
-                        <span style={{ color: 'var(--ink-300)', flexShrink: 0, marginTop: 2 }}>·</span>
-                        {d}
+                      <li key={j} style={{ fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.55, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                        <span style={{ color: 'var(--ink-300)', flexShrink: 0, marginTop: 2 }}>·</span>{d}
                       </li>
                     ))}
-                    {doc.link && (
-                      <li style={{ fontSize: 13, color: 'var(--ink-600)', marginTop: 4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                        <span style={{ color: 'var(--ink-300)', flexShrink: 0, marginTop: 2 }}>·</span>
-                        <span>
-                          Bestellen unter:{' '}
-                          <a
-                            href={doc.link.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ color: '#0369a1', fontWeight: 500 }}
-                          >{doc.link.label}</a>
-                          {doc.link.suffix}
-                        </span>
-                      </li>
-                    )}
                   </ul>
-                  {doc.note && (
-                    <div style={{
-                      marginTop: 10, fontSize: 12.5, color: 'var(--ink-500)',
-                      background: 'var(--bg)', border: '1px solid var(--ink-150)',
-                      borderRadius: 8, padding: '6px 10px', lineHeight: 1.5,
-                    }}>
-                      💡 {doc.note}
-                    </div>
-                  )}
                 </div>
               )
-            })}
+            })()}
           </div>
 
-          {/* Footer notes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{
-              display: 'flex', alignItems: 'flex-start', gap: 12,
-              background: '#f0fdf4', border: '1px solid #bbf7d0',
-              borderRadius: 12, padding: '14px 18px',
-            }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>✅</span>
-              <span style={{ fontSize: 14, color: '#15803d', lineHeight: 1.6 }}>
-                <b>Sie können auch ohne alle Unterlagen starten</b> – fehlende Werte können Sie jederzeit ergänzen oder schätzen. Falls Sie einen Wert nicht kennen, verwenden Sie einfach eine Schätzung.
+          {/* Tier 2: optional extras */}
+          <div style={{ marginBottom: 28 }}>
+            <button
+              onClick={() => setOptionalExpanded(!optionalExpanded)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 8, marginBottom: optionalExpanded ? 14 : 0 }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Für genauere Ergebnisse (optional)
               </span>
-            </div>
-            <div style={{
-              display: 'flex', alignItems: 'flex-start', gap: 12,
-              background: 'var(--navy-50)', border: '1px solid var(--navy-200)',
-              borderRadius: 12, padding: '14px 18px',
-            }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>💡</span>
-              <span style={{ fontSize: 14, color: 'var(--navy-800)', lineHeight: 1.6 }}>
-                <b>Tipp:</b> Den grössten Einfluss auf die Genauigkeit haben Ihr <b>Pensionskassenausweis</b> und Ihr <b>aktuelles Einkommen</b>. Alles andere können Sie schätzen.
-              </span>
-            </div>
-            <div style={{ textAlign: 'center', paddingTop: 8 }}>
-              <div style={{ fontSize: 12.5, color: 'var(--ink-400)', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
-                {checked.size > 0 ? `${checked.size} von 6 Unterlagen abgehakt` : 'Klicken Sie auf eine Karte, um sie abzuhaken'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: 'var(--ink-400)', transform: optionalExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {optionalExpanded && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+                {[
+                  {
+                    i: 0,
+                    icon: (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 10l8-5 8 5"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/>
+                      </svg>
+                    ),
+                    color: 'var(--navy-800)', bg: 'var(--navy-50)', borderColor: 'var(--navy-200)',
+                    title: 'Pensionskassenausweis (2. Säule)',
+                    details: ['Altersguthaben, Umwandlungssatz, Einkaufspotenzial'],
+                    link: null, note: null,
+                  },
+                  {
+                    i: 1,
+                    icon: (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/>
+                      </svg>
+                    ),
+                    color: '#0369a1', bg: '#f0f9ff', borderColor: '#bae6fd',
+                    title: 'AHV-Kontoauszug (optional)',
+                    details: ['Beitragsjahre und eingetragene Einkommen'],
+                    link: { href: 'https://www.ahv-iv.ch', label: 'www.ahv-iv.ch', suffix: ' (kostenlos)' },
+                    note: 'Falls nicht vorhanden: Schätzwerte genügen für den Start.',
+                  },
+                  {
+                    i: 2,
+                    icon: (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/>
+                      </svg>
+                    ),
+                    color: '#7c3aed', bg: '#faf5ff', borderColor: '#e9d5ff',
+                    title: 'Säule 3a – Kontoauszüge',
+                    details: ['Aktueller Stand und Anzahl 3a-Konten'],
+                    link: null, note: null,
+                  },
+                  {
+                    i: 4,
+                    icon: (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="8" width="3" height="12"/><rect x="16" y="4" width="3" height="16"/>
+                      </svg>
+                    ),
+                    color: '#16a34a', bg: '#f0fdf4', borderColor: '#bbf7d0',
+                    title: 'Vermögensübersicht',
+                    details: ['Bankkonten, Depots, Immobilien'],
+                    link: null, note: null,
+                  },
+                  {
+                    i: 5,
+                    icon: (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
+                    ),
+                    color: 'var(--ink-600)', bg: 'var(--bg)', borderColor: 'var(--ink-200)',
+                    title: 'Monatliche Ausgaben',
+                    details: ['Budget oder ungefähre Kosten'],
+                    link: null,
+                    note: 'Falls unbekannt: wir nutzen Schweizer Durchschnittswerte.',
+                  },
+                ].map((doc) => {
+                  const isDone = checked.has(doc.i)
+                  return (
+                    <div
+                      key={doc.i}
+                      onClick={() => toggleCheck(doc.i)}
+                      style={{
+                        background: isDone ? doc.bg : '#fff',
+                        border: `1.5px solid ${isDone ? doc.borderColor : 'var(--ink-200)'}`,
+                        borderRadius: 14, padding: '18px 20px',
+                        cursor: 'pointer', transition: 'border-color .2s, background .2s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                          background: isDone ? doc.color : doc.bg,
+                          border: `1.5px solid ${doc.borderColor}`,
+                          display: 'grid', placeItems: 'center',
+                          color: isDone ? '#fff' : doc.color,
+                          transition: 'background .2s, color .2s',
+                        }}>
+                          {isDone
+                            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 12 10 17 19 7"/></svg>
+                            : doc.icon}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14.5, color: isDone ? doc.color : 'var(--navy-900)', lineHeight: 1.3, flex: 1 }}>
+                          {doc.title}
+                        </div>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'none' }}>
+                        {doc.details.map((d, j) => (
+                          <li key={j} style={{ fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.55, display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: j < doc.details.length - 1 ? 4 : 0 }}>
+                            <span style={{ color: 'var(--ink-300)', flexShrink: 0, marginTop: 2 }}>·</span>{d}
+                          </li>
+                        ))}
+                        {doc.link && (
+                          <li style={{ fontSize: 13, color: 'var(--ink-600)', marginTop: 4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <span style={{ color: 'var(--ink-300)', flexShrink: 0, marginTop: 2 }}>·</span>
+                            <span>
+                              Bestellen:{' '}
+                              <a href={doc.link.href} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: '#0369a1', fontWeight: 500 }}>{doc.link.label}</a>
+                              {doc.link.suffix}
+                            </span>
+                          </li>
+                        )}
+                      </ul>
+                      {doc.note && (
+                        <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--ink-500)', background: 'var(--bg)', border: '1px solid var(--ink-150)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.5 }}>
+                          💡 {doc.note}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              <button className="btn-primary" onClick={() => navigate('/schritt/1')}>
-                Analyse starten
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
-              </button>
-            </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div style={{ textAlign: 'center', paddingTop: 4 }}>
+            <button className="btn-primary" onClick={() => navigate('/schritt/1')}>
+              Analyse starten
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+            </button>
           </div>
         </div>
       </div>

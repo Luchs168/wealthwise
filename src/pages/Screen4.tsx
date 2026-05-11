@@ -668,32 +668,41 @@ export default function Screen4() {
             )
           })()}
 
-          {/* Top-3 recommendations */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Wichtigste Massnahmen
+          {/* Top-3 recommendations – prominent */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Ihre Top-3 Massnahmen
             </div>
             {(RECS[analysis.verdict] ?? []).slice(0, 3).map((rec, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}>
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '12px 14px', marginBottom: 8,
+                background: 'rgba(255,255,255,0.7)', borderRadius: 10,
+                border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'}`,
+              }}>
                 <span style={{
-                  flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
+                  flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
                   background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
-                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
                 }}>{i + 1}</span>
-                <span style={{ fontSize: 13, color: 'var(--ink-700)', lineHeight: 1.4 }}>{rec.text}</span>
+                <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
               </div>
             ))}
           </div>
 
-          {/* CTA buttons */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={handlePDF} style={{ flex: '0 0 auto' }}>
-              Analyse als PDF
+          {/* PDF CTA */}
+          <div style={{ marginBottom: 12 }}>
+            <button className="btn btn-primary" onClick={handlePDF} style={{ width: '100%' }}>
+              Analyse als PDF herunterladen
             </button>
+          </div>
+
+          {/* Separator + Detailanalyse toggle */}
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12, textAlign: 'center' }}>
             <button
               className="btn btn-ghost"
               onClick={() => setShowDetailedAnalysis(v => !v)}
-              style={{ flex: '0 0 auto' }}
+              style={{ fontSize: 13 }}
             >
               {showDetailedAnalysis ? '▲ Detailanalyse ausblenden' : '▼ Detailanalyse anzeigen'}
             </button>
