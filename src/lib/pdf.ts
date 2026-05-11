@@ -259,7 +259,9 @@ export async function exportPDF(data: PdfData): Promise<void> {
     if (r[2]) {
       doc.setFontSize(8)
       doc.setTextColor(...(isTot ? ([200, 220, 255] as [number, number, number]) : INK5))
-      doc.text(r[2], W - MR - 40, y)
+      // Limit sub-text to 40mm so it doesn't overflow the right margin
+      const subText = doc.splitTextToSize(r[2], 40)[0]
+      doc.text(subText, W - MR - 43, y)
     }
     y += 10
   })
@@ -489,14 +491,22 @@ export async function exportPDF(data: PdfData): Promise<void> {
   )
 
   allRecs.slice(0, 5).forEach((rec, i) => {
-    checkBreak(32, 5)
     const pColor = rec.priority === 'hoch' ? RED : rec.priority === 'mittel' ? AMBER : GREEN
     const pLabel = rec.priority === 'hoch' ? 'Dringend' : rec.priority === 'mittel' ? 'Empfohlen' : 'Optional'
 
+    doc.setFontSize(10)
+    const titleLines: string[] = doc.splitTextToSize(`${i + 1}. ${rec.text}`, CW - 14)
+    doc.setFontSize(8.5)
+    const detailLines: string[] = doc.splitTextToSize(rec.detail, CW - 14)
+    const shownDetail = detailLines.slice(0, 2)
+
+    const boxH = 13 + titleLines.length * 5.5 + shownDetail.length * 5
+    checkBreak(boxH + 4, 5)
+
     doc.setFillColor(250, 250, 252)
-    doc.roundedRect(ML, y, CW, 28, 3, 3, 'F')
+    doc.roundedRect(ML, y, CW, boxH, 3, 3, 'F')
     doc.setFillColor(...pColor)
-    doc.roundedRect(ML, y, 3, 28, 1, 1, 'F')
+    doc.roundedRect(ML, y, 3, boxH, 1, 1, 'F')
 
     // Priority badge
     doc.setFillColor(...pColor)
@@ -504,21 +514,20 @@ export async function exportPDF(data: PdfData): Promise<void> {
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
     const pBadgeW = pLabel.length * 1.8 + 6
-    doc.roundedRect(ML + 6, y + 4, pBadgeW, 6, 2, 2, 'F')
-    doc.text(pLabel, ML + 6 + pBadgeW / 2, y + 8.5, { align: 'center' })
+    doc.roundedRect(ML + 6, y + 3, pBadgeW, 6, 2, 2, 'F')
+    doc.text(pLabel, ML + 6 + pBadgeW / 2, y + 7.5, { align: 'center' })
 
     doc.setTextColor(...INK)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text(`${i + 1}. ${rec.text}`, ML + 6, y + 16)
+    doc.text(titleLines, ML + 6, y + 13)
 
     doc.setFontSize(8.5)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...INK5)
-    const detailLines = doc.splitTextToSize(rec.detail, CW - 10)
-    doc.text(detailLines.slice(0, 2), ML + 6, y + 22)
+    doc.text(shownDetail, ML + 6, y + 13 + titleLines.length * 5.5)
 
-    y += 32
+    y += boxH + 4
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -527,9 +536,9 @@ export async function exportPDF(data: PdfData): Promise<void> {
   addPage(6)
   section('Annahmen & Grundlagen', 'Verwendete Parameter für diese Analyse')
 
-  const assumptions = [
+  const assumptions: [string, string][] = [
     ['AHV-Daten', 'AHV-Rentenskala 44, Stand 2026 (BSV)'],
-    ['BVG / PK', `Umwandlungssatz: ${data.pkRate1 ?? 5.4}%, BVG-Kennzahlen 2026`],
+    ['Umwandlungssatz', `${data.pkRate1 ?? 5.4}%, BVG-Kennzahlen 2026`],
     ['Risikoprofil', riskLabel],
     ['Inflation (Neutral)', '1.5% p.a.'],
     ['Anlagerendite (Neutral)', data.riskProfile === 'conservative' ? '0.8% p.a.' : data.riskProfile === 'growth' ? '2.5% p.a.' : '2.0% p.a.'],
@@ -537,32 +546,38 @@ export async function exportPDF(data: PdfData): Promise<void> {
     ['Steuerkanton', data.location?.kanton ?? '–'],
     ['Kirchensteuer', data.kirchensteuer ? 'Ja' : 'Nein'],
     ['Steuergrundlagen', 'DBG 2026, kantonale Richtwerte (ESTV)'],
-    ['Lebenserw. Planung', 'Mann: 85 Jahre, Frau: 87 Jahre (BFS)'],
+    ['Lebenserwartung', 'Mann: 85 Jahre, Frau: 87 Jahre (BFS)'],
     ['Kapitalbezug PK', 'Sätzchen-Methode (Steuerverwaltung)'],
-    ['3a-Maximum 2026', 'CHF 7\'258 (mit PK) / CHF 36\'288 (ohne PK)'],
+    ['3a-Maximum 2026', "CHF 7'258 (mit PK) / CHF 36'288 (ohne PK)"],
   ]
 
-  // Two-column table
-  const aColW = (CW - 6) / 2
+  // Single-column layout: label (54mm) | value (rest) – no overflow risk
+  const aLabelW = 54
+  const aValueW = CW - aLabelW - 3
+
   assumptions.forEach((a, i) => {
-    checkBreak(9, 6)
-    const xOffset = (i % 2) * (aColW + 6) + ML
-    if (i % 2 === 0) {
-      if (Math.floor(i / 2) % 2 === 0) {
-        doc.setFillColor(...INK1)
-        doc.rect(ML, y - 4, CW, 9, 'F')
-      }
-    }
     doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    const valueLines: string[] = doc.splitTextToSize(a[1], aValueW)
+    const rowH = Math.max(9, valueLines.length * 5 + 4)
+
+    checkBreak(rowH + 1, 6)
+
+    if (i % 2 === 0) {
+      doc.setFillColor(...INK1)
+      doc.rect(ML, y - 5, CW, rowH, 'F')
+    }
+
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...NAVY)
-    doc.text(a[0], xOffset + 2, y)
+    doc.text(a[0], ML + 2, y)
+
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...INK)
-    doc.text(a[1], xOffset + 2 + aColW * 0.4, y)
-    if (i % 2 === 1) y += 9
+    doc.text(valueLines, ML + aLabelW, y)
+
+    y += rowH
   })
-  if (assumptions.length % 2 === 1) y += 9
   y += 6
 
   // Important notice
