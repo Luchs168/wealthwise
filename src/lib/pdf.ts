@@ -30,15 +30,16 @@ export interface PdfData {
 }
 
 // ─── Colour palette ────────────────────────────────────────────────────────
-const NAVY  = [26, 43, 74]   as [number, number, number]
-const NAVY2 = [46, 72, 120]  as [number, number, number]
-const GREEN = [22, 163, 74]  as [number, number, number]
-const RED   = [220, 38, 38]  as [number, number, number]
-const AMBER = [217, 119, 6]  as [number, number, number]
-const WHITE = [255, 255, 255] as [number, number, number]
-const INK   = [15, 23, 42]   as [number, number, number]
-const INK5  = [100, 116, 139] as [number, number, number]
-const INK1  = [241, 245, 249] as [number, number, number]
+const NAVY   = [26, 43, 74]    as [number, number, number]
+const NAVY2  = [46, 72, 120]   as [number, number, number]
+const GREEN  = [21, 128, 61]   as [number, number, number]
+const RED    = [185, 28, 28]   as [number, number, number]
+const AMBER  = [146, 64, 14]   as [number, number, number]
+const WHITE  = [255, 255, 255] as [number, number, number]
+const INK    = [15, 23, 42]    as [number, number, number]
+const INK5   = [100, 116, 139] as [number, number, number]
+const INK1   = [248, 250, 252] as [number, number, number]
+const BORDER = [226, 232, 240] as [number, number, number]
 
 const W = 210
 const PAGE_H = 297
@@ -118,27 +119,33 @@ export async function exportPDF(data: PdfData): Promise<void> {
   }
 
   function kpiBox(x: number, yy: number, w: number, h: number, label: string, value: string, sub: string, color: [number, number, number]) {
-    doc.setFillColor(color[0], color[1], color[2])
-    doc.setGState(new (doc as unknown as { GState: new (o: unknown) => unknown }).GState({ opacity: 0.12 }))
-    doc.roundedRect(x, yy, w, h, 4, 4, 'F')
-    doc.setGState(new (doc as unknown as { GState: new (o: unknown) => unknown }).GState({ opacity: 1 }))
-    doc.setDrawColor(...color)
-    doc.setLineWidth(0.7)
-    doc.roundedRect(x, yy, w, h, 4, 4, 'S')
+    // White background
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(x, yy, w, h, 3, 3, 'F')
+    // Light gray border
+    doc.setDrawColor(...BORDER)
+    doc.setLineWidth(0.4)
+    doc.roundedRect(x, yy, w, h, 3, 3, 'S')
     doc.setLineWidth(0.2)
-    doc.setTextColor(...INK5)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.text(label, x + w / 2, yy + 8, { align: 'center' })
-    doc.setTextColor(...color)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text(value, x + w / 2, yy + 18, { align: 'center' })
+    // Thin colored top accent bar
+    doc.setFillColor(...color)
+    doc.rect(x + 8, yy, w - 16, 1.5, 'F')
+    // Label (small, gray)
     doc.setTextColor(...INK5)
     doc.setFontSize(7.5)
     doc.setFont('helvetica', 'normal')
-    const subLines = doc.splitTextToSize(sub, w - 4)
-    doc.text(subLines, x + w / 2, yy + 24, { align: 'center' })
+    doc.text(label, x + w / 2, yy + 10, { align: 'center' })
+    // Value (big, signal color)
+    doc.setTextColor(...color)
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.text(value, x + w / 2, yy + 20, { align: 'center' })
+    // Sub context (small, gray)
+    doc.setTextColor(...INK5)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    const subLines = doc.splitTextToSize(sub, w - 6)
+    doc.text(subLines, x + w / 2, yy + 27, { align: 'center' })
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -231,40 +238,58 @@ export async function exportPDF(data: PdfData): Promise<void> {
   // Income vs budget table
   section('Einnahmen & Ausgaben im Ruhestand')
 
-  const incomeRows = [
-    ['AHV (1. Säule)', `CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt.`, `inkl. 13. AHV: CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`],
-    ['Pensionskasse (2. Säule)', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`, ''],
-    ['Total Renteneinnahmen', `CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, `${data.monthlyBudget > 0 ? Math.round(analysis.monthlyIncome.total / data.monthlyBudget * 100) : 0}% des Bedarfs`],
-    ['Monatliches Budget', `CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ''],
-  ]
+  // Row 1: AHV – 2-line row (sub-note below, no same-line overlap)
+  checkBreak(16, 2)
+  doc.setFillColor(...INK1)
+  doc.rect(ML, y - 4, CW, 16, 'F')
+  doc.setTextColor(...INK)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('AHV (1. Säule)', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...INK5)
+  doc.text(`inkl. 13. AHV-Rente: CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`, ML + 3, y + 6)
+  y += 16
 
-  incomeRows.forEach((r, i) => {
-    checkBreak(10, 2)
-    const isTot = i === 2
-    if (isTot) {
-      doc.setFillColor(...NAVY)
-      doc.rect(ML, y - 4, CW, 10, 'F')
-      doc.setTextColor(...WHITE)
-    } else if (i % 2 === 0) {
-      doc.setFillColor(...INK1)
-      doc.rect(ML, y - 4, CW, 10, 'F')
-      doc.setTextColor(...INK)
-    } else {
-      doc.setTextColor(...INK)
-    }
-    doc.setFontSize(10)
-    doc.setFont('helvetica', isTot ? 'bold' : 'normal')
-    doc.text(r[0], ML + 3, y)
-    doc.text(r[1], W - MR - 3, y, { align: 'right' })
-    if (r[2]) {
-      doc.setFontSize(8)
-      doc.setTextColor(...(isTot ? ([200, 220, 255] as [number, number, number]) : INK5))
-      // Limit sub-text to 40mm so it doesn't overflow the right margin
-      const subText = doc.splitTextToSize(r[2], 40)[0]
-      doc.text(subText, W - MR - 43, y)
-    }
-    y += 10
-  })
+  // Row 2: PK – standard single-line row
+  checkBreak(10, 2)
+  doc.setFillColor(255, 255, 255)
+  doc.rect(ML, y - 4, CW, 10, 'F')
+  doc.setTextColor(...INK)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Pensionskasse (2. Säule)', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  y += 10
+
+  // Row 3: Total – 2-line dark row (no same-line overlap for % text)
+  checkBreak(16, 2)
+  const pct = data.monthlyBudget > 0 ? Math.round(analysis.monthlyIncome.total / data.monthlyBudget * 100) : 0
+  doc.setFillColor(...NAVY)
+  doc.rect(ML, y - 4, CW, 16, 'F')
+  doc.setTextColor(...WHITE)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Total Renteneinnahmen', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(180, 210, 255)
+  doc.text(`${pct}% des monatlichen Bedarfs`, ML + 3, y + 6)
+  y += 16
+
+  // Row 4: Budget – standard row
+  checkBreak(10, 2)
+  doc.setFillColor(...INK1)
+  doc.rect(ML, y - 4, CW, 10, 'F')
+  doc.setTextColor(...INK)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Monatliches Budget', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  y += 10
 
   // Surplus/Gap row
   checkBreak(14, 2)
@@ -393,9 +418,10 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.text('1. Säule – AHV', ML + 4, y + 5.5)
   y += 12
 
+  const isCouple = !!(analysis.ahv.person2 && data.person2Name)
   const ahvRows = [
-    [`${data.person1Name || 'Person 1'} – AHV-Rente`, `CHF ${fmtCHF(analysis.ahv.person1?.monthlyRente ?? 0)}/Mt.`],
-    ...(analysis.ahv.person2 && data.person2Name ? [[`${data.person2Name} – AHV-Rente`, `CHF ${fmtCHF(analysis.ahv.person2?.monthlyRente ?? 0)}/Mt.`]] : []),
+    [isCouple ? 'AHV-Rente Person 1' : 'AHV-Rente', `CHF ${fmtCHF(analysis.ahv.person1?.monthlyRente ?? 0)}/Mt.`],
+    ...(isCouple ? [['AHV-Rente Person 2', `CHF ${fmtCHF(analysis.ahv.person2?.monthlyRente ?? 0)}/Mt.`]] : []),
     ...(analysis.ahv.plafonReduction > 0 ? [['Plafonierung (Ehepaar)', `−CHF ${fmtCHF(analysis.ahv.plafonReduction)}/Mt.`]] : []),
     ['13. AHV-Rente (inkl.)', `+CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly / 12))}/Mt.`],
     ['Gesamt AHV inkl. 13.', `CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`],
@@ -414,8 +440,9 @@ export async function exportPDF(data: PdfData): Promise<void> {
   y += 12
 
   const pkRows = [
-    [`${data.person1Name || 'P1'} – PK-Kapital`, data.pkCapital1 ? `CHF ${fmtCHF(data.pkCapital1)}` : '–'],
-    [`${data.person1Name || 'P1'} – PK-Rente`, `CHF ${fmtCHF(analysis.pk.person1?.monthlyRente ?? 0)}/Mt.`],
+    // Skip PK-Kapital row when there is no capital withdrawal
+    ...(data.pkCapital1 && data.pkCapital1 > 0 ? [[isCouple ? 'PK-Kapitalbezug Person 1' : 'PK-Kapitalbezug', `CHF ${fmtCHF(data.pkCapital1)}`]] : []),
+    [isCouple ? 'PK-Rente Person 1' : 'PK-Rente', `CHF ${fmtCHF(analysis.pk.person1?.monthlyRente ?? 0)}/Mt.`],
     ...(data.pkRate1 ? [['Umwandlungssatz', `${data.pkRate1}%`]] : []),
     ['Gesamt PK-Renten', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`],
   ]
@@ -448,20 +475,21 @@ export async function exportPDF(data: PdfData): Promise<void> {
     p3Rows.forEach(r => { checkBreak(8, 4); row2col(r[0], r[1]) })
   }
 
-  y += 6
-  // Summary total
+  y += 4
+  // Summary total – same-width table row, no floating box
   checkBreak(16, 4)
   doc.setFillColor(...NAVY)
-  doc.roundedRect(ML, y, CW, 14, 3, 3, 'F')
+  doc.rect(ML, y - 4, CW, 16, 'F')
   doc.setTextColor(...WHITE)
-  doc.setFontSize(12)
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text('Total monatliches Einkommen nach Pensionierung', ML + 4, y + 7)
-  doc.text(`CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, W - MR - 4, y + 7, { align: 'right' })
-  doc.setFontSize(9)
+  doc.text('Total monatliches Einkommen', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Pensionierungsalter: ${data.retirementAge1} Jahre`, ML + 4, y + 12)
-  y += 18
+  doc.setTextColor(180, 210, 255)
+  doc.text(`Pensionierungsalter: ${data.retirementAge1} Jahre`, ML + 3, y + 6)
+  y += 16
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SEITE 5: HANDLUNGSEMPFEHLUNGEN
