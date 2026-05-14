@@ -39,19 +39,25 @@ export function detectFileKind(file: File): FileKind {
 async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  console.log('[PDF] pages:', pdf.numPages)
   const pages: string[] = []
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    // Join items with space; each item is a text run
+    // Use hasEOL to add newlines at natural line breaks — this preserves
+    // table row structure (each row on its own line) which the parsers rely on.
     const pageText = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
+      .map((item) => {
+        if (!('str' in item)) return ''
+        return item.str + ((item as { str: string; hasEOL: boolean }).hasEOL ? '\n' : ' ')
+      })
+      .join('')
     pages.push(pageText)
-    console.debug(`[PDF] page ${i}/${pdf.numPages}: ${pageText.length} chars | preview: ${pageText.slice(0, 120)}`)
+    console.log(`[PDF] page ${i}/${pdf.numPages}: ${pageText.length} chars | preview: ${pageText.slice(0, 200)}`)
   }
   const full = pages.join('\n')
-  console.debug('[PDF] total chars extracted:', full.length)
+  console.log('[PDF] total chars extracted:', full.length)
+  console.log('[PDF] === TEXT START ===\n' + full.slice(0, 2000) + '\n[PDF] === TEXT END ===')
   return full
 }
 

@@ -46,12 +46,18 @@ export interface PKExtractResult {
 
 const parseSwissNum = parseSwissNumRobust
 
-/** Strip ARC1/ARC2 machine-readable header lines */
+/** Normalize all apostrophe-like chars to standard ASCII apostrophe.
+ * pdfjs may return U+2019, U+02BC, etc. — normalize before any pattern matching. */
+function normalizeText(text: string): string {
+  return text.replace(/[''ʼʹ`´＇′‘’ʼ´]/g, "'")
+}
+
+/** Strip ARC1/ARC2 machine-readable tokens from anywhere in the text.
+ * pdfjs joins all items on a page with spaces (no newlines), so ARC1/ARC2
+ * tokens are embedded mid-string — a line-filter approach would delete the
+ * entire page. Use regex removal instead. */
 function stripArcHeaders(text: string): string {
-  return text
-    .split('\n')
-    .filter(line => !line.trim().startsWith('ARC1|') && !line.trim().startsWith('ARC2|'))
-    .join('\n')
+  return text.replace(/ARC[12]\|[^\n\r]*/g, '')
 }
 
 // Swiss number: 1'234'567.89 or 1'234'567 (with apostrophe variants from OCR)
@@ -202,7 +208,7 @@ function parseContributions(text: string): number {
     const anAnnual = parseSwissNum(sbStdMatch[1])
     const agAnnual = parseSwissNum(sbStdMatch[3])
     if (anAnnual > 0 && agAnnual > 0) {
-      console.debug(`[PK] Sparbeitrag AN=${anAnnual} AG=${agAnnual} total=${anAnnual + agAnnual}`)
+      console.log(`[PK] Sparbeitrag AN=${anAnnual} AG=${agAnnual} total=${anAnnual + agAnnual}`)
       return anAnnual + agAnnual
     }
   }
@@ -215,7 +221,7 @@ function parseContributions(text: string): number {
     const agTotal = parseSwissNum(totalMatch[3])
     // This includes risk/other — use it as upper bound estimate
     if (anTotal > 0 && agTotal > 0) {
-      console.debug(`[PK] Total Beitrag AN=${anTotal} AG=${agTotal}`)
+      console.log(`[PK] Total Beitrag AN=${anTotal} AG=${agTotal}`)
       return anTotal + agTotal
     }
   }
@@ -257,10 +263,11 @@ export async function parsePKPdf(
   }
 
   const rawText = extraction.text
-  console.debug('[PK] raw text length:', rawText.length)
-  console.debug('[PK] raw text preview:', rawText.slice(0, 500))
+  console.log('[PK] raw text length:', rawText.length)
+  console.log('[PK] === RAW TEXT START ===\n' + rawText.slice(0, 1000) + '\n[PK] === RAW TEXT END ===')
 
-  const text = stripArcHeaders(rawText)
+  const text = normalizeText(stripArcHeaders(rawText))
+  console.log('[PK] normalized text length:', text.length)
 
   // ── Pension fund name ──────────────────────────────────────────────────────
   let pensionFundName = 'Unbekannte Pensionskasse'
@@ -283,7 +290,7 @@ export async function parsePKPdf(
   const hasTable = Object.keys(retirementTable).length > 0
   if (hasTable) {
     extractedFields.push(`Leistungstabelle (${Object.keys(retirementTable).join(', ')} Jahre)`)
-    console.debug('[PK] retirementTable:', JSON.stringify(retirementTable))
+    console.log('[PK] retirementTable:', JSON.stringify(retirementTable))
   }
 
   // ── UWS at age 65 ──────────────────────────────────────────────────────────
@@ -305,7 +312,7 @@ export async function parsePKPdf(
   const { balance: pkCurrentCapital, date: balanceDate } = parseCurrentBalance(text)
   if (pkCurrentCapital > 0) {
     extractedFields.push(`Aktuelles Guthaben: CHF ${Math.round(pkCurrentCapital).toLocaleString('de-CH')} (per ${balanceDate || 'aktuell'})`)
-    console.debug('[PK] pkCurrentCapital:', pkCurrentCapital, 'date:', balanceDate)
+    console.log('[PK] pkCurrentCapital:', pkCurrentCapital, 'date:', balanceDate)
   }
 
   // ── Annual contribution (AN + AG Sparbeitrag) ──────────────────────────────
@@ -360,8 +367,8 @@ export async function parsePKPdf(
     extractedFields.push('UWS: Standardwert 5.40%')
   }
 
-  console.debug('[PK] extractedFields:', extractedFields)
-  console.debug('[PK] warnings:', warnings)
+  console.log('[PK] extractedFields:', extractedFields)
+  console.log('[PK] warnings:', warnings)
 
   return {
     pkCurrentCapital,
