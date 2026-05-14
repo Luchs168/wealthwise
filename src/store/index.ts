@@ -47,6 +47,7 @@ export interface PersonVorsorge {
   pkInterestRate: number        // PK interest rate (default 0.0125)
   pkObligatorisch: number       // mandatory portion of capital (0 = unknown)
   pkMaxGuthaben: number         // max regulatory capital for buy-in calc (0 = unknown)
+  pkRetirementTable?: Record<number, { agh: number; uws: number; renteMonat: number }>
   pkLastPurchaseYear?: number   // year of most recent PK Einkauf (for 3-year Sperrfrist)
   pkLastPurchaseAmount?: number // amount of most recent PK Einkauf
   // Scheidungsdetails (optional, nur relevant wenn civil = 'geschieden')

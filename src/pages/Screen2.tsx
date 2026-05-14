@@ -157,6 +157,7 @@ type PkExtractedFields = {
   pkAnnualContribution: number
   pkMaxGuthaben: number
   pkObligatorisch: number
+  retirementTable: PKExtractResult['retirementTable']
 }
 
 const ACCEPT_ALL = '.pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,image/*'
@@ -184,6 +185,7 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
         pkAnnualContribution: extracted.pkAnnualContribution,
         pkMaxGuthaben: extracted.pkMaxGuthaben,
         pkObligatorisch: extracted.pkObligatorisch,
+        retirementTable: extracted.retirementTable,
       })
       setStatus('done')
     } catch (err) {
@@ -340,7 +342,10 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
             {hasAny ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 16px' }}>
                 {result.pkCurrentCapital > 0 && <div>Aktuelles Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.pkRate > 0 && result.extractedFields.some(f => f.includes('UWS') && !f.includes('Standardwert')) && <div>UWS@65: <strong>{result.pkRate.toFixed(2)}%</strong></div>}
+                {result.pkRate > 0 && result.extractedFields.some(f => f.includes('UWS') && !f.includes('Standardwert')) && (() => {
+                  const uwsAtRetire = result.retirementTable[65]?.uws ?? result.pkRate
+                  return <div>UWS@65: <strong>{uwsAtRetire.toFixed(2)}%</strong></div>
+                })()}
                 {result.pkAnnualContribution > 0 && <div>Sparbeitrag AN+AG/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
                 {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
                 {result.projectedCapital65 > 0 && <div>Projektion bei 65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
@@ -442,11 +447,21 @@ export default function Screen2() {
       : (pData.pkAnnualContribution || estimateContribution(pData.income, currentAge))
     const rate = pData.pkInterestRate || PK_CONSTANTS.BVG_MIN_INTEREST_RATE
     const insuredSalary = Math.max(0, pData.income - PK_CONSTANTS.COORDINATION_DEDUCTION_2026)
-    const projected = pData.pkCurrentCapital > 0
-      ? projectPKCapital(pData.pkCurrentCapital, effectiveContrib, rate, yearsToRetirement)
-      : pData.pkCapital
-    const pension = calculatePKPension(projected, (pData.pkRate || 5.4) / 100)
-    return { currentAge, retireAge, yearsToRetirement, effectiveContrib, rate, insuredSalary, projected, pension }
+
+    // If the PK document provided a retirement table, use its projected capital for the
+    // chosen retirement age directly — the PK knows age-specific Altersgutschriften better
+    // than our flat BVG formula.
+    const tableEntry = pData.pkRetirementTable?.[retireAge]
+    const fromTable = !!tableEntry
+    const uwsForAge = tableEntry ? tableEntry.uws : (pData.pkRate || 5.4)
+
+    const projected = fromTable
+      ? tableEntry!.agh
+      : (pData.pkCurrentCapital > 0
+          ? projectPKCapital(pData.pkCurrentCapital, effectiveContrib, rate, yearsToRetirement)
+          : pData.pkCapital)
+    const pension = calculatePKPension(projected, uwsForAge / 100)
+    return { currentAge, retireAge, yearsToRetirement, effectiveContrib, rate, insuredSalary, projected, pension, fromTable, uwsForAge }
   }
 
   const updatePKAndProject = (id: 1 | 2, patch: Partial<typeof p1>) => {
@@ -460,7 +475,12 @@ export default function Screen2() {
       ? estimateContribution(pData.income, currentAge)
       : (pData.pkAnnualContribution || estimateContribution(pData.income, currentAge))
     const rate = pData.pkInterestRate || PK_CONSTANTS.BVG_MIN_INTEREST_RATE
-    if (pData.pkCurrentCapital > 0) {
+
+    // Prefer authoritative projected capital from PK retirement table if available
+    const tableEntry = pData.pkRetirementTable?.[retireAge]
+    if (tableEntry) {
+      updatePerson(id, { ...patch, pkCapital: tableEntry.agh, pkRate: tableEntry.uws })
+    } else if (pData.pkCurrentCapital > 0) {
       const projected = projectPKCapital(pData.pkCurrentCapital, effectiveContrib, rate, yearsToRetirement)
       updatePerson(id, { ...patch, pkCapital: projected })
     } else {
@@ -1355,13 +1375,36 @@ export default function Screen2() {
                     <strong>Tipp: Mit Ihrem PK-Ausweis wird die Analyse deutlich genauer.</strong>
                   </div>
                 )}
-                <PkUpload onExtract={(fields) => updatePKAndProject(activeTab, {
-                  pkCurrentCapital: fields.pkCurrentCapital,
-                  pkRate: fields.pkRate,
-                  pkAnnualContribution: fields.pkAnnualContribution || undefined,
-                  pkMaxGuthaben: fields.pkMaxGuthaben || undefined,
-                  pkObligatorisch: fields.pkObligatorisch || undefined,
-                })} />
+                <PkUpload onExtract={(fields) => {
+                  const personBase = activeTab === 1 ? person1 : person2
+                  const retireAge = personBase.retireAge || 65
+                  const tableEntry = fields.retirementTable?.[retireAge]
+                  const uwsForAge = tableEntry?.uws || fields.pkRate
+
+                  // Switch to manual contribution mode when the document provides a real value
+                  if (fields.pkAnnualContribution > 0) {
+                    setPkContribMode(prev => {
+                      const next = [...prev] as typeof prev
+                      next[activeTab === 1 ? 0 : 1] = 'manuell'
+                      return next
+                    })
+                  }
+
+                  // Compact the retirement table to only the fields we store
+                  const compactTable: Record<number, { agh: number; uws: number; renteMonat: number }> = {}
+                  for (const [ageStr, entry] of Object.entries(fields.retirementTable)) {
+                    compactTable[Number(ageStr)] = { agh: entry.agh, uws: entry.uws, renteMonat: entry.renteMonat }
+                  }
+
+                  updatePKAndProject(activeTab, {
+                    pkCurrentCapital: fields.pkCurrentCapital,
+                    pkRate: uwsForAge,
+                    pkAnnualContribution: fields.pkAnnualContribution || undefined,
+                    pkMaxGuthaben: fields.pkMaxGuthaben || undefined,
+                    pkObligatorisch: fields.pkObligatorisch || undefined,
+                    pkRetirementTable: Object.keys(compactTable).length > 0 ? compactTable : undefined,
+                  })
+                }} />
 
                 {/* 1. Aktuelles Altersguthaben */}
                 <div style={{ marginBottom: 4 }}>
@@ -1407,7 +1450,12 @@ export default function Screen2() {
                 {/* 2. Jährlicher Sparbeitrag */}
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)' }}>Jährlicher Sparbeitrag (AN + AG)</label>
+                    <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)' }}>
+                      Jährlicher Sparbeitrag (AN + AG)
+                      {curContribMode === 'manuell' && cur.pkAnnualContribution > 0 && cur.pkRetirementTable && (
+                        <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#059669', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 4, padding: '1px 6px' }}>aus Vorsorgeausweis</span>
+                      )}
+                    </label>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {(['auto', 'manuell'] as const).map((m) => (
                         <button
@@ -1747,14 +1795,28 @@ export default function Screen2() {
                   )}
                   {pkDetailsExpanded && cur.pkCurrentCapital > 0 && (
                     <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(255,255,255,.06)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,.75)', lineHeight: 1.8 }}>
-                      <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
-                      <div>+ Beiträge ({proj.yearsToRetirement} Jahre × CHF {fmtCHF(proj.effectiveContrib)}): CHF {fmtCHF(proj.effectiveContrib * proj.yearsToRetirement)}</div>
-                      <div>+ Verzinsung (Ø {(cur.pkInterestRate * 100).toFixed(2)}%): CHF {fmtCHF(proj.projected - cur.pkCurrentCapital - proj.effectiveContrib * proj.yearsToRetirement)}</div>
-                      <div style={{ borderTop: '1px solid rgba(255,255,255,.15)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
-                        = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
-                      </div>
-                      <div>× Umwandlungssatz {cur.pkRate}%</div>
-                      <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
+                      {proj.fromTable ? (
+                        <>
+                          <div style={{ color: 'rgba(255,255,255,.5)', marginBottom: 4 }}>Gemäss Leistungstabelle Ihres Vorsorgeausweises (Alter {proj.retireAge})</div>
+                          <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,.15)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+                            = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
+                          </div>
+                          <div>× Umwandlungssatz {proj.uwsForAge.toFixed(2)}%</div>
+                          <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
+                        </>
+                      ) : (
+                        <>
+                          <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
+                          <div>+ Beiträge ({proj.yearsToRetirement} Jahre × CHF {fmtCHF(proj.effectiveContrib)}): CHF {fmtCHF(proj.effectiveContrib * proj.yearsToRetirement)}</div>
+                          <div>+ Verzinsung (Ø {(cur.pkInterestRate * 100).toFixed(2)}%): CHF {fmtCHF(proj.projected - cur.pkCurrentCapital - proj.effectiveContrib * proj.yearsToRetirement)}</div>
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,.15)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+                            = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
+                          </div>
+                          <div>× Umwandlungssatz {cur.pkRate}%</div>
+                          <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
+                        </>
+                      )}
                     </div>
                   )}
 
