@@ -16,11 +16,35 @@ export const CONSTANTS = {
   PK_3A_MAX_WITH_PK: 7258,
   PK_3A_MAX_WITHOUT_PK: 36288,
   DEFAULT_INFLATION_RATE: 0.015,
+  // Portfolio returns — corrected to reflect CH long-term historical averages (nominal, before tax)
   RETURNS: {
-    conservative: 0.01,
-    balanced: 0.025,
-    growth: 0.045,
+    conservative: 0.025,  // 30% equities — was 0.01, corrected to 2.5%
+    balanced: 0.035,      // 50% equities — was 0.025, corrected to 3.5%
+    growth: 0.05,         // 75% equities — was 0.045, corrected to 5.0%
   },
+  // Säule 3a return assumptions by account type
+  RETURNS_3A: {
+    sparkonto: 0.0075,                    // bank savings account (current average)
+    wertschriften_konservativ: 0.025,     // 25% equities (e.g. VIAC Ivo, Frankly)
+    wertschriften_ausgewogen: 0.04,       // 50% equities (most common)
+    wertschriften_aggressiv: 0.05,        // 80%+ equities (e.g. VIAC Global 100)
+  } as Record<string, number>,
+  // AHV Mischindex — average annual increase via inflation/wage mix (historical ca. 1.25%)
+  AHV_MISCHINDEX: 0.0125,
+  // Sparkonto return: always 0.75% regardless of risk profile
+  SPARKONTO_RENDITE: 0.0075,
+  // Long-term normalised mortgage rate for projections beyond 5 years
+  HYPOTHEK_LANGFRISTZINS: 0.025,
+  // Cantonal wealth tax rates (simplified, approximate effective rates 2025)
+  VERMÖGENSSTEUER_SATZ: {
+    AG: 0.0020, AI: 0.0015, AR: 0.0018, BE: 0.0035,
+    BL: 0.0025, BS: 0.0030, FR: 0.0028, GE: 0.0035,
+    GL: 0.0018, GR: 0.0020, JU: 0.0030, LU: 0.0020,
+    NE: 0.0035, NW: 0.0012, OW: 0.0012, SG: 0.0020,
+    SH: 0.0022, SO: 0.0025, SZ: 0.0010, TG: 0.0018,
+    TI: 0.0025, UR: 0.0015, VD: 0.0030, VS: 0.0025,
+    ZG: 0.0010, ZH: 0.0020,
+  } as Record<string, number>,
   LIFE_EXPECTANCY: {
     male: { 50: 33.2, 55: 28.6, 60: 24.1, 65: 19.8, 70: 15.7, 75: 11.9 },
     female: { 50: 36.5, 55: 31.8, 60: 27.1, 65: 22.5, 70: 18.0, 75: 13.7 },
