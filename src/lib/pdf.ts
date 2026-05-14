@@ -63,6 +63,11 @@ export async function exportPDF(data: PdfData): Promise<void> {
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   function pageHeader(pageNum: number) {
+    // Explicitly fill entire page with white — prevents any dark fill-color state
+    // from a previous page leaking into this page's background.
+    doc.setFillColor(255, 255, 255)
+    doc.rect(0, 0, W, PAGE_H, 'F')
+
     doc.setFillColor(...NAVY)
     doc.rect(0, 0, W, 12, 'F')
     doc.setFillColor(...NAVY2)
@@ -107,6 +112,10 @@ export async function exportPDF(data: PdfData): Promise<void> {
   }
 
   function row2col(label: string, value: string, bold = false, highlight?: [number, number, number]) {
+    // Explicit background: light blue-gray for totals/bold rows, white for normal rows
+    const rowBg: [number, number, number] = bold ? [235, 241, 252] : [255, 255, 255]
+    doc.setFillColor(...rowBg)
+    doc.rect(ML, y - 5, CW, 8, 'F')
     doc.setFontSize(10)
     doc.setFont('helvetica', bold ? 'bold' : 'normal')
     doc.setTextColor(...(highlight ?? INK))
@@ -114,7 +123,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
     doc.setFont('helvetica', bold ? 'bold' : 'normal')
     doc.text(value, W - MR, y, { align: 'right' })
     y += 6
-    doc.setDrawColor(220, 230, 240)
+    doc.setDrawColor(...BORDER)
     doc.line(ML, y - 1, W - MR, y - 1)
   }
 
@@ -419,6 +428,8 @@ export async function exportPDF(data: PdfData): Promise<void> {
   y += 12
 
   const isCouple = !!(analysis.ahv.person2 && data.person2Name)
+  // Reset text color to dark ink after the white-text section header
+  doc.setTextColor(...INK)
   const ahvRows = [
     [isCouple ? 'AHV-Rente Person 1' : 'AHV-Rente', `CHF ${fmtCHF(analysis.ahv.person1?.monthlyRente ?? 0)}/Mt.`],
     ...(isCouple ? [['AHV-Rente Person 2', `CHF ${fmtCHF(analysis.ahv.person2?.monthlyRente ?? 0)}/Mt.`]] : []),
@@ -439,6 +450,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.text('2. Säule – Pensionskasse', ML + 4, y + 5.5)
   y += 12
 
+  doc.setTextColor(...INK)
   const pkRows = [
     // Skip PK-Kapital row when there is no capital withdrawal
     ...(data.pkCapital1 && data.pkCapital1 > 0 ? [[isCouple ? 'PK-Kapitalbezug Person 1' : 'PK-Kapitalbezug', `CHF ${fmtCHF(data.pkCapital1)}`]] : []),
@@ -459,6 +471,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.text('3. Säule – Privates Vermögen', ML + 4, y + 5.5)
   y += 12
 
+  doc.setTextColor(...INK)
   const p3Rows = [
     data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (Guthaben)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
     data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
@@ -487,7 +500,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.text(`CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, W - MR - 3, y, { align: 'right' })
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(180, 210, 255)
+  doc.setTextColor(210, 225, 255)
   doc.text(`Pensionierungsalter: ${data.retirementAge1} Jahre`, ML + 3, y + 6)
   y += 16
 
