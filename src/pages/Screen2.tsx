@@ -13,6 +13,18 @@ import type { PKExtractResult } from '../lib/pkPdfParser'
 import { parseIKAuszug } from '../lib/ikAuszugParser'
 import type { IKAuszugResult } from '../lib/ikAuszugParser'
 
+interface IKEditState {
+  firstYear: string
+  lastYear: string
+  totalIncome: string
+  lastIncome: string
+  gaps: string
+}
+const IK_EDIT_EMPTY: IKEditState = { firstYear: '', lastYear: '', totalIncome: '', lastIncome: '', gaps: '0' }
+function parseIKNum(s: string): number {
+  return parseFloat(s.replace(/['’ʼ\s]/g, '').replace(',', '.')) || 0
+}
+
 function TransitionOverlay2({
   onContinue,
   totalMonthly,
@@ -375,6 +387,8 @@ export default function Screen2() {
   const [ikProgressMsg2, setIkProgressMsg2] = useState('')
   const [ikError1, setIkError1] = useState('')
   const [ikError2, setIkError2] = useState('')
+  const [ikEditState1, setIkEditState1] = useState<IKEditState>(IK_EDIT_EMPTY)
+  const [ikEditState2, setIkEditState2] = useState<IKEditState>(IK_EDIT_EMPTY)
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -1022,15 +1036,28 @@ export default function Screen2() {
                     id === 1 ? ikError1 : ikError2,
                     id === 1 ? setIkError1 : setIkError2,
                   ]
+                  const editState = id === 1 ? ikEditState1 : ikEditState2
+                  const setEditState = id === 1 ? setIkEditState1 : setIkEditState2
 
                   const handleFile = async (file: File) => {
                     setLoading(true)
                     setResult(null)
                     setApplied(false)
                     setIkError('')
+                    setEditState(IK_EDIT_EMPTY)
                     try {
                       const r = await parseIKAuszug(file, (msg) => setIkProgressMsg(msg))
                       setResult(r)
+                      // Populate editable fields; leave blank if OCR quality is poor
+                      const rawTotal = r.entries.reduce((s, e) => s + e.income, 0)
+                      const poorOcr = r.numYears < 5 || r.lastYearIncome < 1000 || r.gapYears.length > r.numYears
+                      setEditState(poorOcr ? IK_EDIT_EMPTY : {
+                        firstYear: r.firstYear > 0 ? String(r.firstYear) : '',
+                        lastYear: r.lastYear > 0 ? String(r.lastYear) : '',
+                        totalIncome: rawTotal > 0 ? String(rawTotal) : '',
+                        lastIncome: r.lastYearIncome > 0 ? String(r.lastYearIncome) : '',
+                        gaps: String(r.gapYears.length),
+                      })
                     } catch (err) {
                       console.error('[IK] Upload failed:', err)
                       setIkError('Fehler beim Lesen der Datei. Bitte als PDF hochladen oder Werte manuell eingeben.')
@@ -1041,24 +1068,14 @@ export default function Screen2() {
                   }
 
                   const handleApply = () => {
-                    if (!result) return
-                    const pBase = id === 1 ? person1 : person2
-                    const retireAge = pBase.retireAge || 65
-                    const currentYear = new Date().getFullYear()
-                    const birthYear = pBase.dob
-                      ? (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))
-                      : 0
-                    const age = birthYear > 0 ? currentYear - birthYear : 40
-                    const yearsUntilRetire = Math.max(0, retireAge - age)
-                    const projectedContribYears = Math.min(44, result.numYears + yearsUntilRetire)
-                    const detectedGaps = result.gapYears.length
-
+                    const gapsNum = Math.max(0, parseInt(editState.gaps) || 0)
+                    const lastInc = parseIKNum(editState.lastIncome)
+                    if (lastInc < 100) return
                     updatePerson(id, {
-                      ahvContributionGaps: detectedGaps,
-                      income: result.lastYearIncome > 0 ? result.lastYearIncome : undefined,
+                      ahvContributionGaps: gapsNum,
+                      income: lastInc > 0 ? lastInc : undefined,
                     })
                     setApplied(true)
-                    void projectedContribYears
                   }
 
                   const mobile = isMobile()
@@ -1136,81 +1153,95 @@ export default function Screen2() {
                         </div>
                       )}
 
-                      {result && !applied && (
-                        <div style={{ padding: '14px 16px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 10 }}>
-                          <div style={{ fontWeight: 700, color: '#15803d', fontSize: 13.5, marginBottom: 10 }}>
-                            IK-Auszug ausgelesen
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12.5, marginBottom: 12 }}>
-                            <div style={{ color: 'var(--ink-600)' }}>Beitragsjahre erkannt:</div>
-                            <div style={{ fontWeight: 600, color: '#166534' }}>{result.numYears} Jahre ({result.firstYear}–{result.lastYear})</div>
-                            <div style={{ color: 'var(--ink-600)' }}>Lückenjahre:</div>
-                            <div style={{ fontWeight: 600, color: result.gapYears.length > 0 ? '#dc2626' : '#166534' }}>
-                              {result.gapYears.length === 0 ? 'Keine' : `${result.gapYears.length} (${result.gapYears.slice(0, 5).join(', ')}${result.gapYears.length > 5 ? '…' : ''})`}
-                            </div>
-                            <div style={{ color: 'var(--ink-600)' }}>MDJ (Ø-Einkommen AHV):</div>
-                            <div style={{ fontWeight: 600, color: '#166534' }}>CHF {result.mdj.toLocaleString('de-CH')}</div>
-                            <div style={{ color: 'var(--ink-600)' }}>Letztes Jahreseinkommen:</div>
-                            <div style={{ fontWeight: 600, color: '#166534' }}>CHF {result.lastYearIncome.toLocaleString('de-CH')}</div>
+                      {result && !applied && (() => {
+                        const fYear = parseInt(editState.firstYear) || 0
+                        const lYear = parseInt(editState.lastYear) || 0
+                        const gapsNum = Math.max(0, parseInt(editState.gaps) || 0)
+                        const totalInc = parseIKNum(editState.totalIncome)
+                        const lastInc = parseIKNum(editState.lastIncome)
+                        const contribYears = fYear && lYear ? Math.max(1, lYear - fYear + 1 - gapsNum) : 0
+                        const previewMdj = contribYears > 0 && totalInc > 0 ? Math.round(totalInc / contribYears) : 0
+                        const ikValid = fYear >= 1960 && lYear <= 2026 && lYear > fYear && lastInc > 1000 && totalInc > 10000 && gapsNum >= 0 && gapsNum < (lYear - fYear + 1)
+                        const poorOcr = result.numYears < 5 || result.lastYearIncome < 1000 || result.gapYears.length > result.numYears
+                        const inputStyle = { width: '100%', padding: '5px 8px', border: '1.5px solid #cbd5e1', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' as const, fontFamily: 'inherit' }
+                        return (
+                        <div style={{ padding: '14px 16px', background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: 10 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--navy-800)', marginBottom: 8 }}>
+                            IK-Auszug gelesen – Werte prüfen und korrigieren
                           </div>
 
-                          {result.warnings.length > 0 && (
-                            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
-                              {result.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+                          {poorOcr && (
+                            <div style={{ marginBottom: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12, color: '#92400e' }}>
+                              ⚠ Die automatische Erkennung war ungenau. Bitte tragen Sie die Werte von Ihrem IK-Auszug ein.
                             </div>
                           )}
 
-                          {/* Erziehungsgutschriften hint when user has children + low income years */}
-                          {(() => {
-                            const lowIncomeYears = result.entries.filter(e => e.income < 20000 && e.income > 0).length
-                            const hasKids = hasPartner
-                              ? (persons.find(p => p.id === id)?.hasKZG)
-                              : (persons.find(p => p.id === id)?.hasKZG)
-                            if (lowIncomeYears >= 2 && !hasKids) {
-                              return (
-                                <div style={{ marginBottom: 10, padding: '8px 10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, fontSize: 11.5, color: '#1e40af', lineHeight: 1.55 }}>
-                                  Ihr IK-Auszug zeigt {lowIncomeYears} Jahre mit tiefem Einkommen. Falls Sie in diesen Jahren Kinder erzogen haben (unter 16), können Erziehungsgutschriften (CHF 45'360/Jahr) Ihr MDJ erhöhen – aktivieren Sie «Erziehungsgutschriften» oben.
-                                </div>
-                              )
-                            }
-                            return null
-                          })()}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px', fontSize: 12.5, marginBottom: 10 }}>
+                            <div>
+                              <div style={{ color: 'var(--ink-600)', marginBottom: 3 }}>Erstes Beitragsjahr</div>
+                              <input type="number" value={editState.firstYear}
+                                onChange={e => setEditState({ ...editState, firstYear: e.target.value })}
+                                placeholder="z.B. 2010" min="1960" max="2026" style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--ink-600)', marginBottom: 3 }}>Letztes Beitragsjahr</div>
+                              <input type="number" value={editState.lastYear}
+                                onChange={e => setEditState({ ...editState, lastYear: e.target.value })}
+                                placeholder="z.B. 2024" min="1960" max="2026" style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--ink-600)', marginBottom: 3 }}>Total Einkommen (CHF)</div>
+                              <input type="text" value={editState.totalIncome}
+                                onChange={e => setEditState({ ...editState, totalIncome: e.target.value })}
+                                placeholder="z.B. 944010" style={inputStyle} />
+                              <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>«Total» am Ende Ihres Auszugs</div>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--ink-600)', marginBottom: 3 }}>Letztes Jahreseinkommen (CHF)</div>
+                              <input type="text" value={editState.lastIncome}
+                                onChange={e => setEditState({ ...editState, lastIncome: e.target.value })}
+                                placeholder="z.B. 116845" style={inputStyle} />
+                              <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Letzte Zeile Ihres Auszugs</div>
+                            </div>
+                            <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ color: 'var(--ink-600)', flexShrink: 0 }}>Jahre ohne Eintrag (Lücken):</div>
+                              <input type="number" value={editState.gaps}
+                                onChange={e => setEditState({ ...editState, gaps: e.target.value })}
+                                placeholder="0" min="0"
+                                style={{ width: 70, padding: '5px 8px', border: '1.5px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' }} />
+                              <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>Fehlende Zeilen zählen</div>
+                            </div>
+                          </div>
+
+                          {ikValid && (
+                            <div style={{ marginBottom: 10, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 12.5 }}>
+                              <span style={{ color: 'var(--ink-600)' }}>Beitragsjahre: </span>
+                              <strong style={{ color: '#166534' }}>{contribYears}</strong>
+                              <span style={{ marginLeft: 16, color: 'var(--ink-600)' }}>MDJ (Ø-Einkommen): </span>
+                              <strong style={{ color: '#166534' }}>CHF {previewMdj.toLocaleString('de-CH')}</strong>
+                            </div>
+                          )}
 
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={handleApply}
-                              style={{
-                                padding: '8px 16px', background: '#15803d', color: '#fff',
-                                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                              }}
-                            >
+                            <button type="button" onClick={handleApply} disabled={!ikValid}
+                              style={{ padding: '8px 16px', background: ikValid ? '#15803d' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: ikValid ? 'pointer' : 'not-allowed' }}>
                               Werte übernehmen
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => { setResult(null); setApplied(false) }}
-                              style={{
-                                padding: '8px 14px', background: 'transparent', color: 'var(--ink-500)',
-                                border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
-                              }}
-                            >
+                            <button type="button" onClick={() => { setResult(null); setApplied(false); setEditState(IK_EDIT_EMPTY) }}
+                              style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-500)', border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12.5, cursor: 'pointer' }}>
                               Verwerfen
                             </button>
                           </div>
-
-                          <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-400)', lineHeight: 1.5 }}>
-                            Die Auswertung basiert auf den erkannten Einkommenseinträgen. Letztes Jahreseinkommen wird als neues Durchschnittseinkommen übernommen. Massgebendes Durchschnittseinkommen (MDJ) wird für die Rentenprognose verwendet. Prüfen Sie die Werte im Zweifelsfall mit Ihrer SVA-Auskunft.
-                          </div>
                         </div>
-                      )}
+                        )
+                      })()}
 
-                      {applied && result && (
+                      {applied && (
                         <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>✓ IK-Auszug übernommen · {result.numYears} Beitragsjahre · MDJ CHF {result.mdj.toLocaleString('de-CH')}</span>
+                          <span>✓ IK-Auszug übernommen · {Math.max(0, (parseInt(editState.lastYear) || 0) - (parseInt(editState.firstYear) || 0) + 1 - (parseInt(editState.gaps) || 0))} Beitragsjahre · Letztes Einkommen CHF {parseIKNum(editState.lastIncome).toLocaleString('de-CH')}</span>
                           <button
                             type="button"
-                            onClick={() => { setResult(null); setApplied(false) }}
+                            onClick={() => { setResult(null); setApplied(false); setEditState(IK_EDIT_EMPTY) }}
                             style={{ fontSize: 11.5, color: 'var(--ink-400)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                           >
                             Zurücksetzen
