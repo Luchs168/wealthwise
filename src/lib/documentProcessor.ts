@@ -89,7 +89,7 @@ async function extractPdfViaOcr(
   return pages.join('\n')
 }
 
-// ── Image preprocessing (Canvas → greyscale + contrast boost) ────────────────
+// ── Image preprocessing (Canvas → greyscale + binary threshold) ──────────────
 
 async function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
@@ -98,11 +98,21 @@ async function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasEleme
     img.onload = () => {
       URL.revokeObjectURL(url)
 
-      // Scale down very large images (>4 MP) to speed up OCR without losing detail
-      const MAX_PX = 2400
-      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height))
+      // Target: min 2000px width for good OCR (~200 DPI for A4 portrait photo)
+      // Portrait phone photo (3024×4032): was capped to 1802×2400 → too small
+      const MIN_W = 2000
+      const MAX_PX = 4000
+      let scale = 1
+      if (img.width < MIN_W) {
+        // Scale UP small images — keep within MAX_PX on longest side
+        scale = Math.min(MIN_W / img.width, MAX_PX / Math.max(img.width, img.height))
+      } else if (Math.max(img.width, img.height) > MAX_PX) {
+        scale = MAX_PX / Math.max(img.width, img.height)
+      }
+
       const w = Math.round(img.width * scale)
       const h = Math.round(img.height * scale)
+      console.log(`[OCR] Preprocess: ${img.width}×${img.height} → ${w}×${h} (scale ${scale.toFixed(2)})`)
 
       const canvas = document.createElement('canvas')
       canvas.width = w
@@ -110,16 +120,13 @@ async function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasEleme
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0, w, h)
 
-      // Greyscale + contrast boost via ImageData
+      // Binary threshold: crisp black/white is much better for Tesseract than contrast-stretch
       const imageData = ctx.getImageData(0, 0, w, h)
       const d = imageData.data
       for (let i = 0; i < d.length; i += 4) {
-        // Luminance-weighted greyscale
         const grey = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-        // Contrast stretch: push towards black/white
-        const contrast = 1.6
-        const boosted = Math.min(255, Math.max(0, Math.round((grey - 128) * contrast + 128)))
-        d[i] = d[i + 1] = d[i + 2] = boosted
+        const bw = grey > 140 ? 255 : 0
+        d[i] = d[i + 1] = d[i + 2] = bw
       }
       ctx.putImageData(imageData, 0, 0)
       resolve(canvas)
@@ -132,7 +139,7 @@ async function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasEleme
 // ── OCR via Tesseract.js — all assets served locally (no CDN dependency) ───────
 
 async function runOcr(canvas: HTMLCanvasElement, onProgress?: (pct: number) => void): Promise<string> {
-  const { createWorker } = await import('tesseract.js')
+  const { createWorker, PSM } = await import('tesseract.js')
 
   console.log('[OCR] Starting Tesseract worker (local assets)...')
   const worker = await createWorker('deu', 1, {
@@ -149,9 +156,11 @@ async function runOcr(canvas: HTMLCanvasElement, onProgress?: (pct: number) => v
   })
 
   try {
-    // No whitelist — let Tesseract output its best guess; normalisation happens in parsers
+    // PSM 6 = "single uniform block of text" — best for structured documents/tables
+    // PSM 3 (auto) can mis-segment tabular layouts into separate text regions
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
     const { data } = await worker.recognize(canvas)
-    console.log(`[OCR] Done. ${data.text.length} chars extracted. Preview: ${data.text.slice(0, 200)}`)
+    console.log('[OCR] Full text:\n=== OCR START ===\n' + data.text + '\n=== OCR END ===')
     return data.text
   } finally {
     await worker.terminate()
