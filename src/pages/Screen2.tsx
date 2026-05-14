@@ -1460,21 +1460,110 @@ export default function Screen2() {
                         onChange={(v) => updatePerson(activeTab, { pkMaxGuthaben: v })}
                         hint="Vorsorgeausweis → 'Einkaufspotenzial' oder 'Möglicher Einkauf'"
                       />
-                      {einkaufspotenzial > 0 && (
-                        <div style={{ marginTop: 8, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#14532d', marginBottom: 4 }}>
-                            Ihr Einkaufspotenzial: CHF {fmtCHF(einkaufspotenzial)}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#166534' }}>
-                            + CHF {fmtCHF(Math.round(einkaufspotenzial * (cur.pkRate / 100) / 12))}/Mt. mehr Rente bei vollem Einkauf
-                          </div>
-                          <div style={{ fontSize: 11, color: '#16a34a', marginTop: 2 }}>
-                            PK-Einkäufe sind steuerlich voll abzugsfähig → Details im Steuerabschnitt (Schritt 4)
-                          </div>
-                        </div>
-                      )}
+                      {(() => {
+                        const currentYear = new Date().getFullYear()
+                        const pBase = activeTab === 1 ? person1 : person2
+                        const yearsUntilPension = Math.max(0, (pBase.retireAge || 65) - (pBase.dob ? (currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))) : 40))
+                        const sperrfristAktiv = !!(cur.pkLastPurchaseYear && (cur.pkLastPurchaseYear + 3 > currentYear))
+                        const einkaufSinnvoll = yearsUntilPension >= 4 && !sperrfristAktiv
+                        return (
+                          <>
+                            {einkaufspotenzial > 0 && einkaufSinnvoll && (
+                              <div style={{ marginTop: 8, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#14532d', marginBottom: 4 }}>
+                                  Ihr Einkaufspotenzial: CHF {fmtCHF(einkaufspotenzial)}
+                                </div>
+                                <div style={{ fontSize: 12, color: '#166534' }}>
+                                  + CHF {fmtCHF(Math.round(einkaufspotenzial * (cur.pkRate / 100) / 12))}/Mt. mehr Rente bei vollem Einkauf
+                                </div>
+                                <div style={{ fontSize: 11, color: '#16a34a', marginTop: 2 }}>
+                                  PK-Einkäufe sind steuerlich voll abzugsfähig → Details im Steuerabschnitt (Schritt 4)
+                                </div>
+                              </div>
+                            )}
+                            {einkaufspotenzial > 0 && !einkaufSinnvoll && (
+                              <div style={{ marginTop: 8, padding: '10px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                                {sperrfristAktiv
+                                  ? `PK-Einkauf derzeit nicht empfohlen: Sperrfrist bis ${(cur.pkLastPurchaseYear || 0) + 3} aktiv.`
+                                  : `Ein PK-Einkauf lohnt sich zeitlich nicht mehr (Sperrfrist 3 Jahre, Pensionierung in ${yearsUntilPension} ${yearsUntilPension === 1 ? 'Jahr' : 'Jahren'}).`}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   )}
+                </div>
+
+                {/* Sperrfrist – letzter PK-Einkauf */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
+                    Haben Sie in den letzten 3 Jahren einen PK-Einkauf getätigt?
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    {(['Nein', 'Ja'] as const).map(opt => (
+                      <button key={opt} type="button"
+                        onClick={() => updatePerson(activeTab, {
+                          pkLastPurchaseYear: opt === 'Nein' ? undefined : (cur.pkLastPurchaseYear || new Date().getFullYear() - 1),
+                          pkLastPurchaseAmount: opt === 'Nein' ? undefined : cur.pkLastPurchaseAmount,
+                        })}
+                        style={{
+                          padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                          border: '1px solid var(--navy-200)',
+                          background: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? 'var(--navy-800)' : '#fff',
+                          color: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? '#fff' : 'var(--ink-700)',
+                        }}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  {cur.pkLastPurchaseYear && (
+                    <div className="form-grid" style={{ marginBottom: 8 }}>
+                      <div className="field">
+                        <label htmlFor={`pk-purchase-year-p${activeTab}`}>Jahr des Einkaufs</label>
+                        <select
+                          id={`pk-purchase-year-p${activeTab}`}
+                          className="input"
+                          value={cur.pkLastPurchaseYear}
+                          onChange={e => updatePerson(activeTab, { pkLastPurchaseYear: parseInt(e.target.value) })}
+                        >
+                          {[2023, 2024, 2025, 2026].map(y => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <CHFField
+                          label="Betrag (CHF)"
+                          value={cur.pkLastPurchaseAmount ?? 0}
+                          onChange={v => updatePerson(activeTab, { pkLastPurchaseAmount: v })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {cur.pkLastPurchaseYear && (() => {
+                    const sperrfristBis = cur.pkLastPurchaseYear + 3
+                    const currentYear = new Date().getFullYear()
+                    const sperrfristAktiv = sperrfristBis > currentYear
+                    const pBase = activeTab === 1 ? person1 : person2
+                    const yearsUntilPension = Math.max(0, (pBase.retireAge || 65) - (pBase.dob ? (currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))) : 40))
+                    const pensionYear = currentYear + yearsUntilPension
+                    const pensionBeforeSperrfrist = pensionYear < sperrfristBis
+                    if (!sperrfristAktiv && !pensionBeforeSperrfrist) return null
+                    return (
+                      <div style={{ padding: '12px 14px', background: pensionBeforeSperrfrist ? '#fef2f2' : '#fffbeb', border: `2px solid ${pensionBeforeSperrfrist ? '#fca5a5' : '#fde68a'}`, borderRadius: 8, fontSize: 12.5, color: pensionBeforeSperrfrist ? '#7f1d1d' : '#78350f', lineHeight: 1.65 }}>
+                        {pensionBeforeSperrfrist ? (
+                          <>
+                            <strong>Achtung:</strong> Sie planen die Pensionierung {pensionYear}, aber die Sperrfrist läuft bis {sperrfristBis}. Sie können bei Pensionierung <strong>kein Kapital beziehen</strong> – nur die Rente ist möglich (Art. 79b BVG).
+                          </>
+                        ) : (
+                          <>
+                            <strong>Sperrfrist aktiv:</strong> Aufgrund Ihres PK-Einkaufs {cur.pkLastPurchaseYear} können Sie frühestens <strong>{sperrfristBis}</strong> einen Kapitalbezug vornehmen (3-Jahres-Sperrfrist, Art. 79b BVG).
+                          </>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Result: Projektionsvorschau */}
@@ -1786,14 +1875,31 @@ export default function Screen2() {
             <h2 className="block-title"><span className="block-num">D</span>Freies Vermögen</h2>
           </div>
           <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 16px' }}>
-            Barvermögen, Wertschriften und sonstige Ersparnisse (ohne 3a, PK und selbstgenutztes Wohneigentum).
+            Erfassen Sie Ihr Vermögen nach Typ – für die Überbrückungsplanung ist es wichtig, zwischen sofort verfügbaren Mitteln und Wertschriften zu unterscheiden.
             Falls Sie keinen genauen Betrag kennen, können Sie schätzen – Sie können die Angabe jederzeit anpassen.
           </p>
           <CHFField
-            label={`Freies Vermögen ${isPaar ? '(Haushalt)' : ''}`}
-            value={useStore.getState().freeAssets}
-            onChange={(v) => useStore.getState().setFreeAssets(v)}
+            label="Sparkonto / Bargeld (sofort verfügbar)"
+            value={useStore.getState().sparkonto}
+            onChange={(v) => useStore.getState().setSparkonto(v)}
+            hint="Sofort liquidierbar: Sparkonto, Sichtguthaben, Bargeld"
           />
+          <CHFField
+            label="Wertschriften / Anlagen"
+            value={useStore.getState().wertschriften}
+            onChange={(v) => useStore.getState().setWertschriften(v)}
+            hint="Aktien, Fonds, ETFs, Obligationen (marktabhängig)"
+          />
+          {(useStore.getState().sparkonto + useStore.getState().wertschriften) > 0 && (
+            <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
+              Freies Vermögen total: <strong>CHF {fmtCHF(useStore.getState().sparkonto + useStore.getState().wertschriften)}</strong>
+              {useStore.getState().wertschriften > 0 && useStore.getState().sparkonto < useStore.getState().wertschriften * 0.5 && (
+                <div style={{ marginTop: 4, fontSize: 11.5, color: '#92400e' }}>
+                  ⚠ Für die Überbrückungsphase stehen CHF {fmtCHF(useStore.getState().sparkonto)} sofort zur Verfügung. Wertschriften sind marktabhängig und sollten nicht kurzfristig liquidiert werden müssen.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Krypto optional */}
           <details style={{ marginTop: 10 }}>

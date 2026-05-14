@@ -128,6 +128,14 @@ export default function Landing() {
               Ihre digitale Vorsorgeplanung – unabhängig, transparent, verständlich.
               Basierend auf offiziellen AHV/BVG-Kennzahlen 2026.
             </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', background: 'var(--navy-100)', borderRadius: 20, fontSize: 12.5, fontWeight: 600, color: 'var(--navy-700)' }}>
+                Einzelpersonen & Ehepaare
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', background: '#dcfce7', borderRadius: 20, fontSize: 12.5, fontWeight: 600, color: '#15803d' }}>
+                Gestaffelte Pensionierung
+              </span>
+            </div>
             <div className="hero-ctas">
               <button className="btn-primary" onClick={() => navigate('/schritt/1')}>
                 Jetzt Analyse starten

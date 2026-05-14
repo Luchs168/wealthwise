@@ -47,6 +47,8 @@ export interface PersonVorsorge {
   pkInterestRate: number        // PK interest rate (default 0.0125)
   pkObligatorisch: number       // mandatory portion of capital (0 = unknown)
   pkMaxGuthaben: number         // max regulatory capital for buy-in calc (0 = unknown)
+  pkLastPurchaseYear?: number   // year of most recent PK Einkauf (for 3-year Sperrfrist)
+  pkLastPurchaseAmount?: number // amount of most recent PK Einkauf
   // Scheidungsdetails (optional, nur relevant wenn civil = 'geschieden')
   divorcePkSplitting?: 'ja' | 'nein' | 'weiss_nicht'
   divorceAhvSplitting?: 'ja' | 'nein' | 'weiss_nicht'
@@ -116,7 +118,9 @@ export interface WealthWiseState {
 
   // Step 2 (persons array with vorsorge data)
   persons: Person[]
-  freeAssets: number
+  freeAssets: number      // = sparkonto + wertschriften (auto-computed)
+  sparkonto: number       // liquid savings (Sparkonto, Bargeld)
+  wertschriften: number   // investments (Wertschriften, Anlagen)
   cryptoAssets: number
   property: PropertyData
 
@@ -143,6 +147,8 @@ export interface WealthWiseState {
   setChildren: (c: ChildData[]) => void
   updatePerson: (id: 1 | 2, patch: Partial<Person>) => void
   setFreeAssets: (v: number) => void
+  setSparkonto: (v: number) => void
+  setWertschriften: (v: number) => void
   setCryptoAssets: (v: number) => void
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
@@ -224,6 +230,8 @@ export const useStore = create<WealthWiseState>()(
         { ...defaultPerson2Base, ...defaultVorsorge(2) },
       ],
       freeAssets: 0,
+      sparkonto: 0,
+      wertschriften: 0,
       cryptoAssets: 0,
       property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
 
@@ -255,6 +263,8 @@ export const useStore = create<WealthWiseState>()(
           persons: state.persons.map((p) => (p.id === id ? { ...p, ...patch } : p)),
         })),
       setFreeAssets: (v) => set({ freeAssets: v }),
+      setSparkonto: (v) => set((state) => ({ sparkonto: v, freeAssets: v + state.wertschriften })),
+      setWertschriften: (v) => set((state) => ({ wertschriften: v, freeAssets: state.sparkonto + v })),
       setCryptoAssets: (v) => set({ cryptoAssets: v }),
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
@@ -280,6 +290,8 @@ export const useStore = create<WealthWiseState>()(
           { ...defaultPerson2Base, ...defaultVorsorge(2) },
         ],
         freeAssets: 0,
+        sparkonto: 0,
+        wertschriften: 0,
         cryptoAssets: 0,
         property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0, kkPremium1: 0, kkPremium2: 0, kkFranchise: 300 },

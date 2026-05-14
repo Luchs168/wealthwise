@@ -861,6 +861,139 @@ export default function Screen4() {
             </button>
           </div>
 
+          {/* Phasenplan gestaffelte Pensionierung */}
+          {hasPartner && p2 && (() => {
+            const ra2 = p2.retireAge || p2.retirementAge || 65
+            const name1 = person1.name || 'Person 1'
+            const name2 = person2.name || 'Person 2'
+            const ahvMonthly2 = analysis.ahv.person2?.monthlyRente ?? 0
+            const pkMonthly1 = p1.hasPK ? Math.round((p1.pkCapital || 0) * ((p1.pkRate || 5.4) / 100) / 12) : 0
+            const pkMonthly2 = p2.hasPK ? Math.round((p2.pkCapital || 0) * ((p2.pkRate || 5.4) / 100) / 12) : 0
+
+            if (ra1 === ra2) {
+              // Same retire age — show simple joint phase
+              return (
+                <section className="block" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', marginBottom: 0 }}>
+                  <div className="block-head">
+                    <h2 className="block-title" style={{ color: '#15803d' }}>
+                      <span className="block-num" style={{ background: '#16a34a', color: '#fff' }}>P</span>
+                      Phasenplan Ihres Haushalts
+                    </h2>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: 'white', borderRadius: 10, fontSize: 13 }}>
+                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 6 }}>Beide pensioniert gleichzeitig (Alter {ra1})</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                      <div>AHV (plafoniert): <strong>CHF {fmtCHF(ahvMonthly1 + ahvMonthly2 - analysis.ahv.plafonReduction)}/Mt.</strong></div>
+                      <div>PK-Renten: <strong>CHF {fmtCHF(pkMonthly1 + pkMonthly2)}/Mt.</strong></div>
+                      <div>Haushaltseinkommen: <strong>CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt.</strong></div>
+                      <div>Haushaltsausgaben: <strong>CHF {fmtCHF(monthlyBudget)}/Mt.</strong></div>
+                      <div style={{ color: analysis.surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                        Differenz: {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )
+            }
+
+            // Staggered retirement
+            const firstRetires = ra1 < ra2 ? { name: name1, ra: ra1, pkMonthly: pkMonthly1, ahvMonthly: ahvMonthly1, income: 0 } : { name: name2, ra: ra2, pkMonthly: pkMonthly2, ahvMonthly: ahvMonthly2, income: 0 }
+            const stillWorking = ra1 < ra2 ? { name: name2, ra: ra2, income: p2.income || 0 } : { name: name1, ra: ra1, income: p1.income || 0 }
+            const gapYears = Math.abs(ra1 - ra2)
+            const currentYear = new Date().getFullYear()
+            const birthYear1 = person1.dob ? (parseInt(person1.dob.split('.').pop() || '0') || parseInt(person1.dob.split('-')[0])) : 0
+            const retireYear1 = birthYear1 > 0 ? birthYear1 + ra1 : currentYear + (ra1 - currentAge1)
+            const retireYear2Start = retireYear1 + gapYears
+
+            // AHV in Phase 1: only first person draws (if bezugAge <= ra1), otherwise no AHV yet
+            const phase1Ahv = ra1 <= ((p1 as any).ahvBezugAge ?? 65) && ra1 < ra2 ? ahvMonthly1 : (ra2 <= ((p2 as any)?.ahvBezugAge ?? 65) && ra2 < ra1 ? ahvMonthly2 : 0)
+            const phase1Income = firstRetires.pkMonthly + phase1Ahv + stillWorking.income
+            const phase1Surplus = phase1Income - monthlyBudget
+
+            // AHV Phase 2 befreiung: if stillWorking has income * 0.053 >= 1060
+            const stilWorkingAhvBeitrag = stillWorking.income * 0.053
+            const ahvBefreit = stilWorkingAhvBeitrag >= 1060
+
+            // Phase 2: both retired
+            const plafoniert = ahvMonthly1 + ahvMonthly2 - analysis.ahv.plafonReduction
+            const phase2Income = plafoniert + pkMonthly1 + pkMonthly2
+            const phase2Surplus = phase2Income - monthlyBudget
+
+            return (
+              <section className="block" style={{ border: '2px solid #bae6fd', background: '#f0f9ff', marginBottom: 0 }}>
+                <div className="block-head">
+                  <h2 className="block-title" style={{ color: '#0369a1' }}>
+                    <span className="block-num" style={{ background: '#0ea5e9', color: '#fff' }}>P</span>
+                    Phasenplan Ihres Haushalts
+                  </h2>
+                  <span className="block-hint">Gestaffelte Pensionierung</span>
+                </div>
+
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {/* Phase 1 */}
+                  <div style={{ padding: '14px 16px', background: 'white', border: '1px solid #bae6fd', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 700, color: '#0369a1', fontSize: 13.5, marginBottom: 10 }}>
+                      Phase 1: {firstRetires.name} pensioniert · {stillWorking.name} arbeitet noch ({gapYears} {gapYears === 1 ? 'Jahr' : 'Jahre'})
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 8 }}>
+                      Ca. {retireYear1}–{retireYear2Start}
+                    </div>
+                    <div style={{ display: 'grid', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                      <div>PK-Rente {firstRetires.name}: <strong>CHF {fmtCHF(firstRetires.pkMonthly)}/Mt.</strong></div>
+                      <div>Lohn {stillWorking.name}: <strong>CHF {fmtCHF(stillWorking.income)}/Mt.</strong></div>
+                      <div>AHV {firstRetires.name}: <strong>{phase1Ahv > 0 ? `CHF ${fmtCHF(phase1Ahv)}/Mt.` : 'noch kein Bezug'}</strong></div>
+                      <div style={{ fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 4, marginTop: 4 }}>
+                        Haushaltseinkommen: CHF {fmtCHF(phase1Income)}/Mt.
+                      </div>
+                      <div>Haushaltsausgaben: CHF {fmtCHF(monthlyBudget)}/Mt.</div>
+                      <div style={{ color: phase1Surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                        Differenz: {phase1Surplus >= 0 ? '+' : ''}CHF {fmtCHF(phase1Surplus)}/Mt.
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8, padding: '6px 10px', background: '#f0f9ff', borderRadius: 7, fontSize: 11.5, color: '#0369a1' }}>
+                      AHV-Plafonierung: <strong>noch nicht aktiv</strong> – erst wenn beide AHV beziehen
+                    </div>
+                    {ahvBefreit && (
+                      <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534', lineHeight: 1.55 }}>
+                        <strong>Gute Nachricht:</strong> Da {stillWorking.name} erwerbstätig ist und AHV-Beiträge von ca. CHF {fmtCHF(Math.round(stilWorkingAhvBeitrag))} zahlt (über dem Minimum CHF 1'060), ist {firstRetires.name} als nichterwerbstätige/r Ehepartner/in von den AHV-Nichterwerbstätigen-Beiträgen befreit.
+                      </div>
+                    )}
+                    {!ahvBefreit && stillWorking.income > 0 && (
+                      <div style={{ marginTop: 6, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
+                        AHV-Nichterwerbstätigen-Beiträge für {firstRetires.name}: ca. CHF {fmtCHF(Math.round(((firstRetires.pkMonthly * 12 + (firstRetires.ahvMonthly * 12)) / 2) * 0.05))}/Jahr (Mindestbeitrag CHF 530/Jahr)
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Phase 2 */}
+                  <div style={{ padding: '14px 16px', background: 'white', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: 13.5, marginBottom: 10 }}>
+                      Phase 2: Beide pensioniert (ab {retireYear2Start})
+                    </div>
+                    <div style={{ display: 'grid', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                      <div>AHV {name1}: <strong>CHF {fmtCHF(ahvMonthly1)}/Mt.</strong></div>
+                      <div>AHV {name2}: <strong>CHF {fmtCHF(ahvMonthly2)}/Mt.</strong></div>
+                      {analysis.ahv.plafonReduction > 0 && (
+                        <div style={{ color: '#d97706' }}>Plafonierung aktiv: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)})</div>
+                      )}
+                      <div>PK-Renten: <strong>CHF {fmtCHF(pkMonthly1 + pkMonthly2)}/Mt.</strong></div>
+                      <div style={{ fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 4, marginTop: 4 }}>
+                        Haushaltseinkommen: CHF {fmtCHF(phase2Income)}/Mt.
+                      </div>
+                      <div>Haushaltsausgaben: CHF {fmtCHF(monthlyBudget)}/Mt.</div>
+                      <div style={{ color: phase2Surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                        Differenz: {phase2Surplus >= 0 ? '+' : ''}CHF {fmtCHF(phase2Surplus)}/Mt.
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8, padding: '6px 10px', background: '#f0fdf4', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
+                      AHV-Plafonierung: <strong>aktiv</strong> – max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. für beide zusammen
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )
+          })()}
+
           {/* Separator + Detailanalyse toggle */}
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12, textAlign: 'center' }}>
             <button
@@ -1443,6 +1576,178 @@ export default function Screen4() {
               {/* Disclaimer */}
               <div style={{ padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
                 <strong>Hinweis:</strong> Die Frühpensionierung ist eine komplexe Entscheidung mit langfristigen Folgen. Diese Analyse zeigt die finanziellen Auswirkungen auf. AHV-Beiträge für Nichterwerbstätige werden individuell durch die Ausgleichskasse berechnet – die Werte sind Schätzungen. Für eine verbindliche Planung empfehlen wir ein Gespräch mit Ihrer Pensionskasse und einem Finanzplaner.
+              </div>
+            </section>
+          )
+        })()}
+
+        {/* Koordinierter Bezugskalender */}
+        {(hasPartner || (p1.has3a && ((p1.num3aAccounts || 1) > 1))) && (() => {
+          const name1 = person1.name || 'Person 1'
+          const name2 = hasPartner ? (person2.name || 'Person 2') : null
+          const retireYear1 = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
+          const ra2 = p2 ? (p2.retireAge || p2.retirementAge || 65) : ra1
+          const birthYear2 = person2.dob ? (parseInt(person2.dob.split('.').pop() || '0') || parseInt(person2.dob.split('-')[0])) : 0
+          const age2 = birthYear2 > 0 ? new Date().getFullYear() - birthYear2 : 50
+          const retireYear2 = new Date().getFullYear() + Math.max(1, ra2 - age2)
+
+          // Build withdrawal schedule
+          type WithdrawalItem = { year: number; label: string; amount: number; taxHint: string; note?: string }
+          const schedule: WithdrawalItem[] = []
+
+          // 3a P1 accounts (stagger before retirement)
+          const accounts1 = p1.has3a ? (p1.num3aAccounts || 1) : 0
+          const bal3a1 = p1.has3a ? (p1.balance3a || 0) : 0
+          for (let i = 0; i < Math.min(accounts1, 3); i++) {
+            const amt = accounts1 > 0 ? Math.round(bal3a1 / accounts1) : 0
+            if (amt > 0) {
+              schedule.push({
+                year: retireYear1 - (accounts1 - 1 - i),
+                label: `${name1} – 3a-Konto ${i + 1}`,
+                amount: amt,
+                taxHint: `ca. CHF ${fmtCHF(Math.round(amt * 0.08))}`,
+                note: i === 0 ? 'Separate Jahresbezüge reduzieren Steuerprogression' : undefined,
+              })
+            }
+          }
+
+          // 3a P2 accounts (stagger after P2 retires, interleave with P1 if possible)
+          if (hasPartner && p2?.has3a && name2) {
+            const accounts2 = p2.num3aAccounts || 1
+            const bal3a2 = p2.balance3a || 0
+            for (let i = 0; i < Math.min(accounts2, 3); i++) {
+              const amt = accounts2 > 0 ? Math.round(bal3a2 / accounts2) : 0
+              if (amt > 0) {
+                // Interleave: offset by 1 year vs P1 accounts to avoid same-year withdrawals
+                schedule.push({
+                  year: retireYear2 - (accounts2 - 1 - i) + 1,
+                  label: `${name2} – 3a-Konto ${i + 1}`,
+                  amount: amt,
+                  taxHint: `ca. CHF ${fmtCHF(Math.round(amt * 0.08))}`,
+                })
+              }
+            }
+          }
+
+          // PK capital (if Kapitalbezug)
+          const sperrfristAktiv1 = !!((p1 as any).pkLastPurchaseYear && ((p1 as any).pkLastPurchaseYear + 3 > retireYear1))
+          if (p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital) {
+            const pkAmt = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+            schedule.push({
+              year: retireYear1,
+              label: `${name1} – PK-Kapital`,
+              amount: pkAmt,
+              taxHint: `ca. CHF ${fmtCHF(Math.round(pkAmt * 0.06))}`,
+              note: sperrfristAktiv1 ? `⚠ Sperrfrist bis ${((p1 as any).pkLastPurchaseYear || 0) + 3}!` : 'Getrennt von 3a-Bezügen planen',
+            })
+          }
+
+          if (schedule.length === 0) return null
+
+          schedule.sort((a, b) => a.year - b.year)
+
+          // Compute savings estimate (rough: 15-20% tax savings vs all at once)
+          const totalCapital = schedule.reduce((s, i) => s + i.amount, 0)
+          const staggedTax = schedule.reduce((s, i) => s + Math.round(i.amount * 0.08), 0)
+          const allAtOnceTax = Math.round(totalCapital * 0.12)
+          const saving = Math.max(0, allAtOnceTax - staggedTax)
+
+          return (
+            <section className="block">
+              <div className="block-head">
+                <h2 className="block-title"><span className="block-num">BZ</span>Optimaler Bezugsplan</h2>
+                <span className="block-hint">Steueroptimierte Reihenfolge</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginBottom: 14, lineHeight: 1.6 }}>
+                Durch gestaffelte Bezüge in verschiedenen Jahren vermeiden Ehepaare höhere Steuerprogression.
+                {saving > 0 && <span style={{ fontWeight: 600, color: '#15803d' }}> Geschätzte Steuerersparnis durch Staffelung: ca. CHF {fmtCHF(saving)}.</span>}
+              </div>
+              <div style={{ fontSize: 12, color: '#92400e', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 14 }}>
+                <strong>Grundregel:</strong> Ehepaare zahlen bei Kapitalbezug zusammengezählte Steuern. Nicht beide Partner im gleichen Jahr Kapital beziehen. Nie 3a + PK-Kapital im gleichen Jahr, wenn vermeidbar.
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--navy-800)', color: '#fff' }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600 }}>Jahr</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600 }}>Bezug</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>Betrag</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>Steuer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schedule.map((item, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--navy-800)' }}>{item.year}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--ink-600)' }}>
+                          {item.label}
+                          {item.note && <div style={{ fontSize: 11, color: item.note.startsWith('⚠') ? '#dc2626' : '#6b7280', marginTop: 2 }}>{item.note}</div>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--navy-800)' }}>CHF {fmtCHF(item.amount)}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#dc2626' }}>{item.taxHint}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--ink-400)', lineHeight: 1.5 }}>
+                Steuerangaben sind Richtwerte (ca. 6–10% auf Kapitalbezüge, kantonabhängig). Konsultieren Sie Ihre Gemeinde-Steuerverwaltung für genaue Zahlen.
+              </div>
+            </section>
+          )
+        })()}
+
+        {/* Hypothek-Tragbarkeit nach Pensionierung */}
+        {property.has && property.mortgage > 0 && (() => {
+          const name1 = person1.name || 'Person 1'
+          const totalPension = analysis.monthlyIncome.total
+          const tragbarkeitsKosten = property.mortgage * 0.05 + (property.value || 0) * 0.01
+          const maxTragbar = totalPension * 12 * 0.33
+          const tragbar = maxTragbar >= tragbarkeitsKosten
+          const affordPct = totalPension > 0 ? Math.round((tragbarkeitsKosten / (totalPension * 12)) * 100) : 999
+          const ltv = property.value > 0 ? Math.round((property.mortgage / property.value) * 100) : 0
+
+          return (
+            <section className="block" style={{ border: `2px solid ${tragbar ? '#bbf7d0' : '#fca5a5'}`, background: tragbar ? '#f0fdf4' : '#fef2f2' }}>
+              <div className="block-head">
+                <h2 className="block-title" style={{ color: tragbar ? '#15803d' : '#991b1b' }}>
+                  <span className="block-num" style={{ background: tragbar ? '#16a34a' : '#dc2626', color: '#fff' }}>H</span>
+                  Hypothek & Pensionierung
+                </h2>
+              </div>
+              <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div style={{ padding: '10px 12px', background: 'white', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--ink-500)' }}>Hypothek</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>CHF {fmtCHF(property.mortgage)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Belehnung {ltv}%</div>
+                  </div>
+                  <div style={{ padding: '10px 12px', background: 'white', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--ink-500)' }}>Kalkulat. Kosten/Jahr</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>CHF {fmtCHF(Math.round(tragbarkeitsKosten))}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>5% + 1% Unterhalt</div>
+                  </div>
+                </div>
+                <div style={{ padding: '12px 14px', background: 'white', borderRadius: 8, fontSize: 12.5 }}>
+                  <div style={{ marginBottom: 6 }}>Nach der Pensionierung von {name1} prüft Ihre Bank die Tragbarkeit neu:</div>
+                  <div style={{ display: 'grid', gap: 3 }}>
+                    <div>Max. 33% Renteneinkommen: <strong>CHF {fmtCHF(Math.round(maxTragbar))}/Jahr</strong></div>
+                    <div>Kalkulat. Kosten: <strong>CHF {fmtCHF(Math.round(tragbarkeitsKosten))}/Jahr</strong></div>
+                    <div style={{ fontWeight: 700, color: tragbar ? '#15803d' : '#dc2626', marginTop: 4 }}>
+                      Tragbarkeit: {tragbar ? `✓ erfüllt (${affordPct}% Belastung)` : `⚠ nicht erfüllt (${affordPct}% > 33%)`}
+                    </div>
+                  </div>
+                </div>
+                {!tragbar && (
+                  <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, color: '#7f1d1d', lineHeight: 1.6 }}>
+                    <strong>Empfehlung:</strong> Sprechen Sie <em>vor</em> der Pensionierung mit Ihrer Bank über die Hypothek. Mögliche Massnahmen: Amortisation, günstigere Zinsbindung oder Anpassung der Hypothekstranche.
+                  </div>
+                )}
+                {tragbar && (
+                  <div style={{ fontSize: 12, color: '#166534' }}>
+                    ✓ Sprechen Sie dennoch vor der Pensionierung mit Ihrer Bank – eine proaktive Kommunikation ist empfehlenswert.
+                  </div>
+                )}
               </div>
             </section>
           )
@@ -2339,6 +2644,40 @@ export default function Screen4() {
                       Ehepaar-Plafonierung<InfoTooltip text={`Für Ehepaare gilt: Die Summe beider AHV-Renten darf maximal 150% einer Einzelrente betragen (max. CHF ${fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Monat für beide zusammen). Kürzung: −CHF ${fmtCHF(analysis.ahv.plafonReduction)}/Mt.`} />: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt.)
                     </div>
                   )}
+                  {hasPartner && (() => {
+                    const ra2 = p2 ? (p2.retireAge || p2.retirementAge || 65) : ra1
+                    const name1 = person1.name || 'Person 1'
+                    const name2 = person2.name || 'Person 2'
+                    const ahvMonthly2 = analysis.ahv.person2?.monthlyRente ?? 0
+                    const currentYear = new Date().getFullYear()
+                    const birthYear2 = person2.dob ? (parseInt(person2.dob.split('.').pop() || '0') || parseInt(person2.dob.split('-')[0])) : 0
+                    const age2 = birthYear2 > 0 ? currentYear - birthYear2 : 50
+                    const retireYear2 = currentYear + Math.max(1, ra2 - age2)
+
+                    const plafoniert = ahvMonthly1 + ahvMonthly2 - analysis.ahv.plafonReduction
+                    return (
+                      <div style={{ padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, fontSize: 12.5, color: '#1e40af', lineHeight: 1.6 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 8 }}>AHV-Plafonierung für Ehepaare – Zeitlicher Ablauf:</div>
+                        {ra1 !== ra2 ? (
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <div>
+                              <strong>Bis {retireYear2}:</strong> Nur {ra1 < ra2 ? name1 : name2} bezieht AHV → volle Einzelrente CHF {fmtCHF(ra1 < ra2 ? ahvMonthly1 : ahvMonthly2)}/Mt. <em>(keine Plafonierung)</em>
+                            </div>
+                            <div>
+                              <strong>Ab {retireYear2}:</strong> Beide beziehen AHV → Plafonierung aktiv, max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. zusammen
+                            </div>
+                            <div>
+                              Ihre plafonierte Rente: {name1} CHF {fmtCHF(ahvMonthly1 - Math.round(analysis.ahv.plafonReduction / 2))}/Mt. + {name2} CHF {fmtCHF(ahvMonthly2 - Math.round(analysis.ahv.plafonReduction / 2))}/Mt. = CHF {fmtCHF(plafoniert)}/Mt.
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            Ab Pensionierung (beide gleichzeitig): Plafonierung aktiv, max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. zusammen. Ihre plafonierte Rente: CHF {fmtCHF(plafoniert)}/Mt.
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Comparison table – Person 1 */}
