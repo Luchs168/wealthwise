@@ -458,8 +458,9 @@ export default function Screen2() {
   // 3a projection
   const years1 = Math.max(0, person1.retireAge - (calcAge(person1.dob) || 57))
   const years2 = Math.max(0, person2.retireAge - (calcAge(person2.dob) || 55))
-  const proj3a1 = useMemo(() => project3a(p1.balance3a, p1.yearly3a, years1), [p1, years1])
-  const proj3a2 = useMemo(() => project3a(p2.balance3a, p2.yearly3a, years2), [p2, years2])
+  const get3aRate = (form: string | undefined) => CONSTANTS.RETURNS_3A[form || 'sparkonto'] ?? CONSTANTS.RETURNS_3A.sparkonto
+  const proj3a1 = useMemo(() => project3a(p1.balance3a, p1.yearly3a, years1, get3aRate(p1.form3a)), [p1, years1])
+  const proj3a2 = useMemo(() => project3a(p2.balance3a, p2.yearly3a, years2, get3aRate(p2.form3a)), [p2, years2])
 
   const totalMonthly = ahvCombinedMonthly +
     (p1.hasPK ? (p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0) : 0) +
@@ -1895,10 +1896,27 @@ export default function Screen2() {
                 </div>
               )}
 
+              <div className="form-grid" style={{ marginTop: 10 }}>
+                <div className="field-wrap">
+                  <label className="field-label">Kontotyp / Anlageform</label>
+                  <select
+                    className="select-field"
+                    value={cur.form3a || 'sparkonto'}
+                    onChange={(e) => updatePerson(activeTab, { form3a: e.target.value as import('../store').Form3a })}
+                  >
+                    <option value="sparkonto">Sparkonto (ca. 0.75% p.a.)</option>
+                    <option value="wertschriften_konservativ">Wertschriften konservativ (ca. 2.5% p.a.)</option>
+                    <option value="wertschriften_ausgewogen">Wertschriften ausgewogen (ca. 4.0% p.a.)</option>
+                    <option value="wertschriften_aggressiv">Wertschriften aggressiv (ca. 5.0% p.a.)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="proj-card" style={{ marginTop: 14 }}>
                 <div className="proj-card-label">
                   📈 Geschätztes 3a-Guthaben bei Pensionierung
-                  (Rendite 2% p.a., {activeTab === 1 ? years1 : years2} Jahre)
+                  ({activeTab === 1 ? years1 : years2} Jahre,{' '}
+                  {cur.form3a === 'wertschriften_konservativ' ? '2.5' : cur.form3a === 'wertschriften_ausgewogen' ? '4.0' : cur.form3a === 'wertschriften_aggressiv' ? '5.0' : '0.75'}% p.a.)
                 </div>
                 <div className="proj-card-val">
                   CHF {fmtCHF(activeTab === 1 ? proj3a1 : proj3a2)}

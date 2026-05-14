@@ -5,7 +5,7 @@ import type { LifeEvent } from '../types/lifeEvents'
 export type CivilStatus = 'ledig' | 'verheiratet' | 'partnerschaft' | 'geschieden' | 'verwitwet'
 export type Gender = 'm' | 'f'
 export type PkMode = 'manual' | 'estimate' | 'unknown'
-export type Form3a = 'sparkonto' | 'wertschriften'
+export type Form3a = 'sparkonto' | 'wertschriften' | 'wertschriften_konservativ' | 'wertschriften_ausgewogen' | 'wertschriften_aggressiv'
 
 export interface PersonBase {
   name: string

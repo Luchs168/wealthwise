@@ -143,7 +143,7 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, property, kirchensteuer, lifeEvents, riskProfile } = state
+  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile } = state
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false)
@@ -166,18 +166,28 @@ export default function Screen4() {
   // canton declared early — used in both inputData and tax section
   const canton = location?.kanton ?? 'ZH'
 
-  const inputData = useMemo(() => ({
-    person1: p1,
-    person2: p2,
-    civilStatus,
-    canton: canton || 'ZH',
-    kirchensteuer,
-    freeAssets: freeAssets || 0,
-    monthlyExpenses: monthlyBudget,
-    hasProperty: property.has,
-    monthlyMortgageCost: property.has ? property.mortgage : 0,
-    riskProfile,
-  }), [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, monthlyBudget, property, riskProfile])
+  const inputData = useMemo(() => {
+    // Monthly mortgage cost = annual interest + 1% maintenance, divided by 12
+    const mortgageMonthly = property.has && property.mortgage > 0
+      ? Math.round((property.mortgage * ((property.hypothekZinssatz ?? 1.5) / 100) + (property.value || 0) * 0.01) / 12)
+      : 0
+    return {
+      person1: p1,
+      person2: p2,
+      civilStatus,
+      canton: canton || 'ZH',
+      kirchensteuer,
+      freeAssets: freeAssets || 0,
+      sparkonto: sparkonto || 0,
+      wertschriften: wertschriften || 0,
+      monthlyExpenses: monthlyBudget,
+      hasProperty: property.has,
+      monthlyMortgageCost: mortgageMonthly,
+      propertyValue: property.has ? property.value : undefined,
+      hypothekZinssatz: property.hypothekZinssatz,
+      riskProfile,
+    }
+  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])
@@ -1952,6 +1962,20 @@ export default function Screen4() {
               </div>
             </div>
 
+            {/* PK Kaufkraftverlust Hinweis */}
+            {pkMonthlyForRente > 0 && (() => {
+              const pkIn20yr = Math.round(pkMonthlyForRente * Math.pow(1 - 0.015, 20))
+              return (
+                <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, marginBottom: 16, fontSize: 13, color: '#78350f' }}>
+                  <strong style={{ color: '#92400e' }}>PK-Rente: Kaufkraftverlust beachten.</strong>{' '}
+                  Pensionskassenrenten sind nominal fixiert und werden nicht an die Inflation angepasst.
+                  Bei 1.5% Inflation entsprechen Ihre CHF {fmtCHF(pkMonthlyForRente)}/Mt. in 20 Jahren
+                  nur noch ca. CHF {fmtCHF(pkIn20yr)}/Mt. heutiger Kaufkraft.
+                  Die AHV-Rente wird dagegen durch den Mischindex (ca. 1.25%/Jahr) teilweise angepasst.
+                </div>
+              )
+            })()}
+
             {/* Monthly gap hero */}
             <div style={{
               padding: '16px 20px', borderRadius: 12, marginBottom: 20,
@@ -2509,6 +2533,20 @@ export default function Screen4() {
               </div>
             ))}
           </div>
+
+          {/* Glide Path Hinweis */}
+          {(freeAssets || 0) > 50000 && (() => {
+            const yearsToRetirement = Math.max(0, ra1 - currentAge1)
+            const currentEquityPct = riskProfile === 'growth' ? 80 : riskProfile === 'balanced' ? 50 : 25
+            const targetEquityPct = Math.max(20, currentEquityPct - Math.min(30, yearsToRetirement * 1.5))
+            return (
+              <div style={{ padding: '12px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, marginBottom: 16, fontSize: 13, color: 'var(--navy-800)' }}>
+                <strong>Gleitpfad (Lifecycle-Strategie):</strong> Mit {yearsToRetirement > 0 ? `${yearsToRetirement} Jahren bis zur Pensionierung` : 'Pensionierung erreicht'} empfiehlt sich eine schrittweise Reduktion des Aktienanteils.
+                {' '}Ihre aktuelle Strategie ({riskProfile === 'growth' ? 'Wachstum' : riskProfile === 'balanced' ? 'Ausgewogen' : 'Konservativ'}) impliziert ca. {currentEquityPct}% Aktien.
+                {yearsToRetirement > 2 ? ` Zielgewichtung bei Pensionierung: ca. ${Math.round(targetEquityPct)}% Aktien.` : ' Schrittweise in sicherere Anlagen umschichten.'}
+              </div>
+            )
+          })()}
 
           {scenarioChartData.length > 0 && (
             <div role="img" aria-label="Liniendiagramm: Szenarien-Vergleich der Vermögensentwicklung. Drei Kurven (Optimistisch, Neutral, Pessimistisch) zeigen wie lange das Vermögen unter verschiedenen Rendite-Annahmen reicht.">

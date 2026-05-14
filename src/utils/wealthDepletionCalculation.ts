@@ -168,7 +168,7 @@ export function buildDepletionScenarios(
 ): DepletionScenario[] {
   const scenarios = [
     { label: 'Optimistisch', returnRate: 0.04, inflationRate: 0.01, withdrawalFactor: 0.9 },
-    { label: 'Realistisch', returnRate: 0.02, inflationRate: 0.015, withdrawalFactor: 1.0 },
+    { label: 'Realistisch', returnRate: 0.035, inflationRate: 0.015, withdrawalFactor: 1.0 },
     { label: 'Pessimistisch', returnRate: 0.0, inflationRate: 0.02, withdrawalFactor: 1.1 },
   ]
 

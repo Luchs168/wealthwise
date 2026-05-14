@@ -85,9 +85,13 @@ export interface CashflowInput {
   riskProfile?: 'conservative' | 'balanced' | 'growth'
   endAge?: number
   freeAssets?: number
+  sparkonto?: number
+  wertschriften?: number
   monthlyExpenses?: number
   hasProperty?: boolean
   monthlyMortgageCost?: number
+  propertyValue?: number
+  hypothekZinssatz?: number
 }
 
 function normalizeP(p: CashflowInput['person1']) {
@@ -208,6 +212,18 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const ahv = buildAhvHousehold(p1raw, p2raw, civilStatus)
   const pk = calculatePkHousehold(p1raw, p2raw)
 
+  // Blended return: sparkonto earns 0.75%, wertschriften earn investmentReturn
+  const totalFreeAssets = (data.freeAssets || 0)
+  const sparkontoAmt = data.sparkonto ?? 0
+  const wertschriftenAmt = data.wertschriften ?? 0
+  const sparkontoFraction = totalFreeAssets > 0
+    ? Math.min(1, sparkontoAmt / totalFreeAssets)
+    : (sparkontoAmt > 0 ? 1 : 0)
+  const blendedReturn = sparkontoFraction * CONSTANTS.SPARKONTO_RENDITE + (1 - sparkontoFraction) * investmentReturn
+
+  // Vermögenssteuer rate for canton
+  const vermStSatz = CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? CONSTANTS.VERMÖGENSSTEUER_SATZ['ZH'] ?? 0.002
+
   function pkKapitalShare(p: ReturnType<typeof normalizeP> | null) {
     if (!p) return 0
     if (p.pkBezugsart === 'kapital') return 1
@@ -267,12 +283,18 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth += saving
     }
 
+    // AHV Mischindex: each year after retirement, AHV grows ~1.25%/year
+    const yearsP1Retired = p1Retired ? Math.max(0, age - ra1) : 0
+    const yearsP2Retired = p2RetiredSimple ? Math.max(0, age - (ra2InP1Years || ra2 || 65)) : 0
+    const ahvGrowth1 = Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP1Retired)
+    const ahvGrowth2 = p2raw ? Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP2Retired) : 1
+
     if (p1Retired && (!p2raw || p2RetiredSimple)) {
-      ahvIncome = ahv.combinedYearlyInkl13
+      ahvIncome = ahv.person1.yearlyInkl13 * ahvGrowth1 + (ahv.person2 ? ahv.person2.yearlyInkl13 * ahvGrowth2 : 0)
     } else if (p1Retired) {
-      ahvIncome = ahv.person1.yearlyInkl13
+      ahvIncome = ahv.person1.yearlyInkl13 * ahvGrowth1
     } else if (p2RetiredSimple) {
-      ahvIncome = ahv.person2 ? ahv.person2.yearlyInkl13 : 0
+      ahvIncome = ahv.person2 ? ahv.person2.yearlyInkl13 * ahvGrowth2 : 0
     }
 
     // Foreign pension income (from Herkunftsland) — added once both/either retired
@@ -309,8 +331,11 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     }
 
     if (p1Retired || p2RetiredSimple) {
-      assetReturn = Math.round(Math.max(0, wealth) * investmentReturn)
+      assetReturn = Math.round(Math.max(0, wealth) * blendedReturn)
       wealth += assetReturn
+      // Vermögenssteuer: annual wealth tax as ongoing cost in retirement
+      const vermSt = Math.round(Math.max(0, wealth) * vermStSatz)
+      wealth -= vermSt
     }
 
     const totalRenten = ahvIncome + pkRenteIncome
@@ -425,9 +450,9 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
 }
 
 const SCENARIO_RETURNS: Record<string, { optimistic: number; pessimistic: number }> = {
-  conservative: { optimistic: 0.015, pessimistic: 0 },
-  balanced:     { optimistic: 0.035, pessimistic: 0 },
-  growth:       { optimistic: 0.05,  pessimistic: 0 },
+  conservative: { optimistic: 0.035, pessimistic: 0 },
+  balanced:     { optimistic: 0.05,  pessimistic: 0 },
+  growth:       { optimistic: 0.065, pessimistic: -0.01 },
 }
 
 export function calculateScenarios(data: CashflowInput) {
