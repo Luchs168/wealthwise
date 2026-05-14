@@ -1203,12 +1203,35 @@ export default function Screen2() {
             )
           })()}
 
-          {!cur.hasPK && (
+          {!cur.hasPK && cur.employmentStatus !== 'selfEmployed' && (
             <div className="info-callout">
               <span className="info-callout-icon">i</span>
               <span>Ohne PK ist das 3a-Maximum höher (CHF 36'288/Jahr statt CHF 7'258). Sie können sich auch freiwillig bei der Auffangeinrichtung versichern.</span>
             </div>
           )}
+          {!cur.hasPK && cur.employmentStatus === 'selfEmployed' && (() => {
+            const age = (activeTab === 1 ? pkProj1 : pkProj2)?.currentAge ?? 50
+            return (
+              <div style={{ marginTop: 12, padding: '16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>Vorsorge ohne Pensionskasse</div>
+                <p style={{ fontSize: 13, color: 'var(--ink-600)', margin: '0 0 12px', lineHeight: 1.6 }}>
+                  Als Selbständige/r ohne PK fehlt Ihnen die 2. Säule. Das ist bei vielen Selbständigen der Fall. Ihre Altersvorsorge stützt sich auf AHV, Säule 3a und Ihr Vermögen.
+                </p>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-700)', marginBottom: 8 }}>Was können Sie tun?</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ padding: '10px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e3a5f', lineHeight: 1.55 }}>
+                    <strong>Freiwilliger Beitritt zur BVG-Auffangeinrichtung:</strong> Auch mit {age} Jahren noch möglich.{age >= 58 ? ' Hinweis: Ab ca. Alter 58–60 lohnt sich der Beitritt kaum noch.' : ' Vorteil: Steuern sparen + Rente aufbauen. Sinnvoll bis ca. Alter 58.'}
+                  </div>
+                  <div style={{ padding: '10px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5, color: '#14532d', lineHeight: 1.55 }}>
+                    <strong>Säule 3a maximieren:</strong> Ohne PK gilt das höhere Maximum (CHF 36'288/Jahr bzw. 20% des Nettoeinkommens). Prüfen Sie: Ist Ihr Nettoeinkommen hoch genug für den Maximalbetrag?
+                  </div>
+                  <div style={{ padding: '10px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#78350f', lineHeight: 1.55 }}>
+                    <strong>Firmenwert als Alterskapital:</strong> Der Verkauf oder die Übergabe Ihres Betriebs kann einen wesentlichen Teil Ihrer Altersvorsorge bilden. Erfassen Sie den geschätzten Wert unten.
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </section>
 
         {/* C · 3a */}
@@ -1288,6 +1311,15 @@ export default function Screen2() {
                   ⚠ 3a-Guthaben über CHF 250'000 – bitte Angabe prüfen. Ab CHF 7'258/Jahr (2026) dauert es über 30 Jahre, um diesen Betrag anzusparen.
                 </div>
               )}
+              {cur.employmentStatus === 'selfEmployed' && !cur.hasPK && cur.yearly3a > 0 && (() => {
+                const maxAllowed = Math.min(Math.round(cur.income * 0.20), 36288)
+                if (cur.yearly3a <= maxAllowed) return null
+                return (
+                  <div style={{ marginTop: 10, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+                    ⚠ <strong>Achtung 20%-Regel:</strong> Bei Ihrem Nettoeinkommen von ca. CHF {fmtCHF(cur.income)} beträgt Ihr 3a-Maximum CHF {fmtCHF(maxAllowed)}/Jahr (20% des Nettoeinkommens). Sie zahlen möglicherweise mehr ein als steuerlich erlaubt. Klären Sie dies mit Ihrer Steuerbehörde.
+                  </div>
+                )
+              })()}
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
                 <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug über mehrere Jahre staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>
@@ -1311,6 +1343,49 @@ export default function Screen2() {
             onChange={(v) => useStore.getState().setFreeAssets(v)}
           />
         </section>
+
+        {/* E1 · Firmenwert (nur für Selbständige) */}
+        {(() => {
+          const curSE = persons.find(p => p.id === activeTab)
+          if (curSE?.employmentStatus !== 'selfEmployed') return null
+          return (
+            <section className="block">
+              <div className="block-head">
+                <h2 className="block-title"><span className="block-num" style={{ background: 'var(--ink-600)' }}>SE</span>Unternehmenswert</h2>
+                <span className="block-hint">Optional</span>
+              </div>
+              <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
+                Der Verkauf Ihres Unternehmens kann Ihr wichtigstes Alterskapital sein. Geben Sie den geschätzten Nettoerlös nach Steuern an.
+              </p>
+              <div className="form-grid">
+                <CHFField
+                  label="Geschätzter Nettoerlös (nach Steuern)"
+                  value={curSE.businessValue ?? 0}
+                  onChange={(v) => updatePerson(activeTab, { businessValue: v })}
+                />
+                <div className="field-wrap">
+                  <label className="field-label">Geplantes Verkaufsjahr</label>
+                  <input
+                    type="number"
+                    className="input"
+                    min={new Date().getFullYear()}
+                    max={new Date().getFullYear() + 30}
+                    value={curSE.businessSaleYear ?? (new Date().getFullYear() + 8)}
+                    onChange={e => updatePerson(activeTab, { businessSaleYear: parseInt(e.target.value) || (new Date().getFullYear() + 8) })}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#78350f' }}>
+                  Der Nettoerlös nach Steuern ist entscheidend (Liquidationsgewinnsteuer beachten). Lassen Sie den Wert durch einen Treuhänder oder KMU-Berater schätzen.
+                </div>
+                {(curSE.businessValue ?? 0) === 0 && (
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>Falls Sie keinen Verkauf planen, lassen Sie das Feld leer.</div>
+                )}
+              </div>
+            </section>
+          )
+        })()}
 
         {/* E · Wohneigentum */}
         {(() => {

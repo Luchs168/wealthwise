@@ -53,6 +53,11 @@ export interface PersonVorsorge {
   alimenteMonthly?: number
   alimenteUnbefristet?: boolean
   alimenteUntilAge?: number
+  // Erwerbsstatus
+  employmentStatus?: 'employed' | 'selfEmployed'
+  // Firmenwert (nur relevant wenn selfEmployed)
+  businessValue?: number       // Geschätzter Nettoerlös nach Steuern
+  businessSaleYear?: number    // Geplantes Verkaufsjahr (z.B. 2031)
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }

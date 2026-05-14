@@ -43,6 +43,9 @@ export interface CashflowInput {
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
+    employmentStatus?: string
+    businessValue?: number
+    businessSaleYear?: number
     [key: string]: unknown
   }
   person2?: {
@@ -174,6 +177,7 @@ export interface CashflowRow {
   pillar3aWithdrawal: number
   assetIncome: number
   assetConsumption: number
+  businessProceeds: number
   totalIncome: number
   livingExpenses: number
   mortgageCosts: number
@@ -242,6 +246,16 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     let ahvIncome = 0, pkRenteIncome = 0
     let pkKapitalWithdrawal = 0, pillar3aWithdrawal = 0
     let assetReturn = 0, assetConsumption = 0
+    let businessProceeds = 0
+
+    // Firmenwert: one-time net proceeds in sale year (approx. 20% Liquidationsgewinnsteuer)
+    if (
+      p1raw.businessValue && p1raw.businessValue > 0 &&
+      p1raw.businessSaleYear && p1raw.businessSaleYear === year
+    ) {
+      businessProceeds = Math.round(p1raw.businessValue * 0.80)
+      wealth += businessProceeds
+    }
 
     if (!p1Retired) employmentIncome += p1raw.grossIncome || 0
     if (p2raw && !p2RetiredSimple) employmentIncome += p2raw.grossIncome || 0
@@ -328,14 +342,15 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       pillar3aWithdrawal: Math.round(pillar3aWithdrawal),
       assetIncome: Math.round(assetReturn),
       assetConsumption: Math.round(assetConsumption),
-      totalIncome: Math.round(employmentIncome + ahvIncome + pkRenteIncome + assetReturn),
+      businessProceeds: Math.round(businessProceeds),
+      totalIncome: Math.round(employmentIncome + ahvIncome + pkRenteIncome + assetReturn + businessProceeds),
       livingExpenses: inflatedExpenses,
       mortgageCosts: data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0,
       taxes: estimatedTax,
       totalExpenses: Math.round(totalExpThisYear + estimatedTax),
       wealthEndOfYear: Math.round(wealth),
       isRetirementYear: isRetirementYearP1 || isRetirementYearP2,
-      isCapitalWithdrawalYear: pkKapitalWithdrawal > 0,
+      isCapitalWithdrawalYear: pkKapitalWithdrawal > 0 || businessProceeds > 0,
     })
   }
 

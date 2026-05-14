@@ -745,21 +745,42 @@ export default function Screen4() {
                 return isVulnerable ? 'Weitere Massnahmen' : 'Ihre Top-3 Massnahmen'
               })()}
             </div>
-            {(RECS[analysis.verdict] ?? []).slice(0, 3).map((rec, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                padding: '12px 14px', marginBottom: 8,
-                background: 'rgba(255,255,255,0.7)', borderRadius: 10,
-                border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'}`,
-              }}>
-                <span style={{
-                  flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
-                  background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
-                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
-                }}>{i + 1}</span>
-                <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
-              </div>
-            ))}
+            {(() => {
+              const isSE = p1.employmentStatus === 'selfEmployed'
+              const noPK = !p1.hasPK
+              const pkKeywords = ['PK-Einkauf', 'Pensionskasse', 'Einkäufe in die Pensionskasse']
+              let recs = (RECS[analysis.verdict] ?? []).filter(r =>
+                !(isSE && noPK && pkKeywords.some(k => r.text.includes(k)))
+              )
+              // Selbständige ohne PK bekommen spezifische Empfehlungen
+              if (isSE && noPK) {
+                const age1val = currentAge1
+                const hasProperty1 = property.has
+                const seRecs: typeof recs = [
+                  ...(age1val < 58 ? [{ text: 'Prüfen Sie den freiwilligen Beitritt zur BVG-Auffangeinrichtung (sinnvoll bis ca. Alter 58).', priority: 'hoch' as const, detail: '' }] : []),
+                  { text: 'Planen Sie die Nachfolge / den Verkauf Ihres Betriebs als Alterskapital.', priority: 'hoch' as const, detail: '' },
+                  { text: 'Erwägen Sie eine Reduktion der Arbeitszeit statt vollständiger Aufgabe (Teilpensionierung).', priority: 'mittel' as const, detail: '' },
+                  ...(hasProperty1 ? [{ text: 'Prüfen Sie die Umkehrhypothek als Liquiditätsquelle im Alter.', priority: 'mittel' as const, detail: '' }] : []),
+                  { text: 'AHV-Aufschub prüfen: 1 Jahr länger arbeiten = 5.2% höhere Rente lebenslang.', priority: 'mittel' as const, detail: '' },
+                ]
+                recs = [...seRecs, ...recs].slice(0, 3)
+              }
+              return recs.slice(0, 3).map((rec, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '12px 14px', marginBottom: 8,
+                  background: 'rgba(255,255,255,0.7)', borderRadius: 10,
+                  border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'}`,
+                }}>
+                  <span style={{
+                    flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
+                    background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
+                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+                  }}>{i + 1}</span>
+                  <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
+                </div>
+              ))
+            })()}
           </div>
 
           {/* PDF CTA */}
@@ -911,6 +932,29 @@ export default function Screen4() {
                     <strong>CHF {fmtCHF(ahvNonEmployed.annualContribution)}/Jahr ({bridgingGap.gapYears} Jahre = CHF {fmtCHF(ahvNonEmployed.totalForGapYears)} total)</strong>
                   </div>
                 </div>
+
+                {/* Überbrückung ohne PK – für Selbständige */}
+                {!p1.hasPK && bridgingRetireAge < 63 && (
+                  <div style={{ marginTop: 12, padding: '14px 16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 10, fontSize: 12.5 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>Überbrückung ohne Pensionskasse</div>
+                    <p style={{ margin: '0 0 10px', color: 'var(--ink-600)', lineHeight: 1.6 }}>
+                      Ohne Pensionskasse gibt es keine Überbrückungsrente. Sie müssen die Zeit bis zur AHV aus eigenen Mitteln finanzieren.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                      <div style={{ padding: '8px 10px', background: '#fef2f2', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 2 }}>Monate ohne AHV</div>
+                        <div style={{ fontWeight: 700, color: '#dc2626' }}>{bridgingGap.gapMonths} Monate</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', background: '#fef2f2', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 2 }}>Benötigtes Kapital</div>
+                        <div style={{ fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(bridgingGap.monthlyNetGap * bridgingGap.gapMonths)}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>
+                      <strong>Mögliche Quellen:</strong> Gestaffelter 3a-Bezug (CHF {fmtCHF(p1.balance3a ?? 0)}), freies Vermögen (CHF {fmtCHF(freeAssets || 0)}){(p1.businessValue ?? 0) > 0 ? `, Firmenverkauf (CHF ${fmtCHF(p1.businessValue!)})` : ''}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Comparison table across ages */}
@@ -1484,8 +1528,14 @@ export default function Screen4() {
                 </table>
               </div>
               {property.has && property.value > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: 12, color: '#0c4a6e' }}>
-                  Ihre Immobilie (Verkehrswert CHF {fmtCHF(property.value)}) ist NICHT als liquides Vermögen berücksichtigt. Sie könnten diese theoretisch verkaufen oder eine Umkehrhypothek prüfen.
+                <div style={{ marginTop: 8, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0c4a6e', lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Ihre Immobilie (CHF {fmtCHF(property.value)}) ist ein wichtiger Vermögenswert, zählt aber nicht als liquides Kapital.</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div>• <strong>Verkauf und Mietwohnung:</strong> Setzt ca. CHF {fmtCHF(Math.max(0, property.value - property.mortgage))} frei (Marktwert minus Hypothek)</div>
+                    <div>• <strong>Umkehrhypothek:</strong> Monatliche Auszahlung ca. CHF {fmtCHF(Math.round(Math.max(0, property.value - property.mortgage) * 0.03 / 12))} ohne Verkauf (Schätzung ~3% p.a.)</div>
+                    <div>• <strong>Beibehalten:</strong> Kein zusätzliches Einkommen, aber keine Mietkosten</div>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: '#1e3a5f' }}>Klären Sie Ihre bevorzugte Option mit Ihrer Bank oder einem unabhängigen Berater.</div>
                 </div>
               )}
               {!property.has && (

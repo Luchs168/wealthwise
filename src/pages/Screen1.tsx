@@ -600,10 +600,26 @@ export default function Screen1() {
             </div>
           )}
 
+          {/* Erwerbsstatus */}
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label>Erwerbsstatus</label>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              {(['employed', 'selfEmployed'] as const).map(v => (
+                <button key={v} type="button"
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--ink-200)', fontSize: 13, cursor: 'pointer', fontWeight: curP.employmentStatus === v || (!curP.employmentStatus && v === 'employed') ? 600 : 400, background: curP.employmentStatus === v || (!curP.employmentStatus && v === 'employed') ? 'var(--navy-800)' : '#fff', color: curP.employmentStatus === v || (!curP.employmentStatus && v === 'employed') ? '#fff' : 'var(--ink-700)' }}
+                  onClick={() => updatePerson(activeTab, { employmentStatus: v })}>
+                  {v === 'employed' ? 'Angestellt' : 'Selbständig'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="form-grid">
             <div className="field">
               <label htmlFor={`income-p${activeTab}`}>
-                Brutto-Jahreseinkommen <span style={{ color: '#dc2626' }}>*</span>
+                {curP.employmentStatus === 'selfEmployed'
+                  ? <>Ø Nettoeinkommen letzte 3 Jahre <span style={{ color: '#dc2626' }}>*</span></>
+                  : <>Brutto-Jahreseinkommen <span style={{ color: '#dc2626' }}>*</span></>}
               </label>
               <div className="amount-wrap">
                 <span className="prefix">CHF</span>
@@ -613,7 +629,9 @@ export default function Screen1() {
                   onChange={(v) => updatePerson(activeTab, { income: v })}
                 />
               </div>
-              <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />
+              {curP.employmentStatus === 'selfEmployed'
+                ? <WhyBox text="Als Selbständige/r schwankt Ihr Einkommen. Geben Sie den Durchschnitt der letzten 3 Jahre ein. Das Nettoeinkommen (nach AHV/IV/EO-Abzügen) bestimmt Ihr 3a-Maximum (20%) und die AHV-Rente." />
+                : <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />}
             </div>
             <div className="field">
               <label htmlFor={`employment-grade-p${activeTab}`}>Beschäftigungsgrad</label>

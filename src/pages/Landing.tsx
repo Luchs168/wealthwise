@@ -280,9 +280,9 @@ export default function Landing() {
                 stars: 5,
               },
               {
-                text: 'Die Lücke zwischen meiner Rente und meinem Bedarf war grösser als ich dachte. Gut, dass ich das jetzt mit 52 erfahre und nicht erst kurz vor der Pension.',
-                name: 'Susanne K.',
-                location: 'Bern, 52 Jahre',
+                text: 'Als Selbständiger ohne Pensionskasse hatte ich keine Ahnung, wo ich stehe. Jetzt weiss ich: Meine Schreinerei ist meine 2. Säule. Ich muss die Nachfolge anpacken.',
+                name: 'Marco B.',
+                location: 'Emmen, 54 Jahre',
                 stars: 5,
               },
               {
