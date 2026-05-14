@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
+import GlossarModal from './GlossarModal'
 
 interface Props {
   screenLabel?: string
@@ -10,6 +11,7 @@ export default function TopBar({ screenLabel }: Props) {
   const navigate = useNavigate()
   const resetStore = useStore((s) => s.resetStore)
   const [showModal, setShowModal] = useState(false)
+  const [showGlossar, setShowGlossar] = useState(false)
 
   function confirmReset() {
     setShowModal(false)
@@ -33,6 +35,16 @@ export default function TopBar({ screenLabel }: Props) {
         <div className="top-actions">
           <span className="top-save">Automatisch gespeichert</span>
           <button
+            onClick={() => setShowGlossar(true)}
+            style={{
+              background: 'none', border: '1px solid var(--ink-200)', borderRadius: 7,
+              padding: '5px 11px', fontSize: 13, color: 'var(--ink-500)',
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >
+            Glossar
+          </button>
+          <button
             onClick={() => setShowModal(true)}
             style={{
               background: 'none', border: '1px solid var(--ink-200)', borderRadius: 7,
@@ -45,6 +57,8 @@ export default function TopBar({ screenLabel }: Props) {
           <Link to="/">Startseite</Link>
         </div>
       </header>
+
+      <GlossarModal isOpen={showGlossar} onClose={() => setShowGlossar(false)} />
 
       {/* Reset confirmation modal */}
       {showModal && (

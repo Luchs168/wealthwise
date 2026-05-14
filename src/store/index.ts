@@ -58,6 +58,12 @@ export interface PersonVorsorge {
   // Firmenwert (nur relevant wenn selfEmployed)
   businessValue?: number       // Geschätzter Nettoerlös nach Steuern
   businessSaleYear?: number    // Geplantes Verkaufsjahr (z.B. 2031)
+  // Migration / internationale Vorsorge
+  immigrationYear?: number     // Jahr des Einzugs in die Schweiz (leer = seit Geburt / vor 21)
+  partnerCoveredGaps?: boolean // Lücken durch Beitragsbefreiung des Ehepartners gedeckt
+  foreignPensionMonthly?: number // Monatliche Rente aus Herkunftsland (CHF)
+  // Kinder in Ausbildung (AHV-Kinderrente)
+  hasChildInTraining?: boolean  // Mindestens ein Kind 18-25 in Ausbildung
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }

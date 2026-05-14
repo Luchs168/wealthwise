@@ -46,6 +46,7 @@ export interface CashflowInput {
     employmentStatus?: string
     businessValue?: number
     businessSaleYear?: number
+    foreignPensionMonthly?: number
     [key: string]: unknown
   }
   person2?: {
@@ -273,6 +274,10 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     } else if (p2RetiredSimple) {
       ahvIncome = ahv.person2 ? ahv.person2.yearlyInkl13 : 0
     }
+
+    // Foreign pension income (from Herkunftsland) — added once both/either retired
+    const foreignPension = (p1raw.foreignPensionMonthly || 0) * 12
+    if (p1Retired && foreignPension > 0) ahvIncome += foreignPension
 
     if (p1Retired) pkRenteIncome += pk1Monthly * 12
     if (p2raw && p2RetiredSimple) pkRenteIncome += pk2Monthly * 12

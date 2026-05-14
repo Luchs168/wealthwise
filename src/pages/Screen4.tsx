@@ -644,6 +644,13 @@ export default function Screen4() {
             })()}
           </div>
 
+          {/* Fix 8: Empathetic text when score < 50 */}
+          {analysis.sustainabilityScore < 50 && (
+            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, fontSize: 13.5, color: '#92400e', lineHeight: 1.7 }}>
+              <strong>Was ein tiefer Score bedeutet:</strong> Ihre Rente allein reicht nicht für Ihre Ausgaben. Das ist bei vielen Menschen so – besonders bei Teilzeitarbeit, tiefem Einkommen oder Einwanderung. <strong>Es bedeutet NICHT, dass Sie etwas falsch gemacht haben.</strong> Es gibt Möglichkeiten – zum Beispiel Ergänzungsleistungen (EL) als gesetzlicher Anspruch. Die konkreten Massnahmen finden Sie unten.
+            </div>
+          )}
+
           {/* Was bedeutet das? */}
           {(() => {
             const surplus = analysis.surplus
@@ -673,25 +680,55 @@ export default function Screen4() {
             )
           })()}
 
-          {/* EL-Frühwarnung – prominent wenn eligible */}
+          {/* Fix 5: EL-Frühwarnung – als Rechtsanspruch framen, nicht als Almosen */}
           {wdELCheck.eligible && (
-            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #bae6fd', borderRadius: 12 }}>
-              <div style={{ fontWeight: 600, color: '#0c4a6e', marginBottom: 6, fontSize: 13.5 }}>
-                Wichtige Information: Möglicher EL-Anspruch
+            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 12 }}>
+              <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 6, fontSize: 14 }}>
+                Ihr gesetzlicher Anspruch: Ergänzungsleistungen (EL)
               </div>
-              <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.65 }}>
-                Basierend auf Ihren Angaben könnten Sie nach der Pensionierung Anspruch auf Ergänzungsleistungen haben. Das ist kein Almosen – es ist Ihr gesetzlicher Anspruch (ELG). Viele Personen mit Teilzeitkarriere oder nach einer Scheidung haben EL-Anspruch, ohne es zu wissen.
+              <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.7 }}>
+                <strong>Wussten Sie?</strong> In der Schweiz bezieht jede 5. Rentnerin Ergänzungsleistungen. EL sind <strong>kein Almosen und keine Sozialhilfe</strong>. Sie sind ein gesetzlicher Anspruch (ELG) – wie die AHV selbst. Auch eingewanderte Personen haben diesen Anspruch wenn sie die Mindestbeitragszeit erfüllen.
               </div>
-              <div style={{ marginTop: 8, fontWeight: 700, color: '#0c4a6e' }}>
-                Geschätzte EL: CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 15 }}>
+                  Geschätzte EL: CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat
+                </div>
+                <div style={{ fontSize: 12, color: '#1e40af' }}>
+                  (Das entspricht mehr als einem 13. AHV-Monat pro Jahr)
+                </div>
               </div>
-              <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-500)' }}>
-                Details weiter unten unter «Entnahmeplanung». Tatsächliche Berechnung durch die zuständige AHV-Zweigstelle.
+              <div style={{ marginTop: 8, fontSize: 12, color: '#1e40af' }}>
+                EL sind dafür da, dass Ihre Rente zusammen mit den EL Ihre Lebenskosten deckt. Der Kanton berechnet Ihren individuellen Bedarf.{' '}
+                <a href="https://www.ahv-iv.ch/de/Sozialversicherungen/Ergaenzungsleistungen-EL" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>Mehr erfahren →</a>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ink-500)' }}>
+                Details unter «Entnahmeplanung». Tatsächliche Berechnung durch Ihre AHV-Zweigstelle.
               </div>
             </div>
           )}
 
-          {/* Fix 9: Vorbezug-Warnung für vulnerable Personen */}
+          {/* Fix 7: AHV-Kinderrente für Kind in Ausbildung */}
+          {p1.hasChildInTraining && ahvMonthly1 > 0 && (() => {
+            const kinderrente = Math.min(Math.round(ahvMonthly1 * 0.4), 1008)
+            return (
+              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 12 }}>
+                <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 6, fontSize: 14 }}>
+                  AHV-Kinderrente für Kind in Ausbildung
+                </div>
+                <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.7 }}>
+                  Da Sie ein Kind zwischen 18 und 25 in Ausbildung haben, haben Sie Anspruch auf eine <strong>AHV-Kinderrente</strong>. Diese beträgt 40% Ihrer AHV-Rente und wird zusätzlich ausbezahlt – solange das Kind in Ausbildung ist.
+                </div>
+                <div style={{ marginTop: 8, fontWeight: 700, color: '#15803d', fontSize: 15 }}>
+                  AHV-Kinderrente für Kind in Ausbildung: ca. CHF {fmtCHF(kinderrente)}/Monat
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12, color: '#166534' }}>
+                  Diese Zahlung ist zeitlich begrenzt (bis Kind 25 oder Ende der Ausbildung). Beantragen Sie sie bei Ihrer AHV-Zweigstelle nach der Pensionierung.
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Vorbezug-Warnung für vulnerable Personen */}
           {(() => {
             const isVulnerable = !property.has && (freeAssets || 0) < 100000
             const hasVorbezug = p1.ahvBezugAge < 65
@@ -749,9 +786,22 @@ export default function Screen4() {
               const isSE = p1.employmentStatus === 'selfEmployed'
               const noPK = !p1.hasPK
               const pkKeywords = ['PK-Einkauf', 'Pensionskasse', 'Einkäufe in die Pensionskasse']
+              const isLowIncome = (p1.income || 0) < 60000 && (freeAssets || 0) < 50000 && !p1.has3a
               let recs = (RECS[analysis.verdict] ?? []).filter(r =>
-                !(isSE && noPK && pkKeywords.some(k => r.text.includes(k)))
+                !(isSE && noPK && pkKeywords.some(k => r.text.includes(k))) &&
+                !(isLowIncome && (r.text.includes('PK-Einkauf') || r.text.includes('Säule-3a') || r.text.includes('3a-Gelder') || r.text.includes('Kapitalbezug')))
               )
+              // Fix 6: Tiefes Einkommen / wenig Vermögen → realistische Empfehlungen
+              if (isLowIncome) {
+                const lowIncomeRecs: typeof recs = [
+                  { text: 'Prüfen Sie Ihren EL-Anspruch nach der Pensionierung – das ist Ihr gesetzliches Recht (ELG).', priority: 'hoch' as const, detail: 'Ergänzungsleistungen sind kein Almosen. Jede 5. Rentnerin in der Schweiz bezieht EL. Kontaktieren Sie Ihre Gemeinde oder die kantonale AHV-Zweigstelle.' },
+                  { text: 'Bestellen Sie Ihren IK-Auszug und prüfen Sie ob alle Beitragsjahre korrekt verbucht sind.', priority: 'hoch' as const, detail: 'Fehlende oder falsch verbuchte Beitragsjahre können lebenslang Rente kosten. Der IK-Auszug ist kostenlos unter www.ahv-iv.ch.' },
+                  { text: 'Prüfen Sie ob Erziehungsgutschriften für Ihre Kinder korrekt angerechnet sind.', priority: 'mittel' as const, detail: 'Für jedes Jahr mit Kindern unter 16 werden CHF 44\'100 zum Durchschnittseinkommen addiert – das erhöht Ihre AHV-Rente.' },
+                  { text: 'Bis 65 arbeiten statt Vorbezug: Vermeidet lebenslange AHV-Kürzung von 6.8% pro Jahr.', priority: 'mittel' as const, detail: 'Bei tiefem Einkommen ist die AHV-Rente besonders wichtig. Jeder Vorbezugsjahr kostet 6.8% lebenslang.' },
+                  { text: 'Informieren Sie sich über die Prämienverbilligung nach der Pensionierung (oft höher als heute).', priority: 'mittel' as const, detail: 'Bei tiefem Renteneinkommen steigt der Anspruch auf kantonale Prämienverbilligung (IPV). Erkundigen Sie sich bei Ihrer Wohngemeinde.' },
+                ]
+                recs = [...lowIncomeRecs, ...recs].slice(0, 3)
+              }
               // Selbständige ohne PK bekommen spezifische Empfehlungen
               if (isSE && noPK) {
                 const age1val = currentAge1
@@ -782,6 +832,27 @@ export default function Screen4() {
               ))
             })()}
           </div>
+
+          {/* Fix 10: IPV hint for low retirement income */}
+          {(() => {
+            const isPaar = hasPartner
+            const annualIncome = analysis.monthlyIncome.total * 12
+            const threshold = isPaar ? 80000 : 50000
+            if (annualIncome >= threshold) return null
+            return (
+              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#f0f9ff', border: '1px solid #7dd3fc', borderRadius: 12 }}>
+                <div style={{ fontWeight: 700, color: '#0369a1', marginBottom: 6, fontSize: 14 }}>
+                  Prämienverbilligung (IPV) nach der Pensionierung
+                </div>
+                <div style={{ fontSize: 13, color: '#075985', lineHeight: 1.7 }}>
+                  Bei einem Renteneinkommen unter {isPaar ? 'CHF 80\'000' : 'CHF 50\'000'}/Jahr (Ihr geschätztes Einkommen: CHF {fmtCHF(annualIncome)}/Jahr) haben Sie nach der Pensionierung in den meisten Kantonen <strong>Anspruch auf deutlich höhere Prämienverbilligung</strong> als heute. In vielen Fällen übernimmt der Kanton 50–100% der Krankenkassenprämie.
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: '#0369a1' }}>
+                  Beantragen Sie die IPV bei Ihrer Wohngemeinde nach der Pensionierung – sie wird nicht automatisch ausbezahlt.
+                </div>
+              </div>
+            )
+          })()}
 
           {/* PDF CTA */}
           <div style={{ marginBottom: 12 }}>

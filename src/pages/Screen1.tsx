@@ -738,6 +738,27 @@ export default function Screen1() {
               >
                 <Icons.Plus /> Kind hinzufügen
               </button>
+              {/* Fix 7: AHV-Kinderrente – Kinder in Ausbildung 18-25 */}
+              {children.some(c => {
+                const age = c.year ? new Date().getFullYear() - parseInt(c.year) : 0
+                return age >= 18 && age <= 25
+              }) && (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e40af' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>AHV-Kinderrente möglich</div>
+                  <div style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                    Wenn ein Kind zwischen 18 und 25 noch in Ausbildung ist, erhalten Sie ab AHV-Bezug eine zusätzliche Kinderrente (40% Ihrer AHV-Rente, max. CHF 1'008/Monat).
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={p1.hasChildInTraining ?? false}
+                      onChange={e => updatePerson(1, { hasChildInTraining: e.target.checked })}
+                      style={{ width: 15, height: 15, accentColor: '#3b82f6', flexShrink: 0 }}
+                    />
+                    <span>Ein Kind ist 18–25 und noch in Ausbildung (AHV-Kinderrente berücksichtigen)</span>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>

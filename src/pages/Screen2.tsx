@@ -306,9 +306,18 @@ export default function Screen2() {
 
   const isPaar = hasPartner
 
-  // Projected contribution years at retirement: retireAge - 21, capped at 44
-  const autoYears1 = useMemo(() => Math.min(44, Math.max(0, (person1.retireAge || 65) - 21)), [person1.retireAge])
-  const autoYears2 = useMemo(() => Math.min(44, Math.max(0, (person2.retireAge || 65) - 21)), [person2.retireAge])
+  // Projected contribution years at retirement
+  // For immigrants: retireAge - immigrationAge (capped at 44); otherwise retireAge - 21
+  function calcAutoYears(retireAge: number, immigrationYear?: number, dob?: string): number {
+    if (immigrationYear && immigrationYear > 1900) {
+      const birthYear = dob ? parseInt(dob.split('.').pop() || '0') || parseInt(dob.split('-')[0]) : 0
+      const immigrationAge = birthYear > 0 ? Math.max(0, immigrationYear - birthYear) : 25
+      return Math.min(44, Math.max(0, retireAge - immigrationAge))
+    }
+    return Math.min(44, Math.max(0, retireAge - 21))
+  }
+  const autoYears1 = useMemo(() => calcAutoYears(person1.retireAge || 65, p1.immigrationYear, person1.dob), [person1.retireAge, p1.immigrationYear, person1.dob])
+  const autoYears2 = useMemo(() => calcAutoYears(person2.retireAge || 65, p2.immigrationYear, person2.dob), [person2.retireAge, p2.immigrationYear, person2.dob])
 
   // AHV calculation using precise 2026 factors
   const ahvResult1 = useMemo(() => calculateAHVPension({
@@ -708,6 +717,133 @@ export default function Screen2() {
                 {' '}→ Bestellen Sie Ihren IK-Auszug kostenlos unter{' '}
                 <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
               </p>
+
+              {/* Fix 1+2: Einwanderungsjahr + SVA-Abkommen */}
+              {[
+                { id: 1 as const, name: person1.name || 'Person 1' },
+                ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2' }] : []),
+              ].map(({ id, name }) => {
+                const curP = persons.find(p => p.id === id)!
+                const pBase = id === 1 ? person1 : person2
+                const autoY = id === 1 ? autoYears1 : autoYears2
+                const isImmigrant = !!(curP.immigrationYear && curP.immigrationYear > 1900)
+                const birthYear = pBase.dob ? (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0])) : 0
+                const immigrationAge = isImmigrant && birthYear > 0 ? Math.max(0, curP.immigrationYear! - birthYear) : null
+                return (
+                  <div key={`imm-${id}`} style={{ marginTop: 12 }}>
+                    {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 6 }}>{name}</div>}
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 6 }}>In der Schweiz AHV-pflichtig seit</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                      {(['Seit Geburt / vor dem 21. Lebensjahr', 'Als Erwachsener eingewandert'] as const).map((label, idx) => (
+                        <button key={label} type="button"
+                          onClick={() => updatePerson(id, { immigrationYear: idx === 0 ? undefined : (curP.immigrationYear || new Date().getFullYear() - 20) })}
+                          style={{
+                            padding: '6px 14px', borderRadius: 20, fontSize: 12.5, cursor: 'pointer',
+                            border: '1px solid var(--navy-200)',
+                            background: (idx === 0 ? !isImmigrant : isImmigrant) ? 'var(--navy-800)' : '#fff',
+                            color: (idx === 0 ? !isImmigrant : isImmigrant) ? '#fff' : 'var(--ink-700)',
+                          }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {isImmigrant && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <label style={{ fontSize: 12.5, color: 'var(--ink-600)', whiteSpace: 'nowrap' }}>Einzug in die Schweiz (Jahr):</label>
+                        <input
+                          type="number"
+                          className="input"
+                          min={1950} max={new Date().getFullYear()}
+                          value={curP.immigrationYear || ''}
+                          onChange={e => updatePerson(id, { immigrationYear: parseInt(e.target.value) || undefined })}
+                          style={{ width: 90 }}
+                        />
+                        {immigrationAge !== null && (
+                          <span style={{ fontSize: 12, color: 'var(--ink-500)' }}>
+                            (mit {immigrationAge} Jahren eingewandert · max. {autoY} CH-Beitragsjahre)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {isImmigrant && autoY < 44 && (
+                      <div style={{ padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#1e40af', lineHeight: 1.6, marginBottom: 6 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Sozialversicherungsabkommen</div>
+                        Die Schweiz hat Abkommen mit über 40 Ländern (u.a. Türkei, Deutschland, Italien, Portugal, Spanien, Kosovo, Serbien). Beitragsjahre aus Ihrem Herkunftsland können für die <strong>Anspruchsberechtigung</strong> auf Schweizer AHV angerechnet werden. Die Rentenhöhe berechnet sich aber nur auf den Schweizer Jahren.
+                        {' '}Sie könnten zudem Anspruch auf eine Rente aus Ihrem Herkunftsland haben.{' '}
+                        <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8' }}>Mehr Infos: ahv-iv.ch</a>
+                      </div>
+                    )}
+                    {/* Fix 3: Beitragsbefreiung nichterwerbstätige Ehefrau */}
+                    {(civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') && isPaar && (curP.ahvContributionGaps || 0) > 0 && (() => {
+                      const partnerId = id === 1 ? 2 : 1
+                      const partnerIncome = persons.find(p => p.id === partnerId)?.income || 0
+                      if (partnerIncome <= 0) return null
+                      return (
+                        <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: 8, fontSize: 12, color: '#14532d', lineHeight: 1.6, marginBottom: 6 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 4, color: '#15803d' }}>Wichtig: Möglicherweise KEINE Beitragslücken!</div>
+                          Als verheiratete Person sind Sie von der AHV-Beitragspflicht befreit, wenn Ihr Ehepartner erwerbstätig ist und mindestens den doppelten Mindestbeitrag entrichtet. Da Ihr Partner ein Einkommen von CHF {(partnerIncome).toLocaleString('de-CH')} hat, war dies sehr wahrscheinlich der Fall.
+                          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600 }}>Hat Ihr Partner in den Lückenjahren gearbeitet?</span>
+                            {(['Ja', 'Nein'] as const).map(v => (
+                              <button key={v} type="button"
+                                onClick={() => {
+                                  const covered = v === 'Ja'
+                                  updatePerson(id, {
+                                    partnerCoveredGaps: covered,
+                                    ahvContributionGaps: covered ? 0 : curP.ahvContributionGaps,
+                                  })
+                                }}
+                                style={{
+                                  padding: '4px 14px', borderRadius: 16, fontSize: 12, cursor: 'pointer',
+                                  border: '1px solid #16a34a',
+                                  background: (v === 'Ja' && curP.partnerCoveredGaps) || (v === 'Nein' && curP.partnerCoveredGaps === false) ? '#16a34a' : '#fff',
+                                  color: (v === 'Ja' && curP.partnerCoveredGaps) || (v === 'Nein' && curP.partnerCoveredGaps === false) ? '#fff' : '#15803d',
+                                }}>
+                                {v}
+                              </button>
+                            ))}
+                          </div>
+                          {curP.partnerCoveredGaps && (
+                            <div style={{ marginTop: 6, fontWeight: 600, color: '#15803d' }}>
+                              Lücken auf 0 gesetzt – Ihre AHV-Rente wurde entsprechend erhöht.
+                            </div>
+                          )}
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#166534' }}>
+                            Bestellen Sie Ihren IK-Auszug (kostenlos) zur Prüfung:{' '}
+                            <a href="https://www.ahv-iv.ch/de/Merkblaetter-Formulare/Formulare/Anmeldung-IK-Auszug" target="_blank" rel="noreferrer" style={{ color: '#15803d' }}>IK-Auszug bestellen</a>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                    {/* Fix 4: Ausländische Rentenansprüche */}
+                    {isImmigrant && (
+                      <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--ink-50)', border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12, color: 'var(--ink-700)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 6 }}>Ausländische Rentenansprüche (optional)</div>
+                        <div style={{ marginBottom: 8, color: 'var(--ink-500)', lineHeight: 1.5 }}>
+                          Haben Sie vor der Einwanderung im Ausland gearbeitet? Viele Herkunftsländer zahlen Renten an Personen die dort Beiträge geleistet haben.
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <label style={{ fontSize: 12, color: 'var(--ink-600)', whiteSpace: 'nowrap' }}>Geschätzte Auslandsrente (CHF/Monat):</label>
+                          <input
+                            type="number"
+                            className="input"
+                            min={0} max={5000} step={50}
+                            placeholder="0"
+                            value={curP.foreignPensionMonthly || ''}
+                            onChange={e => updatePerson(id, { foreignPensionMonthly: parseFloat(e.target.value) || undefined })}
+                            style={{ width: 90 }}
+                          />
+                        </div>
+                        {(curP.foreignPensionMonthly || 0) > 0 && (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#15803d' }}>
+                            +CHF {(curP.foreignPensionMonthly!).toLocaleString('de-CH')}/Monat wird in der Cashflow-Berechnung berücksichtigt.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
               {/* KZG – Kinderziehungsgutschriften */}
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
