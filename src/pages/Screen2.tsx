@@ -250,16 +250,45 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
         </div>
       )}
 
-      {status === 'done' && (
-        <div style={{ padding: '16px 18px', border: '2px solid #16a34a', borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#16a34a', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>✓</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, color: '#15803d' }}>Werte erfolgreich erkannt</div>
-            <div style={{ fontSize: 12.5, color: '#16a34a', marginTop: 2 }}>{fileName} · {result?.pensionFundName}</div>
+      {status === 'done' && result && (() => {
+        // Count fields that were actually parsed (not just hardcoded defaults)
+        const realFields = result.extractedFields.filter(f => !f.includes('Standardwert'))
+        const realValues = [result.pkCurrentCapital, result.pkAnnualContribution, result.pkMaxGuthaben,
+          result.insuredSalary, result.projectedCapital65, result.pkObligatorisch].filter(v => v > 0)
+        const isSuccess = realFields.length >= 3 || realValues.length >= 3
+        const isPartial = !isSuccess && (realFields.length >= 1 || realValues.length >= 1)
+
+        if (isSuccess) return (
+          <div style={{ padding: '16px 18px', border: '2px solid #16a34a', borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#16a34a', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>✓</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#15803d' }}>Werte erfolgreich erkannt</div>
+              <div style={{ fontSize: 12.5, color: '#16a34a', marginTop: 2 }}>{fileName} · {result.pensionFundName}</div>
+            </div>
+            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
           </div>
-          <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
-        </div>
-      )}
+        )
+        if (isPartial) return (
+          <div style={{ padding: '16px 18px', border: '2px solid #f59e0b', borderRadius: 12, background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#f59e0b', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>⚠</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#92400e' }}>Teilweise erkannt – bitte ergänzen</div>
+              <div style={{ fontSize: 12.5, color: '#b45309', marginTop: 2 }}>{fileName} · Einige Werte manuell prüfen</div>
+            </div>
+            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          </div>
+        )
+        return (
+          <div style={{ padding: '16px 18px', border: '2px solid #fca5a5', borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#ef4444', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>!</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#991b1b' }}>Werte konnten nicht erkannt werden</div>
+              <div style={{ fontSize: 12.5, color: '#7f1d1d', marginTop: 2 }}>Bitte alle Felder manuell eingeben. Standardwerte sind vorbelegt.</div>
+            </div>
+            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          </div>
+        )
+      })()}
 
       {status === 'error' && (
         <div style={{ padding: '16px 18px', border: '2px solid #fca5a5', borderRadius: 12, background: '#fef2f2' }}>
@@ -282,27 +311,39 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
       </div>
 
       {/* Extracted values summary */}
-      {status === 'done' && result && (
-        <div style={{ marginTop: 10, padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 12.5, color: '#14532d' }}>
-          <div style={{ fontWeight: 700, marginBottom: 6, color: '#15803d' }}>Aus Ihrem PK-Ausweis gelesen:</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>
-            {result.pkCurrentCapital > 0 && <div>Aktuelles Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-            {result.pkRate > 0 && <div>Umwandlungssatz (65): <strong>{result.pkRate.toFixed(2)}%</strong></div>}
-            {result.pkAnnualContribution > 0 && <div>Sparbeitrag AN+AG/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-            {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-            {result.projectedCapital65 > 0 && <div>Projektion bei Alter 65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-            {Object.keys(result.bridgingByAge).length > 0 && <div>Überbrückungsrente: <strong>verfügbar</strong></div>}
-          </div>
-          {result.warnings.length > 0 && (
-            <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef9c3', border: '1px solid #fde047', borderRadius: 6 }}>
-              {result.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: '#713f12' }}>⚠ {w}</div>)}
+      {status === 'done' && result && (() => {
+        const hasAny = result.pkCurrentCapital > 0 || result.pkAnnualContribution > 0 ||
+          result.pkMaxGuthaben > 0 || result.insuredSalary > 0 || result.projectedCapital65 > 0
+        // Only show warnings that aren't about "Standardwert" (those are in banner)
+        const realWarnings = result.warnings.filter(w => !w.includes('Standardwert') && !w.includes('konnte nicht extrahiert'))
+        return (
+          <div style={{ marginTop: 10, padding: '12px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 12.5, color: '#1e293b' }}>
+            <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--navy-800)' }}>Aus Ihrem PK-Ausweis gelesen:</div>
+            {hasAny ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 16px' }}>
+                {result.pkCurrentCapital > 0 && <div>Aktuelles Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {result.pkRate > 0 && result.extractedFields.some(f => f.includes('UWS') && !f.includes('Standardwert')) && <div>UWS@65: <strong>{result.pkRate.toFixed(2)}%</strong></div>}
+                {result.pkAnnualContribution > 0 && <div>Sparbeitrag AN+AG/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {result.projectedCapital65 > 0 && <div>Projektion bei 65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {result.insuredSalary > 0 && <div>Versicherter Lohn: <strong>CHF {result.insuredSalary.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {result.pkObligatorisch > 0 && <div>BVG-Guthaben: <strong>CHF {result.pkObligatorisch.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                {Object.keys(result.retirementTable).length > 0 && <div>Leistungstabelle: <strong>Alter {Object.keys(result.retirementTable).join(', ')}</strong></div>}
+              </div>
+            ) : (
+              <div style={{ color: '#64748b', fontStyle: 'italic' }}>Keine Werte automatisch erkannt – bitte manuell eingeben.</div>
+            )}
+            {realWarnings.length > 0 && (
+              <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef9c3', border: '1px solid #fde047', borderRadius: 6 }}>
+                {realWarnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: '#713f12' }}>⚠ {w}</div>)}
+              </div>
+            )}
+            <div style={{ marginTop: 6, fontSize: 11.5, color: '#475569' }}>
+              Bitte prüfen Sie die Felder unten und passen Sie Werte bei Bedarf an.
             </div>
-          )}
-          <div style={{ marginTop: 6, fontSize: 11.5, color: '#166534' }}>
-            Bitte prüfen Sie die Felder unten und passen Sie Werte bei Bedarf an.
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

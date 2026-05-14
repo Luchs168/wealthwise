@@ -3,11 +3,17 @@
  *
  * Supports: PDF (pdfjs-dist), Images (Tesseract OCR), HEIC (heic2any → OCR)
  * All processing runs entirely in the browser — nothing is sent to any server.
+ *
+ * PDF fallback chain:
+ *   1. pdfjs text extraction (fast, works for native text PDFs)
+ *   2. If text < 100 chars → render each page to canvas → Tesseract OCR
+ *      (handles scanned / image-based PDFs)
  */
 
 import * as pdfjsLib from 'pdfjs-dist'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+// Worker served from public/ — avoids CDN dependency and version mismatches
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 export type FileKind = 'pdf' | 'image' | 'heic' | 'unsupported'
 
@@ -28,7 +34,7 @@ export function detectFileKind(file: File): FileKind {
   return 'unsupported'
 }
 
-// ── PDF ──────────────────────────────────────────────────────────────────────
+// ── PDF native text extraction ────────────────────────────────────────────────
 
 async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
@@ -37,11 +43,49 @@ async function extractPdfText(file: File): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
+    // Join items with space; each item is a text run
     const pageText = content.items
       .map((item) => ('str' in item ? item.str : ''))
       .join(' ')
     pages.push(pageText)
+    console.debug(`[PDF] page ${i}/${pdf.numPages}: ${pageText.length} chars | preview: ${pageText.slice(0, 120)}`)
   }
+  const full = pages.join('\n')
+  console.debug('[PDF] total chars extracted:', full.length)
+  return full
+}
+
+// ── PDF → canvas → OCR fallback ──────────────────────────────────────────────
+
+async function renderPdfPageToCanvas(page: pdfjsLib.PDFPageProxy, scale = 2.5): Promise<HTMLCanvasElement> {
+  const viewport = page.getViewport({ scale })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width
+  canvas.height = viewport.height
+  // pdfjs v5 API: pass canvas directly (canvasContext deprecated)
+  await page.render({ canvas, viewport }).promise
+  return canvas
+}
+
+async function extractPdfViaOcr(
+  file: File,
+  onProgress?: (msg: string, pct?: number) => void,
+): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const pages: string[] = []
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    onProgress?.(`Seite ${i}/${pdf.numPages} wird per OCR gelesen…`)
+    const page = await pdf.getPage(i)
+    const canvas = await renderPdfPageToCanvas(page)
+    const text = await runOcr(canvas, (pct) =>
+      onProgress?.(`OCR Seite ${i}/${pdf.numPages}: ${pct}%`, pct)
+    )
+    console.debug(`[PDF-OCR] page ${i}: ${text.length} chars | preview: ${text.slice(0, 120)}`)
+    pages.push(text)
+  }
+
   return pages.join('\n')
 }
 
@@ -101,7 +145,7 @@ async function runOcr(canvas: HTMLCanvasElement, onProgress?: (pct: number) => v
 
   try {
     await worker.setParameters({
-      tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß\'’.,/-: \n',
+      tessedit_char_whitelist: `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß''´.,/-: \n`,
     })
     const { data } = await worker.recognize(canvas)
     return data.text
@@ -133,12 +177,34 @@ export async function extractDocumentText(
     progress('PDF wird gelesen…')
     try {
       const text = await extractPdfText(file)
-      if (text.trim().length < 30) {
-        warnings.push('PDF enthält kaum lesbaren Text (möglicherweise ein gescanntes/bild-basiertes PDF). Für bessere Ergebnisse bitte als Foto hochladen.')
+
+      // If pdfjs got real text content, use it
+      if (text.trim().length >= 100) {
+        return { text, kind: 'pdf', isOcr: false, warnings }
       }
-      return { text, kind: 'pdf', isOcr: false, warnings }
-    } catch {
-      warnings.push('PDF konnte nicht gelesen werden (passwortgeschützt oder beschädigt).')
+
+      // Short text → PDF is likely image-based (scanned); fall through to OCR
+      console.debug('[PDF] text too short, switching to OCR fallback')
+      progress('PDF enthält wenig Text – Texterkennung wird gestartet…')
+      warnings.push('PDF wurde per Texterkennung (OCR) gelesen – Werte bitte sorgfältig prüfen.')
+
+    } catch (err) {
+      console.error('[PDF] extraction failed:', err)
+      // Might be a scanned/image-only PDF that pdfjs can still render
+      progress('PDF-Textextraktion fehlgeschlagen – Texterkennung wird gestartet…')
+      warnings.push('PDF-Text konnte nicht direkt gelesen werden – OCR-Fallback wird verwendet.')
+    }
+
+    // OCR fallback: render each page to canvas, then Tesseract
+    try {
+      const ocrText = await extractPdfViaOcr(file, progress)
+      if (ocrText.trim().length < 20) {
+        warnings.push('Wenig Text erkannt. Bitte PDF-Qualität prüfen oder Werte manuell eingeben.')
+      }
+      return { text: ocrText, kind: 'pdf', isOcr: true, warnings }
+    } catch (err2) {
+      console.error('[PDF-OCR] fallback failed:', err2)
+      warnings.push('PDF konnte weder gelesen noch per Texterkennung verarbeitet werden. Bitte Werte manuell eingeben.')
       return { text: '', kind: 'pdf', isOcr: false, warnings }
     }
   }
@@ -186,7 +252,7 @@ export function parseSwissNumRobust(s: string): number {
   if (!s) return 0
   // Remove all possible thousand separators (apostrophe variants + space + period-as-thousand)
   const cleaned = s
-    .replace(/[’‘ʼ'`\s]/g, '') // apostrophe variants + whitespace
+    .replace(/[''ʼ'`\s]/g, '') // apostrophe variants + whitespace
     .replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2')   // period used as thousand separator
     .replace(',', '.')                           // comma decimal → dot
   const n = parseFloat(cleaned)
