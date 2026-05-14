@@ -129,14 +129,19 @@ async function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasEleme
   })
 }
 
-// ── OCR via Tesseract.js (lazy dynamic import) ────────────────────────────────
+// ── OCR via Tesseract.js — all assets served locally (no CDN dependency) ───────
 
 async function runOcr(canvas: HTMLCanvasElement, onProgress?: (pct: number) => void): Promise<string> {
-  // Dynamic import keeps Tesseract out of the main bundle
   const { createWorker } = await import('tesseract.js')
 
+  console.log('[OCR] Starting Tesseract worker (local assets)...')
   const worker = await createWorker('deu', 1, {
+    // Serve all assets locally — avoids CDN blocks (same fix as pdfjs worker)
+    workerPath: '/tesseract.worker.min.js',
+    corePath: '/tesseract/tesseract-core-lstm.wasm.js',
+    langPath: '/tessdata',
     logger: (m: { status: string; progress: number }) => {
+      console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`)
       if (m.status === 'recognizing text' && onProgress) {
         onProgress(Math.round(m.progress * 100))
       }
@@ -144,10 +149,9 @@ async function runOcr(canvas: HTMLCanvasElement, onProgress?: (pct: number) => v
   })
 
   try {
-    await worker.setParameters({
-      tessedit_char_whitelist: `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß''´.,/-: \n`,
-    })
+    // No whitelist — let Tesseract output its best guess; normalisation happens in parsers
     const { data } = await worker.recognize(canvas)
+    console.log(`[OCR] Done. ${data.text.length} chars extracted. Preview: ${data.text.slice(0, 200)}`)
     return data.text
   } finally {
     await worker.terminate()
@@ -228,18 +232,26 @@ export async function extractDocumentText(
 
   // ── Image (JPG/PNG/WEBP/…) ──
   if (kind === 'image') {
+    console.log('[OCR] Image upload:', file.name, file.type, file.size, 'bytes')
     progress('Bild wird vorbereitet…')
     let canvas: HTMLCanvasElement
     try {
       canvas = await preprocessImageForOcr(file)
-    } catch {
+    } catch (err) {
+      console.error('[OCR] Image preprocess failed:', err)
       warnings.push('Bild konnte nicht geladen werden.')
       return { text: '', kind: 'image', isOcr: true, warnings }
     }
-    progress('Texterkennung läuft… (10–30 Sekunden)')
-    const text = await runOcr(canvas, (pct) => progress(`Texterkennung: ${pct}%`, pct))
-    if (text.trim().length < 20) warnings.push('Wenig Text erkannt – bitte bei guter Beleuchtung, gerade und ohne Schatten fotografieren.')
-    return { text, kind: 'image', isOcr: true, warnings }
+    progress('Texterkennung läuft… (10–60 Sekunden)')
+    try {
+      const text = await runOcr(canvas, (pct) => progress(`Texterkennung: ${pct}%`, pct))
+      if (text.trim().length < 20) warnings.push('Wenig Text erkannt – bitte bei guter Beleuchtung, gerade und ohne Schatten fotografieren.')
+      return { text, kind: 'image', isOcr: true, warnings }
+    } catch (err) {
+      console.error('[OCR] Tesseract failed:', err)
+      warnings.push('Texterkennung fehlgeschlagen. Bitte als PDF hochladen oder Werte manuell eingeben.')
+      return { text: '', kind: 'image', isOcr: true, warnings }
+    }
   }
 
   // ── Unsupported ──

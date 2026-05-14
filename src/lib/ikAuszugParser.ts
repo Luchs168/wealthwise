@@ -37,22 +37,33 @@ export interface IKAuszugResult {
 const parseSwissNum = parseSwissNumRobust
 
 /**
+ * Normalize OCR text: unify all apostrophe/quote variants used as Swiss thousands separators
+ * so regex patterns can use a single apostrophe character class.
+ */
+function normalizeOcrText(text: string): string {
+  // Replace all apostrophe-like chars with standard apostrophe '
+  return text.replace(/[‘’ʼʹ`´＇′]/g, "'")
+}
+
+/** Apostrophe-safe character class for numbers like 13'514 */
+const NUM_PATTERN = "[\\d']{4,}"
+
+/**
  * Format A: Übersicht-Seite
  * Pattern per row:  YYYY   [fraction]   income   [remarks]
  * Example:          2010   1/1          13'514   Jahreseinkommen
  */
-function parseFormatA(text: string): IKEntry[] {
+function parseFormatA(rawText: string): IKEntry[] {
+  const text = normalizeOcrText(rawText)
   const entries: IKEntry[] = []
 
-  // Match: year (2-digit fraction optional) number (optional remark text)
-  // Year: 19xx or 20xx, fraction like "1/1" or "3/12", income with apostrophes
-  const pattern = /\b((?:19|20)\d{2})\s+(?:\d+\/\d+\s+)?([\d']{4,})\b/g
+  // Match: year, optional fraction (e.g. "1/1"), income with apostrophes
+  const pattern = new RegExp(`\\b((?:19|20)\\d{2})\\s+(?:\\d+/\\d+\\s+)?(${NUM_PATTERN})\\b`, 'g')
   let m: RegExpExecArray | null
   while ((m = pattern.exec(text)) !== null) {
     const year = parseInt(m[1])
     const income = parseSwissNum(m[2])
     if (year >= 1948 && year <= new Date().getFullYear() && income > 0) {
-      // Avoid duplicate years — keep highest income for same year
       const existing = entries.find(e => e.year === year)
       if (existing) {
         if (income > existing.income) existing.income = income
@@ -71,11 +82,11 @@ function parseFormatA(text: string): IKEntry[] {
  *   2015   Muster AG   47'940
  * We aggregate income by year across all employers.
  */
-function parseFormatB(text: string): IKEntry[] {
+function parseFormatB(rawText: string): IKEntry[] {
+  const text = normalizeOcrText(rawText)
   const byYear: Record<number, number> = {}
 
-  // Match: year followed by text (employer name) then a number
-  const pattern = /\b((?:19|20)\d{2})\b[^\d\n]{1,80}?\b([\d']{4,})\b/g
+  const pattern = new RegExp(`\\b((?:19|20)\\d{2})\\b[^\\d\\n]{1,80}?\\b(${NUM_PATTERN})\\b`, 'g')
   let m: RegExpExecArray | null
   while ((m = pattern.exec(text)) !== null) {
     const year = parseInt(m[1])
@@ -147,13 +158,17 @@ export async function parseIKAuszug(
   }
 
   const text = extraction.text
+  console.log('[IK] Text extracted, length:', text.length, 'isOCR:', extraction.isOcr)
+  console.log('[IK] Text preview:', text.slice(0, 400))
 
   // Try both formats, pick best
   const entriesA = parseFormatA(text)
   const entriesB = parseFormatB(text)
+  console.log('[IK] Format A entries:', entriesA.length, 'Format B entries:', entriesB.length)
   const entries = selectBestParse(entriesA, entriesB)
 
   if (entries.length === 0) {
+    console.warn('[IK] No entries found. Full text:', text)
     warnings.push('Keine Einkommensjahre erkannt. Bitte prüfen Sie, ob die korrekte Datei hochgeladen wurde.')
     return {
       entries: [], numYears: 0, gapYears: [], mdj: 0,

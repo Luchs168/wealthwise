@@ -367,6 +367,8 @@ export default function Screen2() {
   const [ikApplied2, setIkApplied2] = useState(false)
   const [ikProgressMsg1, setIkProgressMsg1] = useState('')
   const [ikProgressMsg2, setIkProgressMsg2] = useState('')
+  const [ikError1, setIkError1] = useState('')
+  const [ikError2, setIkError2] = useState('')
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -1009,14 +1011,22 @@ export default function Screen2() {
                     id === 1 ? ikProgressMsg1 : ikProgressMsg2,
                     id === 1 ? setIkProgressMsg1 : setIkProgressMsg2,
                   ]
+                  const [ikError, setIkError] = [
+                    id === 1 ? ikError1 : ikError2,
+                    id === 1 ? setIkError1 : setIkError2,
+                  ]
 
                   const handleFile = async (file: File) => {
                     setLoading(true)
                     setResult(null)
                     setApplied(false)
+                    setIkError('')
                     try {
                       const r = await parseIKAuszug(file, (msg) => setIkProgressMsg(msg))
                       setResult(r)
+                    } catch (err) {
+                      console.error('[IK] Upload failed:', err)
+                      setIkError('Fehler beim Lesen der Datei. Bitte als PDF hochladen oder Werte manuell eingeben.')
                     } finally {
                       setLoading(false)
                       setIkProgressMsg('')
@@ -1100,6 +1110,16 @@ export default function Screen2() {
                         <div style={{ padding: '16px', background: 'var(--navy-50)', borderRadius: 10, textAlign: 'center', fontSize: 13, color: 'var(--navy-600)' }}>
                           <div style={{ marginBottom: 4 }}>⏳</div>
                           {ikProgressMsg || 'IK-Auszug wird analysiert…'}
+                        </div>
+                      )}
+
+                      {ikError && !loading && !result && (
+                        <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 10, fontSize: 13, color: '#991b1b' }}>
+                          {ikError}
+                          <button
+                            style={{ marginLeft: 12, fontSize: 12, color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                            onClick={() => setIkError('')}
+                          >Nochmals versuchen</button>
                         </div>
                       )}
 
