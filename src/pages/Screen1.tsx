@@ -657,6 +657,35 @@ export default function Screen1() {
               {isPaar && ` · Haushalt gesamt: CHF ${fmtCHF(Math.round((p1.income + p2.income) / 12))}/Monat`}
             </div>
           )}
+
+          {/* Bonus / variables Einkommen */}
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ fontSize: 12, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
+              Bonus / variables Einkommen erfassen (optional)
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <div className="field">
+                <label>Davon variabel/Bonus (CHF/Jahr)</label>
+                <div className="amount-wrap">
+                  <span className="prefix">CHF</span>
+                  <IncomeInput
+                    value={curP.bonusIncome ?? 0}
+                    onChange={v => updatePerson(activeTab, { bonusIncome: v })}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-500)', lineHeight: 1.5 }}>
+                Falls Ihr Einkommen einen Bonusanteil enthält: Das obige Jahreseinkommen sollte der Grundlohn sein. Der Bonus erhöht das AHV-pflichtige Einkommen. Nach der Pensionierung entfällt der Bonus.
+              </div>
+              {(curP.bonusIncome ?? 0) > 0 && (
+                <div style={{ marginTop: 6, padding: '6px 10px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
+                  Ihr AHV-pflichtiges Gesamteinkommen: CHF {fmtCHF((curP.income || 0) + (curP.bonusIncome || 0))}/Jahr
+                </div>
+              )}
+            </div>
+          </details>
+
           {curP.income > 0 && curP.income < 22_000 && (
             <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
               ℹ Einkommen unter CHF 22'050 liegt unter dem AHV-Mindestbeitrag für Vollzeitbeschäftigte. Bitte prüfen Sie die Eingabe – ist dies ein Teilzeiteinkommen?
@@ -880,7 +909,7 @@ interface SliderProps {
 }
 
 function RetireSlider({ name, dob, value, onChange }: SliderProps) {
-  const min = 58, max = 70
+  const min = 55, max = 70
   const pct = ((value - min) / (max - min)) * 100
   const age = calcAge(dob)
   const remain = age !== null ? Math.max(0, value - age) : null
@@ -914,7 +943,7 @@ function RetireSlider({ name, dob, value, onChange }: SliderProps) {
           style={{ '--val': `${pct}%` } as React.CSSProperties}
         />
         <div className="range-marks">
-          {[58, 62, 65, 68, 70].map((m) => (
+          {[55, 60, 65, 68, 70].map((m) => (
             <span
               key={m}
               className={m === value ? 'mark-hit' : ''}
@@ -927,7 +956,7 @@ function RetireSlider({ name, dob, value, onChange }: SliderProps) {
       </div>
       {value < 62 && (
         <div style={{ marginTop: 8, padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#991b1b' }}>
-          ⚠ Frühpensionierung vor 62: Erhebliche AHV-Kürzung (max. 13.6%) und Lücke bis AHV-Alter. Brückenrente notwendig.
+          ⚠ Frühpensionierung vor 62: Erhebliche AHV-Kürzung (max. 13.6%), langer Überbrückungszeitraum bis AHV-Alter. Genug freies Kapital für die Bridging-Phase nötig.
         </div>
       )}
       {value >= 62 && value < 65 && (

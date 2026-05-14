@@ -122,7 +122,7 @@ export default function Landing() {
       <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-200)' }}>
         <div className="hero">
           <div>
-            <div className="hero-eyebrow">Für Personen von 50–65 Jahren · Kostenlos · In 10 Minuten</div>
+            <div className="hero-eyebrow">Für alle die ihre Pensionierung planen · Kostenlos · In 10 Minuten</div>
             <h1>Reicht Ihre Rente? <em>Finden Sie es heraus.</em></h1>
             <p className="lead">
               Ihre digitale Vorsorgeplanung – unabhängig, transparent, verständlich.
@@ -318,7 +318,7 @@ export default function Landing() {
               Entwickelt für Ihre Pensionierungsplanung
             </h2>
             <p style={{ color: 'rgba(255,255,255,.55)', fontSize: 16, maxWidth: 520, margin: '0 auto' }}>
-              Für Personen von 50–65 Jahren, die ihre Pensionierung fundiert planen möchten.
+              Für Personen ab 45 Jahren, die ihre Pensionierung fundiert planen möchten.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>

@@ -64,6 +64,10 @@ export interface PersonVorsorge {
   foreignPensionMonthly?: number // Monatliche Rente aus Herkunftsland (CHF)
   // Kinder in Ausbildung (AHV-Kinderrente)
   hasChildInTraining?: boolean  // Mindestens ein Kind 18-25 in Ausbildung
+  // Bonus / variables Einkommen
+  bonusIncome?: number
+  // 3a individual account balances
+  accounts3a?: number[]
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }
@@ -113,6 +117,7 @@ export interface WealthWiseState {
   // Step 2 (persons array with vorsorge data)
   persons: Person[]
   freeAssets: number
+  cryptoAssets: number
   property: PropertyData
 
   // Step 3
@@ -138,6 +143,7 @@ export interface WealthWiseState {
   setChildren: (c: ChildData[]) => void
   updatePerson: (id: 1 | 2, patch: Partial<Person>) => void
   setFreeAssets: (v: number) => void
+  setCryptoAssets: (v: number) => void
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
   setKirchensteuer: (v: boolean) => void
@@ -186,6 +192,7 @@ function defaultVorsorge(id: 1 | 2): PersonVorsorge {
     form3a: 'sparkonto',
     hasFZ: false,
     fzBalance: 0,
+    accounts3a: undefined,
     ahvContributionYears: 44,
     ahvContributionGaps: 0,
     ahvBezugAge: 65,
@@ -217,6 +224,7 @@ export const useStore = create<WealthWiseState>()(
         { ...defaultPerson2Base, ...defaultVorsorge(2) },
       ],
       freeAssets: 0,
+      cryptoAssets: 0,
       property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
 
       expenses: {
@@ -247,6 +255,7 @@ export const useStore = create<WealthWiseState>()(
           persons: state.persons.map((p) => (p.id === id ? { ...p, ...patch } : p)),
         })),
       setFreeAssets: (v) => set({ freeAssets: v }),
+      setCryptoAssets: (v) => set({ cryptoAssets: v }),
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
       setKirchensteuer: (v) => set({ kirchensteuer: v }),
@@ -271,6 +280,7 @@ export const useStore = create<WealthWiseState>()(
           { ...defaultPerson2Base, ...defaultVorsorge(2) },
         ],
         freeAssets: 0,
+        cryptoAssets: 0,
         property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0, kkPremium1: 0, kkPremium2: 0, kkFranchise: 300 },
         kirchensteuer: false,

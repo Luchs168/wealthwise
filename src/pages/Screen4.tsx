@@ -956,6 +956,78 @@ export default function Screen4() {
                 </div>
               )}
 
+              {/* Fix 3+4: Phasenbasierter Cashflow + AHV-Beiträge explizit */}
+              {bridgingRetireAge < 65 && (() => {
+                const phase1End = Math.min(60, bridgingRetireAge + 3)
+                const phase2End = Math.min(63, Math.max(phase1End, bridgingRetireAge))
+                const phase3End = 65
+                const ahvMonthlyEstimate = ahvMonthly1
+                const pkMonthly = pkMonthlyAtEarlyRetirement
+
+                // Phase definitions
+                const phases = [
+                  {
+                    label: `Phase 1: Alter ${bridgingRetireAge}–${bridgingRetireAge < 60 ? 60 : bridgingRetireAge < 63 ? 63 : 65}`,
+                    items: [
+                      `Einkommen: Vermögensentnahme CHF ${fmtCHF(bridgingGap.monthlyNetGap)}/Mt.`,
+                      `AHV-Beiträge Nichterwerbstätige: CHF ${fmtCHF(Math.round(ahvNonEmployed.annualContribution / 12))}/Mt. (Jahrestotal CHF ${fmtCHF(ahvNonEmployed.annualContribution)})`,
+                      `Kapitalverzehr: ca. CHF ${fmtCHF(bridgingGap.monthlyNetGap * 12 + ahvNonEmployed.annualContribution)}/Jahr`,
+                    ],
+                    color: '#dc2626', bg: '#fef2f2', border: '#fecaca',
+                  },
+                  ...(bridgingRetireAge < 60 ? [{
+                    label: `Phase 2: Alter 60–63 (3a-Bezüge möglich)`,
+                    items: [
+                      `Einkommen: Vermögensentnahme + gestaffelte 3a-Bezüge`,
+                      `AHV-Beiträge: weiterhin CHF ${fmtCHF(Math.round(ahvNonEmployed.annualContribution / 12))}/Mt.`,
+                      `3a-Bezugsplan: je 1 Konto pro Jahr ab 60 (Progressionsvorteil)`,
+                    ],
+                    color: '#d97706', bg: '#fffbeb', border: '#fde68a',
+                  }] : []),
+                  ...(bridgingRetireAge < 63 ? [{
+                    label: `Phase ${bridgingRetireAge < 60 ? 3 : 2}: Alter 63–65 (AHV-Vorbezug möglich)`,
+                    items: [
+                      `Einkommen: AHV-Vorbezug CHF ${fmtCHF(Math.round(ahvMonthlyEstimate * (1 - 2 * 0.068)))}–${fmtCHF(Math.round(ahvMonthlyEstimate * (1 - 0.068)))}/Mt. (je nach Bezugszeitpunkt)`,
+                      `AHV-Beiträge: entfallen nach AHV-Vorbezug`,
+                      `Vermögensentnahme: deutlich reduziert`,
+                    ],
+                    color: '#2563eb', bg: '#eff6ff', border: '#bae6fd',
+                  }] : []),
+                  {
+                    label: `Phase ${bridgingRetireAge < 60 ? 4 : bridgingRetireAge < 63 ? 3 : 2}: Ab Alter 65 (volle Rente)`,
+                    items: [
+                      `AHV-Rente: CHF ${fmtCHF(ahvMonthlyEstimate)}/Mt. (ordentlich, ohne Vorbezugskürzung)`,
+                      pkMonthly > 0 ? `PK-Rente: CHF ${fmtCHF(pkMonthly)}/Mt.` : `Kein PK`,
+                      `Vermögensentnahme: CHF ${fmtCHF(Math.max(0, monthlyBudget - ahvMonthlyEstimate - pkMonthly))}/Mt.`,
+                    ],
+                    color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0',
+                  },
+                ]
+
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Ihr Phasenplan bis zur vollen Rente</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {phases.map((phase, i) => (
+                        <div key={i} style={{ padding: '12px 14px', background: phase.bg, border: `1px solid ${phase.border}`, borderRadius: 10 }}>
+                          <div style={{ fontWeight: 700, color: phase.color, fontSize: 13, marginBottom: 6 }}>{phase.label}</div>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: phase.color, lineHeight: 1.75 }}>
+                            {phase.items.map((item, j) => <li key={j}>{item}</li>)}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 10, padding: '10px 14px', background: 'white', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12 }}>
+                      <strong>AHV-Beiträge Nichterwerbstätige (Alter {bridgingRetireAge}–65):</strong>
+                      {' '}Basis: Vermögen CHF {fmtCHF(freeAssets || 0)} + Renteneinnahmen × 20.
+                      Jährlicher Beitrag: <strong>CHF {fmtCHF(ahvNonEmployed.annualContribution)}</strong> (Max CHF 26'460).
+                      Dauer: <strong>{bridgingGap.gapYears} Jahre</strong>.
+                      Total: <strong>CHF {fmtCHF(ahvNonEmployed.totalForGapYears)}</strong>.
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Income loss breakdown */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: '#92400e', marginBottom: 10 }}>Was fällt weg?</div>
@@ -1331,6 +1403,42 @@ export default function Screen4() {
                 </ResponsiveContainer>
                 </div>
               </div>
+
+              {/* Fix 5: Hypothek-Tragbarkeits-Warnung */}
+              {property.has && property.mortgage > 0 && (() => {
+                const ltv = property.value > 0 ? Math.round((property.mortgage / property.value) * 100) : 0
+                const annualRetirementIncome = analysis.monthlyIncome.total * 12
+                const calcHypoCost = property.mortgage * 0.05 + property.value * 0.01
+                const affordabilityPct = annualRetirementIncome > 0 ? Math.round((calcHypoCost / annualRetirementIncome) * 100) : 999
+                return (
+                  <div style={{ marginBottom: 16, padding: '14px 16px', background: '#fef2f2', border: '2px solid #fca5a5', borderRadius: 12 }}>
+                    <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: 6, fontSize: 13.5 }}>
+                      Hypothek-Tragbarkeit bei Frühpensionierung prüfen
+                    </div>
+                    <div style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 1.7, marginBottom: 8 }}>
+                      Bei Pensionierung vor 65 wird Ihre Bank die Tragbarkeit Ihrer Hypothek neu beurteilen.
+                      Ohne Erwerbseinkommen gelten strengere Kriterien – oft 1/3 des Renteneinkommens als Maximallimite.
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5, marginBottom: 8 }}>
+                      <div style={{ padding: '8px 10px', background: '#fff', borderRadius: 6, border: '1px solid #fca5a5' }}>
+                        <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 2 }}>Hypothek</div>
+                        <div style={{ fontWeight: 600 }}>CHF {fmtCHF(property.mortgage)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Belehnung: {ltv}%</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', background: affordabilityPct > 33 ? '#fef2f2' : '#f0fdf4', borderRadius: 6, border: `1px solid ${affordabilityPct > 33 ? '#fca5a5' : '#bbf7d0'}` }}>
+                        <div style={{ fontSize: 11, color: affordabilityPct > 33 ? '#ef4444' : '#16a34a', marginBottom: 2 }}>Kalk. Tragbarkeit</div>
+                        <div style={{ fontWeight: 600, color: affordabilityPct > 33 ? '#dc2626' : '#15803d' }}>{affordabilityPct}% des Renteneinkommens</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Limit: max. 33%</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#7f1d1d' }}>
+                      <strong>Faustregel:</strong> Kalk. Kosten (5% Zins + 1% Unterhalt auf CHF {fmtCHF(property.value)}) = CHF {fmtCHF(Math.round(calcHypoCost))}/Jahr.
+                      {affordabilityPct > 33 && <span style={{ color: '#dc2626', fontWeight: 600 }}> Warnung: Überschreitet 33%-Grenze. Sprechen Sie rechtzeitig mit Ihrer Bank.</span>}
+                      {affordabilityPct <= 33 && <span style={{ color: '#15803d' }}> Liegt im tragbaren Bereich – trotzdem mit der Bank besprechen.</span>}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Disclaimer */}
               <div style={{ padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
@@ -2118,6 +2226,55 @@ export default function Screen4() {
             </div>
           )}
         </section>
+
+        {/* Fix 7: Sequence-of-Returns-Risk (FIRE / Frühpensionierung) */}
+        {ra1 < 63 && (freeAssets || 0) > 100000 && (
+          <section className="block" style={{ border: '2px solid #fde68a', background: '#fffbeb' }}>
+            <div className="block-head">
+              <h2 className="block-title" style={{ color: '#92400e' }}>
+                <span className="block-num" style={{ background: '#f59e0b', color: 'white' }}>!</span>
+                Sequence-of-Returns-Risk (SoRR)
+              </h2>
+              <span className="block-hint">Kritisch für Frühpensionierung</span>
+            </div>
+            <div style={{ padding: '12px 16px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, marginBottom: 16, fontSize: 13.5, color: '#7c2d12', lineHeight: 1.7 }}>
+              <strong>Das grösste Risiko bei langer Entnahmephase:</strong> Wenn Ihr Portfolio in den ersten 3–5 Jahren nach der Pensionierung stark fällt, während Sie gleichzeitig Kapital entnehmen, erholt sich das Vermögen möglicherweise nie mehr vollständig – selbst wenn die langfristige Rendite identisch wäre.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 16 }}>
+              {[
+                { label: 'Schlechter Start', desc: 'Portfolio −30% im Jahr 1 + Entnahme = dauerhafter Schaden', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+                { label: 'Guter Start', desc: 'Portfolio +10% im Jahr 1 + Entnahme = Puffer für spätere Verluste', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
+                { label: 'Identische Rendite', desc: 'Gleiche Ø-Rendite über 20 Jahre – aber Reihenfolge entscheidet über Outcome', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+              ].map(s => (
+                <div key={s.label} style={{ padding: '10px 12px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8 }}>
+                  <div style={{ fontWeight: 600, color: s.color, fontSize: 12.5, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: s.color, lineHeight: 1.5 }}>{s.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>Mögliche Absicherungen:</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#7c2d12', lineHeight: 1.85 }}>
+                <li><strong>Liquiditätspuffer:</strong> 2–3 Jahresausgaben in Cash/kurzlaufenden Anleihen halten – wird bei Einbruch nicht verkauft</li>
+                <li><strong>Flexible Entnahme:</strong> Bei Markteinbruch Entnahme temporär reduzieren (Guardrails-Strategie)</li>
+                <li><strong>Gestaffelte 3a-Bezüge:</strong> Stabile Einnahmen ohne Marktabhängigkeit in den ersten Jahren</li>
+                <li><strong>Bucket-Strategie:</strong> Kurzfrist (0–3J Cash), Mittelfrist (3–10J Anleihen), Langfrist (10J+ Aktien)</li>
+              </ul>
+            </div>
+            {(freeAssets || 0) > 0 && (() => {
+              const cashMonths = Math.round((freeAssets || 0) / monthlyBudget)
+              return (
+                <div style={{ padding: '10px 14px', background: cashMonths >= 24 ? '#f0fdf4' : '#fef2f2', border: `1px solid ${cashMonths >= 24 ? '#bbf7d0' : '#fca5a5'}`, borderRadius: 8, fontSize: 12.5 }}>
+                  <strong>Ihr Liquiditätspuffer (freies Vermögen):</strong> CHF {fmtCHF(freeAssets || 0)} = ca. {cashMonths} Monate Ausgaben{' '}
+                  {cashMonths >= 24
+                    ? <span style={{ color: '#15803d', fontWeight: 600 }}>✓ Ausreichend für 2-3 Jahres-Puffer</span>
+                    : <span style={{ color: '#dc2626', fontWeight: 600 }}>⚠ Unter 24 Monaten – Puffer aufstocken empfohlen</span>
+                  }
+                </div>
+              )
+            })()}
+          </section>
+        )}
 
         {/* AHV Detail */}
         <section className="block">
@@ -3630,6 +3787,28 @@ export default function Screen4() {
               <li>Patientenverfügung und Vorsorgeauftrag erstellen</li>
               <li>Frühzeitig mit der Familie besprechen und planen</li>
             </ul>
+          </div>
+        </section>
+
+        {/* Fix 10: Pro-Hinweis für Fortgeschrittene */}
+        <section className="block" style={{ background: '#f0f9ff', border: '1px solid #7dd3fc' }}>
+          <div className="block-head">
+            <h2 className="block-title" style={{ color: '#0369a1' }}>
+              <span className="block-num" style={{ background: '#0284c7', color: 'white' }}>+</span>
+              Für fortgeschrittene Finanzplanung
+            </h2>
+          </div>
+          <p style={{ fontSize: 13.5, color: '#075985', margin: '0 0 14px', lineHeight: 1.65 }}>
+            WealthWise bietet eine fundierte erste Orientierung. Für tiefere Analysen empfehlen wir folgende Ressourcen:
+          </p>
+          <ul style={{ margin: '0 0 16px', paddingLeft: 18, fontSize: 13.5, color: '#075985', lineHeight: 1.8 }}>
+            <li><strong>Monte-Carlo-Simulationen:</strong> <a href="https://www.portfoliovisualizer.com" target="_blank" rel="noreferrer" style={{ color: '#0284c7' }}>portfoliovisualizer.com</a> – testen Sie verschiedene Marktszenarien</li>
+            <li><strong>Entnahmestrategien:</strong> 4%-Regel, Guardrails-Methode, Bucket-Strategie – Abwägung je nach Risikotoleranz und Planungshorizont</li>
+            <li><strong>Detaillierte AHV-Berechnung:</strong> IK-Auszug bestellen auf <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: '#0284c7' }}>ahv-iv.ch</a> und bei SVA-Zweigstelle beraten lassen</li>
+            <li><strong>Steueroptimierung:</strong> Phasenbasierter Kapitalbezug, Wohnsitzplanung, Steuerberater oder CFP (Certified Financial Planner) beiziehen</li>
+          </ul>
+          <div style={{ padding: '10px 14px', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: 8, fontSize: 12.5, color: '#0369a1' }}>
+            Ihr WealthWise-PDF eignet sich als Gesprächsgrundlage für ein professionelles Vorsorgeberatungsgespräch.
           </div>
         </section>
 

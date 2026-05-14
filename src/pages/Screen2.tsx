@@ -1479,6 +1479,43 @@ export default function Screen2() {
                 </div>
               </div>
 
+              {(cur.num3aAccounts || 1) > 1 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
+                    Einzelne Kontostände (optional, für optimale Bezugsplanung)
+                  </div>
+                  {Array.from({ length: cur.num3aAccounts || 1 }, (_, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--ink-600)', minWidth: 60 }}>Konto {i + 1}</span>
+                      <input
+                        type="number"
+                        className="input"
+                        style={{ flex: 1 }}
+                        min={0}
+                        step={1000}
+                        placeholder={`CHF ${fmtCHF(Math.round((cur.balance3a || 0) / (cur.num3aAccounts || 1)))}`}
+                        value={(cur.accounts3a?.[i] || 0) > 0 ? cur.accounts3a![i] : ''}
+                        onChange={e => {
+                          const newAccounts = Array.from({ length: cur.num3aAccounts || 1 }, (_, j) =>
+                            j === i ? (parseInt(e.target.value) || 0) : (cur.accounts3a?.[j] || 0)
+                          )
+                          updatePerson(activeTab, { accounts3a: newAccounts })
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {(cur.accounts3a?.reduce((s, v) => s + v, 0) || 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--navy-50)', borderRadius: 6, fontSize: 12.5, fontWeight: 600, marginTop: 4 }}>
+                      <span>Total:</span>
+                      <span>CHF {fmtCHF(cur.accounts3a?.reduce((s, v) => s + v, 0) || 0)}</span>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#1e3a5f' }}>
+                    Für optimale Staffelung: Grössere Konten sollten in einem Jahr ohne anderen Kapitalbezug (PK) bezogen werden. Jeder Bezug wird separat besteuert.
+                  </div>
+                </div>
+              )}
+
               <div className="proj-card" style={{ marginTop: 14 }}>
                 <div className="proj-card-label">
                   📈 Geschätztes 3a-Guthaben bei Pensionierung
@@ -1511,6 +1548,45 @@ export default function Screen2() {
           )}
         </section>
 
+        {/* FZ · Freizügigkeitsguthaben */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title"><span className="block-num">FZ</span>Freizügigkeitsguthaben</h2>
+            <span className="block-hint">Optional</span>
+          </div>
+
+          {isPaar && (
+            <div className="tabs" style={{ marginBottom: 20 }}>
+              <button
+                className={`tab ${activeTab === 1 ? 'active' : ''}`}
+                onClick={() => setActiveTab(1)}
+              >
+                <span className="tab-dot">1</span><span>{person1.name || 'P1'}</span>
+              </button>
+              <button
+                className={`tab ${activeTab === 2 ? 'active' : ''}`}
+                onClick={() => setActiveTab(2)}
+              >
+                <span className="tab-dot">2</span><span>{person2.name || 'P2'}</span>
+              </button>
+            </div>
+          )}
+
+          <div className="toggle-row">
+            <Switch on={cur.hasFZ} onToggle={() => updatePerson(activeTab, { hasFZ: !cur.hasFZ })} label="Ich habe ein Freizügigkeitskonto" />
+          </div>
+
+          {cur.hasFZ && (
+            <>
+              <CHFField label="Freizügigkeitsguthaben" value={cur.fzBalance} onChange={v => updatePerson(activeTab, { fzBalance: v })} />
+              <div className="info-callout" style={{ marginTop: 10 }}>
+                <span className="info-callout-icon">i</span>
+                <span>Freizügigkeitsguthaben entsteht z.B. bei einem Jobwechsel mit Unterbruch oder Auslandsaufenthalt. Es wird bei Pensionierung wie ein Kapitalbezug besteuert (separat vom Einkommen).</span>
+              </div>
+            </>
+          )}
+        </section>
+
         {/* D · Vermögen */}
         <section className="block">
           <div className="block-head">
@@ -1525,6 +1601,24 @@ export default function Screen2() {
             value={useStore.getState().freeAssets}
             onChange={(v) => useStore.getState().setFreeAssets(v)}
           />
+
+          {/* Krypto optional */}
+          <details style={{ marginTop: 10 }}>
+            <summary style={{ fontSize: 12, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
+              Kryptowährungen separat erfassen (optional)
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <CHFField
+                label="Kryptowährungen (Marktwert in CHF)"
+                value={useStore.getState().cryptoAssets ?? 0}
+                onChange={v => useStore.getState().setCryptoAssets(v)}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-500)', lineHeight: 1.5 }}>
+                Kryptowährungen unterliegen in der Schweiz der Vermögenssteuer. Kursgewinne im Privatvermögen sind steuerfrei (sofern kein gewerbsmässiger Handel). Im pessimistischen Szenario wird eine höhere Volatilität berücksichtigt.
+              </div>
+            </div>
+          </details>
         </section>
 
         {/* E1 · Firmenwert (nur für Selbständige) */}
