@@ -13,10 +13,7 @@
  * - Extracts per-age UWS table to match user's chosen retirement age
  */
 
-import * as pdfjsLib from 'pdfjs-dist'
-
-// Use CDN worker to avoid bundling the large worker file separately
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+import { extractDocumentText, parseSwissNumRobust } from './documentProcessor'
 
 export interface PKExtractResult {
   // Core fields mapped to store
@@ -46,30 +43,8 @@ export interface PKExtractResult {
   pensionFundName: string
 }
 
-/** Parse Swiss number format: "1'145'963.95" or "1'145'963,95" → number */
-function parseSwissNum(s: string): number {
-  if (!s) return 0
-  // Remove Swiss thousand separators (apostrophe) and convert comma decimal
-  const cleaned = s.replace(/'/g, '').replace(',', '.')
-  const n = parseFloat(cleaned)
-  return isNaN(n) ? 0 : n
-}
-
-/** Extract all text from a PDF file using pdfjs */
-async function extractPdfText(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const pages: string[] = []
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const pageText = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
-    pages.push(pageText)
-  }
-  return pages.join('\n')
-}
+/** Alias to unified robust parser (handles apostrophe variants from OCR) */
+const parseSwissNum = parseSwissNumRobust
 
 /** Strip ARC1/ARC2 machine-readable header lines */
 function stripArcHeaders(text: string): string {
@@ -206,11 +181,31 @@ function parseContributions(text: string): number {
   return 0
 }
 
-export async function parsePKPdf(file: File): Promise<PKExtractResult> {
+export async function parsePKPdf(
+  file: File,
+  onProgress?: (msg: string, pct?: number) => void,
+): Promise<PKExtractResult> {
   const warnings: string[] = []
   const extractedFields: string[] = []
 
-  const rawText = await extractPdfText(file)
+  const extraction = await extractDocumentText(file, onProgress)
+  warnings.push(...extraction.warnings)
+
+  if (extraction.text.trim().length === 0) {
+    return {
+      pkCurrentCapital: 0, pkRate: 5.4, pkAnnualContribution: 0,
+      pkMaxGuthaben: 0, pkObligatorisch: 0, projectedCapital65: 0,
+      insuredSalary: 0, bridgingByAge: {}, retirementTable: {},
+      extractedFields, warnings, pensionFundName: 'Unbekannte Pensionskasse',
+    }
+  }
+
+  if (extraction.isOcr) {
+    warnings.push('Texterkennung (OCR) verwendet – Werte bitte prüfen.')
+    extractedFields.push('Quelle: OCR (Foto/Scan)')
+  }
+
+  const rawText = extraction.text
   const text = stripArcHeaders(rawText)
 
   // --- Pension fund name ---

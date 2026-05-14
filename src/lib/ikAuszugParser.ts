@@ -11,10 +11,8 @@
  * - Projection to retirement: count of contribution years vs needed 44
  */
 
-import * as pdfjsLib from 'pdfjs-dist'
 import { AHV_AUFWERTUNGSFAKTOREN_2025 } from '../constants/swissVorsorge2025'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+import { extractDocumentText, parseSwissNumRobust } from './documentProcessor'
 
 export interface IKEntry {
   year: number
@@ -35,28 +33,8 @@ export interface IKAuszugResult {
   extractedFields: string[]
 }
 
-/** Remove Swiss thousand-separator apostrophes and normalise decimal comma */
-function parseSwissNum(s: string): number {
-  if (!s) return 0
-  const cleaned = s.replace(/'/g, '').replace(',', '.')
-  const n = parseFloat(cleaned)
-  return isNaN(n) ? 0 : n
-}
-
-async function extractPdfText(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const pages: string[] = []
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const pageText = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
-    pages.push(pageText)
-  }
-  return pages.join('\n')
-}
+/** Alias to unified robust parser (handles OCR apostrophe variants) */
+const parseSwissNum = parseSwissNumRobust
 
 /**
  * Format A: Übersicht-Seite
@@ -145,15 +123,17 @@ function applyRevaluation(entries: IKEntry[]): number[] {
 const MDJ_MIN = 15120
 const MDJ_MAX = 90720
 
-export async function parseIKAuszug(file: File): Promise<IKAuszugResult> {
+export async function parseIKAuszug(
+  file: File,
+  onProgress?: (msg: string, pct?: number) => void,
+): Promise<IKAuszugResult> {
   const warnings: string[] = []
   const extractedFields: string[] = []
 
-  let text = ''
-  const isImage = file.type.startsWith('image/')
+  const extraction = await extractDocumentText(file, onProgress)
+  warnings.push(...extraction.warnings)
 
-  if (isImage) {
-    warnings.push('Bildupload erkannt – OCR ist in dieser Version nicht verfügbar. Bitte als PDF hochladen oder Werte manuell eingeben.')
+  if (extraction.text.trim().length === 0) {
     return {
       entries: [], numYears: 0, gapYears: [], mdj: 0,
       totalRevaluedIncome: 0, lastYearIncome: 0,
@@ -161,16 +141,12 @@ export async function parseIKAuszug(file: File): Promise<IKAuszugResult> {
     }
   }
 
-  try {
-    text = await extractPdfText(file)
-  } catch {
-    warnings.push('PDF konnte nicht gelesen werden. Bitte sicherstellen, dass die Datei nicht passwortgeschützt ist.')
-    return {
-      entries: [], numYears: 0, gapYears: [], mdj: 0,
-      totalRevaluedIncome: 0, lastYearIncome: 0,
-      firstYear: 0, lastYear: 0, warnings, extractedFields,
-    }
+  if (extraction.isOcr) {
+    warnings.push('Texterkennung (OCR) verwendet – Werte bitte sorgfältig prüfen.')
+    extractedFields.push('Quelle: OCR (Foto/Scan)')
   }
+
+  const text = extraction.text
 
   // Try both formats, pick best
   const entriesA = parseFormatA(text)

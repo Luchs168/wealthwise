@@ -147,23 +147,24 @@ type PkExtractedFields = {
   pkObligatorisch: number
 }
 
+const ACCEPT_ALL = '.pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,image/*'
+const isMobile = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+
 function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => void }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [progressMsg, setProgressMsg] = useState('')
   const [fileName, setFileName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<PKExtractResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file || file.type !== 'application/pdf') {
-      setErrorMsg('Bitte ein PDF des PK-Ausweises hochladen.')
-      setStatus('error')
-      return
-    }
-    setFileName(file.name)
+    setFileName(file.name || 'Dokument')
     setStatus('loading')
+    setProgressMsg('Dokument wird vorbereitet…')
     try {
-      const extracted = await parsePKPdf(file)
+      const extracted = await parsePKPdf(file, (msg) => setProgressMsg(msg))
       setResult(extracted)
       onExtract({
         pkCurrentCapital: extracted.pkCurrentCapital,
@@ -174,8 +175,8 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
       })
       setStatus('done')
     } catch (err) {
-      console.error('PK PDF parsing failed:', err)
-      setErrorMsg('Die Datei konnte nicht gelesen werden. Bitte Werte manuell eingeben.')
+      console.error('PK parsing failed:', err)
+      setErrorMsg('Das Dokument konnte nicht automatisch gelesen werden. Mögliche Gründe: Schlechte Bildqualität, unbekanntes Format oder passwortgeschütztes PDF.')
       setStatus('error')
     }
   }, [onExtract])
@@ -186,7 +187,10 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
     setFileName('')
     setResult(null)
     setErrorMsg('')
+    setProgressMsg('')
   }
+
+  const mobile = isMobile()
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -198,70 +202,83 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
           display: 'flex', alignItems: 'flex-start', gap: 8,
         }}>
           <span style={{ flexShrink: 0 }}>ℹ</span>
-          <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – wir lesen Guthaben, Umwandlungssatz und Beiträge direkt aus dem PDF. Bitte prüfen Sie die extrahierten Werte anschliessend.</span>
+          <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – PDF, Foto (JPG/PNG) oder iPhone-Foto (HEIC). Alle Formate werden akzeptiert. Wir lesen Guthaben, Umwandlungssatz und Beiträge aus. Bitte prüfen Sie die extrahierten Werte.</span>
         </div>
       )}
 
-      <div
-        onClick={() => fileRef.current?.click()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-        style={{
-          border: `2px dashed ${status === 'done' ? '#16a34a' : status === 'error' ? '#dc2626' : 'var(--ink-200)'}`,
-          borderRadius: 12,
-          background: status === 'done' ? '#f0fdf4' : status === 'error' ? '#fef2f2' : 'var(--surface)',
-          padding: '20px 24px',
-          cursor: status === 'loading' ? 'wait' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-          transition: 'border-color .2s, background .2s',
-        }}
-      >
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: status === 'done' ? '#16a34a' : status === 'error' ? '#dc2626' : 'var(--ink-100)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0, color: '#fff' }}>
-          {status === 'loading' ? '⏳' : status === 'done' ? '✓' : status === 'error' ? '!' : '📄'}
+      {status === 'idle' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {mobile && (
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              style={{
+                flex: 1, minWidth: 140, padding: '12px 16px',
+                background: 'var(--navy-800)', color: '#fff',
+                border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Dokument fotografieren
+            </button>
+          )}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+            style={{
+              flex: 1, minWidth: 140,
+              border: '2px dashed var(--ink-200)', borderRadius: 10,
+              background: 'var(--surface)', padding: '12px 16px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 600,
+              color: 'var(--ink-600)',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {mobile ? 'Datei auswählen' : 'PDF / Foto hochladen oder hierher ziehen'}
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {status === 'idle' && (
-            <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink-900)' }}>PK-Ausweis hochladen (optional)</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>PDF hier ablegen oder klicken – wird nur lokal verarbeitet</div>
-            </>
-          )}
-          {status === 'loading' && (
-            <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink-900)' }}>{fileName}</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>Wird analysiert…</div>
-            </>
-          )}
-          {status === 'done' && (
-            <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#15803d' }}>Werte aus PDF extrahiert</div>
-              <div style={{ fontSize: 13, color: '#15803d', marginTop: 2 }}>{fileName} · {result?.pensionFundName}</div>
-            </>
-          )}
-          {status === 'error' && (
-            <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#dc2626' }}>Fehler beim Lesen</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>{errorMsg}</div>
-            </>
-          )}
+      )}
+
+      {status === 'loading' && (
+        <div style={{ padding: '20px 24px', border: '2px dashed var(--ink-200)', borderRadius: 12, background: 'var(--surface)', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, marginBottom: 8 }}>⏳</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-800)', marginBottom: 4 }}>{fileName}</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>{progressMsg || 'Wird analysiert…'}</div>
         </div>
-        {status !== 'idle' && status !== 'loading' && (
-          <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
-        )}
-      </div>
+      )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/pdf"
-        style={{ display: 'none' }}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
-      />
+      {status === 'done' && (
+        <div style={{ padding: '16px 18px', border: '2px solid #16a34a', borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#16a34a', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>✓</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: '#15803d' }}>Werte erfolgreich erkannt</div>
+            <div style={{ fontSize: 12.5, color: '#16a34a', marginTop: 2 }}>{fileName} · {result?.pensionFundName}</div>
+          </div>
+          <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
-      <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 4 }}>
-        Wird nur lokal in Ihrem Browser verarbeitet – keine Daten werden übermittelt
+      {status === 'error' && (
+        <div style={{ padding: '16px 18px', border: '2px solid #fca5a5', borderRadius: 12, background: '#fef2f2' }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#991b1b', marginBottom: 6 }}>Konnte nicht gelesen werden</div>
+          <div style={{ fontSize: 12.5, color: '#7f1d1d', marginBottom: 10, lineHeight: 1.6 }}>{errorMsg}</div>
+          <div style={{ fontSize: 12, color: '#991b1b', marginBottom: 10 }}>Tipp: Foto bei guter Beleuchtung, gerade halten, ohne Schatten</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={reset} style={{ padding: '6px 14px', background: '#fff', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: '#991b1b' }}>Nochmals versuchen</button>
+          </div>
+        </div>
+      )}
+
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+      <input ref={fileRef} type="file" accept={ACCEPT_ALL} style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+
+      <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 2 }}>
+        Ihr Dokument wird nur lokal in Ihrem Browser verarbeitet – es wird nichts an einen Server gesendet.
       </div>
 
       {/* Extracted values summary */}
@@ -307,6 +324,8 @@ export default function Screen2() {
   const [ikLoading2, setIkLoading2] = useState(false)
   const [ikApplied, setIkApplied] = useState(false)
   const [ikApplied2, setIkApplied2] = useState(false)
+  const [ikProgressMsg1, setIkProgressMsg1] = useState('')
+  const [ikProgressMsg2, setIkProgressMsg2] = useState('')
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -945,16 +964,21 @@ export default function Screen2() {
                   const setResult = id === 1 ? setIkResult : setIkResult2
                   const setLoading = id === 1 ? setIkLoading : setIkLoading2
                   const setApplied = id === 1 ? setIkApplied : setIkApplied2
+                  const [ikProgressMsg, setIkProgressMsg] = [
+                    id === 1 ? ikProgressMsg1 : ikProgressMsg2,
+                    id === 1 ? setIkProgressMsg1 : setIkProgressMsg2,
+                  ]
 
                   const handleFile = async (file: File) => {
                     setLoading(true)
                     setResult(null)
                     setApplied(false)
                     try {
-                      const r = await parseIKAuszug(file)
+                      const r = await parseIKAuszug(file, (msg) => setIkProgressMsg(msg))
                       setResult(r)
                     } finally {
                       setLoading(false)
+                      setIkProgressMsg('')
                     }
                   }
 
@@ -976,53 +1000,65 @@ export default function Screen2() {
                       income: result.lastYearIncome > 0 ? result.lastYearIncome : undefined,
                     })
                     setApplied(true)
-
-                    // Show erziehungsgutschriften hint if children + low income years
-                    const _ = projectedContribYears // used in UI below
-                    void _
+                    void projectedContribYears
                   }
+
+                  const mobile = isMobile()
 
                   return (
                     <div key={`ik-${id}`} style={{ marginBottom: isPaar ? 16 : 0 }}>
                       {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 8 }}>{name}</div>}
 
-                      {/* Drop zone */}
+                      {/* Upload zone */}
                       {!result && !loading && (
-                        <label
-                          style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                            gap: 8, padding: '20px 16px', border: '2px dashed var(--navy-200)',
-                            borderRadius: 10, cursor: 'pointer', background: 'var(--navy-50)',
-                            transition: 'border-color 0.15s',
-                          }}
-                          onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-500)' }}
-                          onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)' }}
-                          onDrop={e => {
-                            e.preventDefault()
-                            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)'
-                            const file = e.dataTransfer.files[0]
-                            if (file) handleFile(file)
-                          }}
-                        >
-                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--navy-400)" strokeWidth="1.5">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                          </svg>
-                          <span style={{ fontSize: 13, color: 'var(--navy-600)', fontWeight: 500 }}>IK-Auszug als PDF hochladen</span>
-                          <span style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>oder hier ablegen</span>
-                          <input
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            style={{ display: 'none' }}
-                            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
-                          />
-                        </label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {mobile && (
+                            <label style={{
+                              flex: 1, minWidth: 130, padding: '10px 14px',
+                              background: 'var(--navy-800)', color: '#fff', borderRadius: 10,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              gap: 6, fontSize: 13.5, fontWeight: 600,
+                            }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                              Fotografieren
+                              <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                            </label>
+                          )}
+                          <label
+                            style={{
+                              flex: 1, minWidth: 130,
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              gap: 6, padding: '14px 12px', border: '2px dashed var(--navy-200)',
+                              borderRadius: 10, cursor: 'pointer', background: 'var(--navy-50)',
+                            }}
+                            onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-500)' }}
+                            onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)' }}
+                            onDrop={e => {
+                              e.preventDefault()
+                              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)'
+                              const file = e.dataTransfer.files[0]
+                              if (file) handleFile(file)
+                            }}
+                          >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--navy-400)" strokeWidth="1.5">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="17 8 12 3 7 8"/>
+                              <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <span style={{ fontSize: 12.5, color: 'var(--navy-600)', fontWeight: 500 }}>
+                              {mobile ? 'Datei auswählen' : 'PDF / Foto hochladen'}
+                            </span>
+                            <input type="file" accept={ACCEPT_ALL} style={{ display: 'none' }}
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                          </label>
+                        </div>
                       )}
 
                       {loading && (
                         <div style={{ padding: '16px', background: 'var(--navy-50)', borderRadius: 10, textAlign: 'center', fontSize: 13, color: 'var(--navy-600)' }}>
-                          IK-Auszug wird analysiert…
+                          <div style={{ marginBottom: 4 }}>⏳</div>
+                          {ikProgressMsg || 'IK-Auszug wird analysiert…'}
                         </div>
                       )}
 
