@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
@@ -8,6 +8,8 @@ import { fmtCHF, calculatePkRente, project3a, CONSTANTS } from '../lib/calc'
 import { calculateAHVPension, applyPlafonierung, AHV_2026 } from '../utils/ahvCalculation'
 import { projectPKCapital, calculatePKPension, estimateContribution } from '../utils/pkCalculation'
 import { PK_CONSTANTS } from '../constants/pkConstants'
+import { parsePKPdf } from '../lib/pkPdfParser'
+import type { PKExtractResult } from '../lib/pkPdfParser'
 
 function TransitionOverlay2({
   onContinue,
@@ -135,29 +137,57 @@ function Switch({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
   )
 }
 
-function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) => void }) {
+type PkExtractedFields = {
+  pkCurrentCapital: number
+  pkRate: number
+  pkAnnualContribution: number
+  pkMaxGuthaben: number
+  pkObligatorisch: number
+}
+
+function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => void }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [fileName, setFileName] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [result, setResult] = useState<PKExtractResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  function handleFile(file: File) {
+  const handleFile = useCallback(async (file: File) => {
     if (!file || file.type !== 'application/pdf') {
+      setErrorMsg('Bitte ein PDF des PK-Ausweises hochladen.')
       setStatus('error')
       return
     }
     setFileName(file.name)
     setStatus('loading')
-    setTimeout(() => {
-      const demoCapital = 280000 + Math.floor(Math.random() * 120000)
-      const demoRate = 5.0 + Math.random() * 0.8
-      onExtract(demoCapital, parseFloat(demoRate.toFixed(2)))
+    try {
+      const extracted = await parsePKPdf(file)
+      setResult(extracted)
+      onExtract({
+        pkCurrentCapital: extracted.pkCurrentCapital,
+        pkRate: extracted.pkRate,
+        pkAnnualContribution: extracted.pkAnnualContribution,
+        pkMaxGuthaben: extracted.pkMaxGuthaben,
+        pkObligatorisch: extracted.pkObligatorisch,
+      })
       setStatus('done')
-    }, 1400)
+    } catch (err) {
+      console.error('PK PDF parsing failed:', err)
+      setErrorMsg('Die Datei konnte nicht gelesen werden. Bitte Werte manuell eingeben.')
+      setStatus('error')
+    }
+  }, [onExtract])
+
+  const reset = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setStatus('idle')
+    setFileName('')
+    setResult(null)
+    setErrorMsg('')
   }
 
   return (
     <div style={{ marginBottom: 20 }}>
-      {/* Ausfüllhilfe disclaimer before upload */}
       {status === 'idle' && (
         <div style={{
           marginBottom: 10, padding: '10px 14px',
@@ -165,8 +195,8 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
           borderRadius: 10, fontSize: 12.5, color: '#1e40af',
           display: 'flex', alignItems: 'flex-start', gap: 8,
         }}>
-          <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
-          <span><strong>Ausfüllhilfe:</strong> Wir lesen die Struktur Ihres Dokuments und schlagen Werte vor. Bitte prüfen und korrigieren Sie die Felder anhand Ihres eigentlichen PK-Ausweises.</span>
+          <span style={{ flexShrink: 0 }}>ℹ</span>
+          <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – wir lesen Guthaben, Umwandlungssatz und Beiträge direkt aus dem PDF. Bitte prüfen Sie die extrahierten Werte anschliessend.</span>
         </div>
       )}
 
@@ -175,19 +205,19 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
         style={{
-          border: `2px dashed ${status === 'done' ? '#f59e0b' : 'var(--ink-200)'}`,
+          border: `2px dashed ${status === 'done' ? '#16a34a' : status === 'error' ? '#dc2626' : 'var(--ink-200)'}`,
           borderRadius: 12,
-          background: status === 'done' ? '#fffbeb' : 'var(--surface)',
+          background: status === 'done' ? '#f0fdf4' : status === 'error' ? '#fef2f2' : 'var(--surface)',
           padding: '20px 24px',
-          cursor: 'pointer',
+          cursor: status === 'loading' ? 'wait' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           gap: 14,
           transition: 'border-color .2s, background .2s',
         }}
       >
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: status === 'done' ? 'var(--navy-800)' : 'var(--ink-100)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>
-          {status === 'loading' ? '⏳' : status === 'done' ? '✓' : '📄'}
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: status === 'done' ? '#16a34a' : status === 'error' ? '#dc2626' : 'var(--ink-100)', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0, color: '#fff' }}>
+          {status === 'loading' ? '⏳' : status === 'done' ? '✓' : status === 'error' ? '!' : '📄'}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {status === 'idle' && (
@@ -204,24 +234,22 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
           )}
           {status === 'done' && (
             <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#0369a1' }}>Werte vorgeschlagen</div>
-              <div style={{ fontSize: 13, color: '#0369a1', marginTop: 2 }}>Vorgeschlagene Werte aus {fileName} – bitte unten prüfen und anpassen</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#15803d' }}>Werte aus PDF extrahiert</div>
+              <div style={{ fontSize: 13, color: '#15803d', marginTop: 2 }}>{fileName} · {result?.pensionFundName}</div>
             </>
           )}
           {status === 'error' && (
             <>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#dc2626' }}>Ungültige Datei</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>Bitte ein PDF des PK-Ausweises hochladen</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: '#dc2626' }}>Fehler beim Lesen</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>{errorMsg}</div>
             </>
           )}
         </div>
         {status !== 'idle' && status !== 'loading' && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setStatus('idle'); setFileName('') }}
-            style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
-          >×</button>
+          <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         )}
       </div>
+
       <input
         ref={fileRef}
         type="file"
@@ -229,18 +257,31 @@ function PkUpload({ onExtract }: { onExtract: (capital: number, rate: number) =>
         style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
       />
+
       <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 4 }}>
-        🔒 Wird nur lokal verarbeitet – verlässt Ihren Browser nicht
+        Wird nur lokal in Ihrem Browser verarbeitet – keine Daten werden übermittelt
       </div>
-      {status === 'done' && (
-        <div style={{
-          marginTop: 10, padding: '10px 14px',
-          background: '#eff6ff', border: '1px solid #bae6fd',
-          borderRadius: 10, fontSize: 12.5, color: '#1e40af',
-          display: 'flex', alignItems: 'flex-start', gap: 8,
-        }}>
-          <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
-          <span>Die <strong>vorgeschlagenen Werte</strong> unten basieren auf der Dokumentstruktur. Bitte kontrollieren Sie PK-Kapital und Umwandlungssatz anhand Ihres echten PK-Ausweises und passen Sie die Werte ggf. an.</span>
+
+      {/* Extracted values summary */}
+      {status === 'done' && result && (
+        <div style={{ marginTop: 10, padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 12.5, color: '#14532d' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6, color: '#15803d' }}>Aus Ihrem PK-Ausweis gelesen:</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>
+            {result.pkCurrentCapital > 0 && <div>Aktuelles Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+            {result.pkRate > 0 && <div>Umwandlungssatz (65): <strong>{result.pkRate.toFixed(2)}%</strong></div>}
+            {result.pkAnnualContribution > 0 && <div>Sparbeitrag AN+AG/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+            {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+            {result.projectedCapital65 > 0 && <div>Projektion bei Alter 65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+            {Object.keys(result.bridgingByAge).length > 0 && <div>Überbrückungsrente: <strong>verfügbar</strong></div>}
+          </div>
+          {result.warnings.length > 0 && (
+            <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef9c3', border: '1px solid #fde047', borderRadius: 6 }}>
+              {result.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: '#713f12' }}>⚠ {w}</div>)}
+            </div>
+          )}
+          <div style={{ marginTop: 6, fontSize: 11.5, color: '#166534' }}>
+            Bitte prüfen Sie die Felder unten und passen Sie Werte bei Bedarf an.
+          </div>
         </div>
       )}
     </div>
@@ -844,7 +885,13 @@ export default function Screen2() {
                     <strong>Tipp: Mit Ihrem PK-Ausweis wird die Analyse deutlich genauer.</strong>
                   </div>
                 )}
-                <PkUpload onExtract={(capital, rate) => updatePKAndProject(activeTab, { pkCurrentCapital: capital, pkRate: rate })} />
+                <PkUpload onExtract={(fields) => updatePKAndProject(activeTab, {
+                  pkCurrentCapital: fields.pkCurrentCapital,
+                  pkRate: fields.pkRate,
+                  pkAnnualContribution: fields.pkAnnualContribution || undefined,
+                  pkMaxGuthaben: fields.pkMaxGuthaben || undefined,
+                  pkObligatorisch: fields.pkObligatorisch || undefined,
+                })} />
 
                 {/* 1. Aktuelles Altersguthaben */}
                 <div style={{ marginBottom: 4 }}>

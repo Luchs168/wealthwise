@@ -8,8 +8,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'pdf': ['pdfjs-dist'],
         },
       },
     },
+  },
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
   },
 })
