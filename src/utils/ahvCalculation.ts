@@ -1,34 +1,22 @@
-export const AHV_2026 = {
-  MIN_MONTHLY: 1260,
-  MAX_MONTHLY: 2520,
-  MIN_AVG_INCOME: 14700,
-  MAX_AVG_INCOME: 88200,
-  PLAFOND_MONTHLY: 3780,
-  FULL_CONTRIBUTION_YEARS: 44,
-  REFERENCE_AGE: 65,
-  CHILD_CREDIT_YEARLY: 44100,
-  // BSV actuarial factors (Skala 44, 2026)
-  BEZUG_FACTORS: {
-    63: 0.864,
-    64: 0.932,
-    65: 1.000,
-    66: 1.052,
-    67: 1.106,
-    68: 1.163,
-    69: 1.224,
-    70: 1.313,
-  } as Record<number, number>,
-}
+/**
+ * AHV-Rentenberechnungen
+ * Alle Kennzahlen aus zentralem swissVorsorge2025.ts
+ * Quelle: ZHAW Vorsorgesystem Schweiz Update 2025
+ */
+import { AHV_AKTUELL, AHV_BEZUG_FAKTOREN_2025 } from '../constants/swissVorsorge2025'
+
+// Re-export unter dem bisherigen Namen (rückwärtskompatibel)
+export const AHV_2026 = AHV_AKTUELL
 
 export function calcBaseRente(avgIncome: number): number {
-  const { MIN_MONTHLY, MAX_MONTHLY, MIN_AVG_INCOME, MAX_AVG_INCOME } = AHV_2026
+  const { MIN_MONTHLY, MAX_MONTHLY, MIN_AVG_INCOME, MAX_AVG_INCOME } = AHV_AKTUELL
   if (avgIncome <= MIN_AVG_INCOME) return MIN_MONTHLY
   if (avgIncome >= MAX_AVG_INCOME) return MAX_MONTHLY
   const t = (avgIncome - MIN_AVG_INCOME) / (MAX_AVG_INCOME - MIN_AVG_INCOME)
   return Math.round(MIN_MONTHLY + t * (MAX_MONTHLY - MIN_MONTHLY))
 }
 
-export const KZG_YEARLY_2026 = 44100
+export const KZG_YEARLY_2026 = AHV_AKTUELL.CHILD_CREDIT_YEARLY
 
 export function computeKZGAdjustedIncome(
   grossIncome: number,
@@ -41,9 +29,9 @@ export function computeKZGAdjustedIncome(
   if (!hasKZG || kzgChildren <= 0 || kzgYears <= 0 || effectiveYears <= 0) return grossIncome
   const totalYears = Math.min(kzgYears, 16 * kzgChildren)
   const isMarried = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
-  const kzgTotal = KZG_YEARLY_2026 * totalYears * (isMarried ? 0.5 : 1)
+  const kzgTotal = AHV_AKTUELL.CHILD_CREDIT_YEARLY * totalYears * (isMarried ? 0.5 : 1)
   const adjusted = grossIncome + kzgTotal / effectiveYears
-  return Math.min(AHV_2026.MAX_AVG_INCOME, adjusted)
+  return Math.min(AHV_AKTUELL.MAX_AVG_INCOME, adjusted)
 }
 
 export interface AHVInput {
@@ -63,7 +51,7 @@ export interface AHVResult {
 
 export function calculateAHVPension(input: AHVInput): AHVResult {
   const { avgIncome, bezugAge, effectiveContributionYears } = input
-  const { FULL_CONTRIBUTION_YEARS, BEZUG_FACTORS, MIN_MONTHLY, MAX_MONTHLY } = AHV_2026
+  const { FULL_CONTRIBUTION_YEARS, MIN_MONTHLY, MAX_MONTHLY } = AHV_AKTUELL
 
   const baseMonthly = calcBaseRente(avgIncome)
 
@@ -72,7 +60,7 @@ export function calculateAHVPension(input: AHVInput): AHVResult {
   const afterGap = baseMonthly * gapFactor
 
   const clampedAge = Math.min(Math.max(bezugAge, 63), 70)
-  const bezugFactor = BEZUG_FACTORS[clampedAge] ?? 1.0
+  const bezugFactor = AHV_BEZUG_FAKTOREN_2025[clampedAge] ?? 1.0
   const monthly = Math.round(Math.max(MIN_MONTHLY, Math.min(MAX_MONTHLY, afterGap * bezugFactor)))
 
   return {
@@ -92,7 +80,7 @@ export function applyPlafonierung(
 ): { monthly1: number; monthly2: number; plafonReduction: number } {
   const isMarried = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
   const combined = monthly1 + monthly2
-  const cap = AHV_2026.PLAFOND_MONTHLY
+  const cap = AHV_AKTUELL.PLAFOND_MONTHLY
 
   if (!isMarried || combined <= cap) {
     return { monthly1, monthly2, plafonReduction: 0 }
@@ -132,15 +120,13 @@ export function calculateAllVariants(
   ]
 
   return VARIANTS.map((v) => {
-    // Each variant uses its own projected contribution years based on retirement age
-    const variantBaseYears = Math.min(AHV_2026.FULL_CONTRIBUTION_YEARS, Math.max(0, v.bezugAge - 21))
+    const variantBaseYears = Math.min(AHV_AKTUELL.FULL_CONTRIBUTION_YEARS, Math.max(0, v.bezugAge - 21))
     const variantYears = Math.max(0, variantBaseYears - gaps)
     const result = calculateAHVPension({
       avgIncome,
       bezugAge: v.bezugAge,
       effectiveContributionYears: variantYears,
     })
-    // Cumulative = years receiving × monthly × 12
     const cum10 = result.monthlyRente * 12 * Math.max(0, 10 - (v.bezugAge - 63))
     const cum20 = result.monthlyRente * 12 * Math.max(0, 20 - (v.bezugAge - 63))
     return {
@@ -164,8 +150,6 @@ export function calculateBreakEven(
   lateStartAge: number,
 ): number | null {
   if (earlyMonthly >= lateMonthly) return null
-  // Solve: earlyMonthly*(t - earlyStart) = lateMonthly*(t - lateStart)
-  // t = (earlyM*earlyStart - lateM*lateStart) / (earlyM - lateM)
   const t =
     (earlyMonthly * earlyStartAge - lateMonthly * lateStartAge) /
     (earlyMonthly - lateMonthly)
