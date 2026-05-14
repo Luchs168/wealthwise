@@ -195,15 +195,21 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
   return (
     <div style={{ marginBottom: 20 }}>
       {status === 'idle' && (
-        <div style={{
-          marginBottom: 10, padding: '10px 14px',
-          background: '#eff6ff', border: '1px solid #bae6fd',
-          borderRadius: 10, fontSize: 12.5, color: '#1e40af',
-          display: 'flex', alignItems: 'flex-start', gap: 8,
-        }}>
-          <span style={{ flexShrink: 0 }}>ℹ</span>
-          <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – PDF, Foto (JPG/PNG) oder iPhone-Foto (HEIC). Alle Formate werden akzeptiert. Wir lesen Guthaben, Umwandlungssatz und Beiträge aus. Bitte prüfen Sie die extrahierten Werte.</span>
-        </div>
+        <>
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12, color: '#14532d', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+            <span style={{ flexShrink: 0 }}>🔒</span>
+            <span>Ihr Dokument wird ausschliesslich lokal in Ihrem Browser verarbeitet. Es wird <strong>nicht</strong> auf einen Server übertragen und nach Extraktion der Zahlenwerte sofort verworfen. Ihre AHV-Nummer und Arbeitgeber-Angaben werden nicht gespeichert.</span>
+          </div>
+          <div style={{
+            marginBottom: 10, padding: '10px 14px',
+            background: '#eff6ff', border: '1px solid #bae6fd',
+            borderRadius: 10, fontSize: 12.5, color: '#1e40af',
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+          }}>
+            <span style={{ flexShrink: 0 }}>ℹ</span>
+            <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – PDF, Foto (JPG/PNG) oder iPhone-Foto (HEIC). Alle Formate werden akzeptiert. Wir lesen Guthaben, Umwandlungssatz und Beiträge aus. Bitte prüfen Sie die extrahierten Werte.</span>
+          </div>
+        </>
       )}
 
       {status === 'idle' && (
@@ -1063,6 +1069,11 @@ export default function Screen2() {
 
                       {/* Upload zone */}
                       {!result && !loading && (
+                        <>
+                          <div style={{ marginBottom: 8, padding: '7px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#14532d', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                            <span>🔒</span>
+                            <span>Dokument wird nur lokal in Ihrem Browser verarbeitet – kein Server-Upload, sofort verworfen nach Extraktion.</span>
+                          </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {mobile && (
                             <label style={{
@@ -1105,6 +1116,7 @@ export default function Screen2() {
                               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
                           </label>
                         </div>
+                        </>
                       )}
 
                       {loading && (

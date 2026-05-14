@@ -46,13 +46,13 @@ export default function Impressum() {
           Haftungsausschluss
         </h2>
         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '18px 22px', margin: '18px 0', color: '#78350f', fontSize: 15 }}>
-          <b style={{ color: '#92400e' }}>Keine Finanzberatung:</b> WealthWise bietet keine Finanzberatung im Sinne des Finanzdienstleistungsgesetzes (FIDLEG). Die bereitgestellten Berechnungen und Informationen dienen ausschliesslich der allgemeinen Information und ersetzen keine professionelle Finanzplanung.
+          <b style={{ color: '#92400e' }}>Kein Finanzdienstleistungsangebot:</b> WealthWise ist ausdrücklich <strong>keine Finanzdienstleistung</strong> im Sinne des FIDLEG, keine persönliche Anlageempfehlung und keine Rechts- oder Steuerberatung. WealthWise ist ein Informations- und Berechnungswerkzeug zu Orientierungszwecken.
         </div>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px' }}>
-          Die auf dieser Website bereitgestellten Informationen wurden mit grösster Sorgfalt zusammengestellt. WealthWise übernimmt jedoch keine Gewähr für die Richtigkeit, Vollständigkeit oder Aktualität der bereitgestellten Inhalte.
+          Die dargestellten Berechnungen sind Schätzungen auf Basis vereinfachter Modelle. Tatsächliche Beträge (AHV-Renten, PK-Leistungen, Steuern) können erheblich abweichen. WealthWise übernimmt keine Haftung für Entscheidungen, die auf Basis dieser Berechnungen getroffen werden. Ausgenommen bleibt die Haftung für Vorsatz und grobe Fahrlässigkeit (OR 100 Abs. 1).
         </p>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px' }}>
-          Haftungsansprüche gegen WealthWise wegen Schäden materieller oder immaterieller Art, welche aus dem Zugriff oder der Nutzung der Informationen, durch Missbrauch der Verbindung oder durch technische Störungen entstanden sind, werden ausgeschlossen.
+          Für verbindliche Aussagen zu Ihrer Vorsorge, Ihren Steuern oder Ihrer finanziellen Situation konsultieren Sie bitte eine qualifizierte Fachperson (zugelassene/r Finanzberater/in, Steuerexpert/in oder Rechtsanwalt/Rechtsanwältin).
         </p>
 
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.01em', color: 'var(--navy-900)', margin: '40px 0 12px' }}>

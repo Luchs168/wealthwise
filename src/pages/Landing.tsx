@@ -12,7 +12,7 @@ const FAQS = [
   },
   {
     q: 'Was passiert mit meinen Daten?',
-    a: 'Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Eingaben werden im localStorage Ihres Browsers zwischengespeichert, damit Sie die Analyse unterbrechen und später fortsetzen können – sie werden nie an unsere Server übertragen oder an Dritte weitergegeben. Sie können Ihre Daten jederzeit löschen, indem Sie den Browser-Verlauf bereinigen.',
+    a: 'Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Eingaben werden im lokalen Browserspeicher (localStorage) Ihres Geräts gespeichert, damit Sie die Analyse unterbrechen und später fortsetzen können. Diese Daten bleiben auf Ihrem Gerät gespeichert und verlassen es nicht. Sie können alle Daten jederzeit löschen: "Neue Analyse starten" oder Browser-Cache leeren. Auf gemeinsam genutzten Geräten empfehlen wir, die Daten nach der Nutzung aktiv zu löschen.',
   },
   {
     q: 'Wie genau ist die Berechnung?',
@@ -35,6 +35,9 @@ export default function Landing() {
   const [optionalExpanded, setOptionalExpanded] = useState(false)
   const [hasResume, setHasResume] = useState(false)
   const [resumeDismissed, setResumeDismissed] = useState(false)
+  const [privacyBannerDismissed, setPrivacyBannerDismissed] = useState(() => {
+    try { return localStorage.getItem('wealthwise.hinweisAkzeptiert') === 'true' } catch { return false }
+  })
   const [showStickyCta, setShowStickyCta] = useState(false)
 
   useEffect(() => {
@@ -83,6 +86,32 @@ export default function Landing() {
           </div>
         </div>
       </nav>
+
+      {/* Privacy banner (first visit) */}
+      {!privacyBannerDismissed && (
+        <div style={{
+          background: 'var(--navy-50)', borderBottom: '1px solid var(--navy-200)',
+          padding: '10px 20px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 13,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--navy-800)' }}>
+            <span>🔒</span>
+            <span>Diese App speichert Ihre Eingaben lokal in Ihrem Browser (kein Server, kein Tracking). Daten jederzeit löschbar.</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <Link to="/datenschutz" style={{ color: 'var(--navy-700)', fontSize: 12, textDecoration: 'underline' }}>Datenschutz</Link>
+            <button
+              onClick={() => {
+                try { localStorage.setItem('wealthwise.hinweisAkzeptiert', 'true') } catch { /* ignore */ }
+                setPrivacyBannerDismissed(true)
+              }}
+              style={{ background: 'var(--navy-800)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            >
+              Verstanden
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Resume banner */}
       {hasResume && !resumeDismissed && (
@@ -177,9 +206,7 @@ export default function Landing() {
             <div className="hero-meta" style={{ marginTop: 16 }}>
               <span>Keine Registrierung</span>
               <i className="hero-meta-dot" />
-              <span>Keine Daten gespeichert</span>
-              <i className="hero-meta-dot" />
-              <span>Schweizer Server</span>
+              <span>Nur lokal in Ihrem Browser – kein Server, kein Tracking</span>
             </div>
           </div>
 
@@ -344,7 +371,7 @@ export default function Landing() {
               {
                 icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>,
                 title: 'Ihre Daten bleiben bei Ihnen',
-                text: 'Zero-Storage-Prinzip: Alle Berechnungen erfolgen lokal in Ihrem Browser. Keine Serverspeicherung.',
+                text: 'Alle Berechnungen im Browser, kein Server, kein Tracking. Daten im lokalen Browserspeicher, jederzeit löschbar.',
               },
               {
                 icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="3" y1="12" x2="21" y2="12"/></svg>,
@@ -730,7 +757,7 @@ export default function Landing() {
       <div className="final-cta">
         <div className="fc-inner">
           <h2>Bereit für Klarheit über Ihre Rente?</h2>
-          <p>Starten Sie jetzt die kostenlose Analyse. Keine Registrierung. Keine Daten gespeichert. In 10 Minuten wissen Sie mehr.</p>
+          <p>Starten Sie jetzt die kostenlose Analyse. Keine Registrierung. Alle Daten nur lokal in Ihrem Browser. In 10 Minuten wissen Sie mehr.</p>
           <div className="final-cta-row">
             <button className="btn-primary" style={{ background: '#fff', color: 'var(--navy-900)' }} onClick={() => navigate('/schritt/1')}>
               Jetzt Analyse starten

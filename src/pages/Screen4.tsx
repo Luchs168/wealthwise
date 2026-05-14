@@ -579,6 +579,14 @@ export default function Screen4() {
           </p>
         </div>
 
+        {/* Haupt-Disclaimer */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 20 }}>
+          <span style={{ fontSize: 18, flexShrink: 0 }}>ℹ️</span>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+            Die folgenden Analysen basieren auf Ihren Angaben und den offiziellen AHV/BVG-Kennzahlen 2026. <strong>WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung.</strong> Alle Berechnungen sind Schätzungen. Bitte konsultieren Sie eine Fachperson für verbindliche Entscheidungen.
+          </p>
+        </div>
+
         {/* ── Summary: Vorsorgeanalyse auf einen Blick ── */}
         <section className="block" style={{ background: verdictBg, border: `1px solid ${verdictBorder}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -837,7 +845,10 @@ export default function Screen4() {
                     background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
                     color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
                   }}>{i + 1}</span>
-                  <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
+                    <div style={{ fontSize: 11, color: 'var(--ink-400)', fontStyle: 'italic', marginTop: 4 }}>ℹ️ Orientierungshilfe – keine persönliche Empfehlung.</div>
+                  </div>
                 </div>
               ))
             })()}
@@ -3501,12 +3512,12 @@ export default function Screen4() {
                       {rec.detail}
                     </div>
                   )}
+                  <div style={{ marginTop: 6, marginLeft: 34, fontSize: 11, color: 'var(--ink-400)', fontStyle: 'italic' }}>
+                    ℹ️ Orientierungshilfe – keine persönliche Empfehlung. Bitte konsultieren Sie eine Fachperson.
+                  </div>
                 </div>
               )
             })}
-          </div>
-          <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-400)', fontStyle: 'italic' }}>
-            Diese Empfehlungen basieren auf Ihren Angaben und den AHV/BVG-Kennzahlen 2026. Individuelle steuerliche und rechtliche Aspekte erfordern eine persönliche Fachberatung.
           </div>
         </section>
 

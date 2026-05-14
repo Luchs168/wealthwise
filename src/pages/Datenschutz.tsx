@@ -1,6 +1,15 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Datenschutz() {
+  const navigate = useNavigate()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  function handleDeleteAll() {
+    localStorage.clear()
+    navigate('/')
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Nav */}
@@ -23,16 +32,48 @@ export default function Datenschutz() {
           Datenschutzerklärung
         </h1>
         <p style={{ fontSize: 18, color: 'var(--ink-500)', margin: '0 0 40px' }}>
-          Angaben gemäss DSG (Schweizer Datenschutzgesetz) und DSGVO-Richtlinien.
+          Angaben gemäss nDSG (Schweizer Datenschutzgesetz) und DSGVO-Richtlinien.
         </p>
 
-        {/* Zero-Storage Callout */}
+        {/* Prominenter Lösch-Button */}
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 14, padding: '20px 24px', margin: '0 0 32px', display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: '#991b1b', marginBottom: 4 }}>Alle Ihre Daten löschen</div>
+            <div style={{ fontSize: 14, color: '#7f1d1d', lineHeight: 1.5 }}>Entfernt alle gespeicherten Eingaben aus Ihrem Browser-Speicher (localStorage).</div>
+          </div>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{ padding: '10px 20px', background: '#dc2626', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              🗑 Alle Daten löschen
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: '#7f1d1d', fontWeight: 600 }}>Wirklich löschen?</span>
+              <button
+                onClick={handleDeleteAll}
+                style={{ padding: '8px 16px', background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+              >
+                Ja, löschen
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{ padding: '8px 16px', background: 'transparent', color: '#7f1d1d', border: '1px solid #fca5a5', borderRadius: 6, fontWeight: 500, fontSize: 13, cursor: 'pointer' }}
+              >
+                Abbrechen
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Lokale Speicherung Callout */}
         <div style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 14, padding: '20px 24px', margin: '0 0 32px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--navy-800)', display: 'grid', placeItems: 'center', color: 'white', fontSize: 18, flexShrink: 0 }}>🔒</div>
           <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--navy-900)', marginBottom: 6 }}>Zero-Storage-Prinzip</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--navy-900)', marginBottom: 6 }}>Keine Daten auf Servern – Verarbeitung nur in Ihrem Browser</div>
             <div style={{ fontSize: 15, color: 'var(--navy-800)', lineHeight: 1.6 }}>
-              WealthWise speichert <strong>keine</strong> deiner persönlichen Daten auf einem Server. Alle Eingaben werden ausschliesslich in deinem Browser (localStorage) verarbeitet und nach dem Schliessen der Seite vollständig verworfen. Wir sehen und speichern nie, was du eingibst.
+              WealthWise überträgt <strong>keine</strong> persönlichen Daten an Server. Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Eingaben werden im lokalen Browserspeicher (localStorage) Ihres Geräts gespeichert, damit Sie die Analyse unterbrechen und später fortsetzen können. Diese Daten bleiben auf Ihrem Gerät und verlassen es nicht.
             </div>
           </div>
         </div>
@@ -59,7 +100,7 @@ export default function Datenschutz() {
           2. Welche Daten werden verarbeitet
         </h2>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          WealthWise verarbeitet ausschliesslich Daten, die du aktiv eingibst. Diese Daten verlassen deinen Browser zu keinem Zeitpunkt und werden nicht an Server übertragen.
+          WealthWise verarbeitet ausschliesslich Daten, die Sie aktiv eingeben. Diese Daten verlassen Ihren Browser zu keinem Zeitpunkt und werden nicht an Server übertragen.
         </p>
         <ul style={{ paddingLeft: 22, color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.8 }}>
           <li style={{ marginBottom: 6 }}>Persönliche Angaben (Alter, Wohnort, Zivilstand) – nur im Browser</li>
@@ -68,67 +109,65 @@ export default function Datenschutz() {
           <li style={{ marginBottom: 6 }}>Ausgabenbudget – nur im Browser</li>
         </ul>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          Die Daten werden im localStorage deines Browsers gespeichert, damit du den Fragebogen unterbrechen und später fortsetzen kannst. Du kannst diese Daten jederzeit löschen, indem du den Browser-Cache leerst.
+          Ihre Eingaben werden im lokalen Browserspeicher (localStorage) Ihres Geräts gespeichert, damit Sie den Fragebogen unterbrechen und später fortsetzen können. <strong>Diese Daten bleiben auf Ihrem Gerät gespeichert, bis Sie sie aktiv löschen.</strong> Sie verlassen Ihr Gerät nicht.
         </p>
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px', margin: '0 0 14px', fontSize: 13.5, color: '#78350f' }}>
+          <strong>Auf gemeinsam genutzten Geräten</strong> empfehlen wir, die Daten nach der Nutzung aktiv zu löschen: Nutzen Sie den Lösch-Button oben oder leeren Sie den Browser-Cache.
+        </div>
 
         {/* PK Upload */}
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: 'var(--navy-900)', margin: '28px 0 10px' }}>
-          PK-Ausweis Upload (optional)
+          Dokument-Upload (PK-Ausweis / IK-Auszug)
         </h3>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          Falls du einen PDF-Ausweis deiner Pensionskasse hochlädst, wird dieser <strong>ausschliesslich lokal in deinem Browser</strong> verarbeitet. Das Dokument wird nicht an Server übertragen, nicht gespeichert und nach dem Auslesen der Zahlen sofort verworfen. Die extrahierten Werte (Sparkapital, Umwandlungssatz) werden wie manuell eingegebene Werte behandelt.
+          Falls Sie einen PDF-Ausweis oder ein Foto hochladen, wird dieses <strong>ausschliesslich lokal in Ihrem Browser</strong> verarbeitet. Das Dokument wird nicht an Server übertragen, nicht gespeichert und nach der Extraktion der Zahlenwerte sofort verworfen. Ihre AHV-Nummer und Arbeitgeber-Angaben werden nicht gespeichert.
         </p>
 
         {/* Chatbot */}
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: 'var(--navy-900)', margin: '28px 0 10px' }}>
-          KI-Assistent (Chatbot)
+          Hilfe-Assistent (Chatbot)
         </h3>
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '16px 20px', margin: '0 0 14px', color: '#78350f', fontSize: 15 }}>
-          <b style={{ color: '#92400e' }}>Hinweis:</b> Wenn du den KI-Assistenten verwendest, werden deine Fragen an die Anthropic API übermittelt. Teile dabei keine sensiblen persönlichen Daten wie Namen, AHV-Nummern oder genaue Vermögenswerte mit dem Chatbot.
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '16px 20px', margin: '0 0 14px', color: '#14532d', fontSize: 15 }}>
+          <b style={{ color: '#15803d' }}>Keine externe Übertragung:</b> Der integrierte Hilfe-Assistent verwendet ausschliesslich vorprogrammierte Antworten. Es werden <strong>keine</strong> Daten an externe KI-Dienste (wie Anthropic, OpenAI oder andere) übermittelt. Die Antworten werden vollständig lokal in Ihrem Browser generiert.
         </div>
-        <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          Die Chatbot-Anfragen werden nicht mit deinen Vorsorgedaten verknüpft. Anthropic verarbeitet die Nachrichten gemäss ihrer eigenen Datenschutzrichtlinie (privacy.anthropic.com).
-        </p>
 
         {/* Section 3 */}
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.01em', color: 'var(--navy-900)', margin: '40px 0 12px' }}>
-          3. Cookies
+          3. Drittanbieter
         </h2>
+
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: 'var(--navy-900)', margin: '20px 0 10px' }}>
+          Postleitzahlen-Verzeichnis (openplzapi.org)
+        </h3>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          WealthWise verwendet <strong>keine Tracking-Cookies</strong>. Es werden ausschliesslich technisch notwendige Browser-APIs (localStorage) verwendet, die für die Funktionalität der Anwendung erforderlich sind.
+          Bei der Eingabe Ihrer Postleitzahl wird diese an den Dienst <strong>openplzapi.org</strong> übermittelt, um den Ortsnamen automatisch zu ergänzen. Dabei wird Ihre IP-Adresse an diesen Dienst übertragen. Es werden keine weiteren persönlichen Daten gesendet. Die Nutzung erfolgt ausschliesslich zur Verbesserung der Benutzerfreundlichkeit.
         </p>
 
         {/* Section 4 */}
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.01em', color: 'var(--navy-900)', margin: '40px 0 12px' }}>
-          4. Analytics
+          4. Cookies und Tracking
         </h2>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          WealthWise setzt <strong>Plausible Analytics</strong> ein – eine datenschutzfreundliche Alternative zu Google Analytics. Plausible:
+          WealthWise verwendet <strong>keine Tracking-Cookies und kein Analytics</strong>. Es werden ausschliesslich technisch notwendige Browser-APIs (localStorage) verwendet, die für die Funktionalität der Anwendung erforderlich sind.
         </p>
-        <ul style={{ paddingLeft: 22, color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.8 }}>
-          <li style={{ marginBottom: 6 }}>Erhebt keine personenbezogenen Daten</li>
-          <li style={{ marginBottom: 6 }}>Setzt keine Cookies</li>
-          <li style={{ marginBottom: 6 }}>Ist DSGVO-konform ohne Cookie-Banner</li>
-          <li style={{ marginBottom: 6 }}>Misst nur anonymisierte Seitenaufrufe und Herkunft</li>
-        </ul>
 
         {/* Section 5 */}
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.01em', color: 'var(--navy-900)', margin: '40px 0 12px' }}>
           5. Hosting
         </h2>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          WealthWise wird über <strong>Netlify</strong> gehostet (Netlify Inc., San Francisco, USA). Netlify verarbeitet Standard-Server-Logs (IP-Adressen, Zeitstempel) zum Betrieb der Infrastruktur. Diese werden nicht mit Nutzerprofilen verknüpft. Datenübertragungen in die USA erfolgen auf Basis der Standardvertragsklauseln (SCCs) gemäss Art. 46 DSGVO.
+          WealthWise wird über <strong>Netlify</strong> gehostet (Netlify Inc., San Francisco, USA). Der Hosting-Server befindet sich in den USA, nicht in der Schweiz. Netlify verarbeitet Standard-Server-Logs (IP-Adressen, Zeitstempel) zum Betrieb der Infrastruktur. Diese werden nicht mit Nutzerprofilen verknüpft. Datenübertragungen in die USA erfolgen auf Basis der Standardvertragsklauseln (SCCs) gemäss Art. 46 DSGVO.
         </p>
 
         {/* Section 6 */}
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.01em', color: 'var(--navy-900)', margin: '40px 0 12px' }}>
-          6. Deine Rechte
+          6. Ihre Rechte
         </h2>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          Da WealthWise keine personenbezogenen Daten auf Servern speichert, gibt es keine Daten, die gelöscht, auskunftspflichtig oder übertragbar wären. Du hast die vollständige Kontrolle über deine Daten im Browser.
+          Da WealthWise keine personenbezogenen Daten auf Servern speichert, gibt es keine Server-Daten, die gelöscht, auskunftspflichtig oder übertragbar wären. Sie haben die vollständige Kontrolle über Ihre Daten im Browser – nutzen Sie den Lösch-Button oben.
         </p>
         <p style={{ color: 'var(--ink-700)', margin: '0 0 14px', lineHeight: 1.7 }}>
-          Bei Fragen zum Datenschutz erreichst du uns unter:{' '}
+          Bei Fragen zum Datenschutz erreichen Sie uns unter:{' '}
           <a href="mailto:info@wealthwise.ch" style={{ color: 'var(--navy-700)' }}>info@wealthwise.ch</a>
         </p>
 
@@ -141,7 +180,7 @@ export default function Datenschutz() {
         </p>
 
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-500)', marginTop: 48, paddingTop: 24, borderTop: '1px solid var(--ink-200)' }}>
-          Stand: 2026 · Version 1.0
+          Stand: 2026 · Version 1.1
         </p>
       </main>
 
