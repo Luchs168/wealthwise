@@ -392,6 +392,92 @@ export default function Screen1() {
                     <option value="verwitwet">Verwitwet</option>
                   </select>
                   <WhyBox text="Der Zivilstand ist relevant für die AHV-Plafonierung (Ehepaare: max. 150% der Maximalrente) sowie allfällige Hinterlassenenrenten." />
+                  {person1.civil === 'geschieden' && (
+                    <div style={{ marginTop: 14, padding: '16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 12 }}>
+                        Auswirkungen Ihrer Scheidung auf die Vorsorge
+                      </div>
+                      {/* PK-Splitting */}
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Wurde bei Ihrer Scheidung ein PK-Splitting durchgeführt?</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {(['ja', 'nein', 'weiss_nicht'] as const).map(v => (
+                            <button key={v} type="button"
+                              style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid var(--ink-200)', fontSize: 12, cursor: 'pointer', background: p1.divorcePkSplitting === v ? 'var(--navy-800)' : '#fff', color: p1.divorcePkSplitting === v ? '#fff' : 'var(--ink-700)' }}
+                              onClick={() => updatePerson(1, { divorcePkSplitting: v })}>
+                              {v === 'ja' ? 'Ja' : v === 'nein' ? 'Nein' : 'Weiss nicht'}
+                            </button>
+                          ))}
+                        </div>
+                        {p1.divorcePkSplitting === 'ja' && (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--green-700)' }}>✓ Das aktuelle PK-Guthaben berücksichtigt das Splitting bereits.</div>
+                        )}
+                        {(p1.divorcePkSplitting === 'nein' || p1.divorcePkSplitting === 'weiss_nicht') && (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#92400e' }}>⚠ Prüfen Sie dies mit Ihrer Pensionskasse. Bei einer Scheidung wird das während der Ehe angesparte PK-Guthaben hälftig aufgeteilt.</div>
+                        )}
+                      </div>
+                      {/* AHV-Splitting */}
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Wurde ein AHV-Einkommenssplitting durchgeführt?</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {(['ja', 'nein', 'weiss_nicht'] as const).map(v => (
+                            <button key={v} type="button"
+                              style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid var(--ink-200)', fontSize: 12, cursor: 'pointer', background: p1.divorceAhvSplitting === v ? 'var(--navy-800)' : '#fff', color: p1.divorceAhvSplitting === v ? '#fff' : 'var(--ink-700)' }}
+                              onClick={() => updatePerson(1, { divorceAhvSplitting: v })}>
+                              {v === 'ja' ? 'Ja' : v === 'nein' ? 'Nein' : 'Weiss nicht'}
+                            </button>
+                          ))}
+                        </div>
+                        {(p1.divorceAhvSplitting === 'nein' || p1.divorceAhvSplitting === 'weiss_nicht') && (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#92400e', lineHeight: 1.5 }}>
+                            ℹ Das AHV-Splitting teilt die Einkommen aus den Ehejahren auf beide Partner auf – es kann Ihre AHV-Rente erhöhen. Bestellen Sie Ihren IK-Auszug und prüfen Sie, ob die Einkommensteilung korrekt verbucht ist.{' '}
+                            <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>IK-Auszug bestellen: www.ahv-iv.ch</a>
+                          </div>
+                        )}
+                      </div>
+                      {/* Alimente */}
+                      <div>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Erhalten Sie nachehelichen Unterhalt (Alimente)?</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                          {([true, false] as const).map(v => (
+                            <button key={String(v)} type="button"
+                              style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid var(--ink-200)', fontSize: 12, cursor: 'pointer', background: (p1.alimenteMonthly !== undefined && p1.alimenteMonthly > 0) === v ? 'var(--navy-800)' : '#fff', color: (p1.alimenteMonthly !== undefined && p1.alimenteMonthly > 0) === v ? '#fff' : 'var(--ink-700)' }}
+                              onClick={() => updatePerson(1, v ? { alimenteMonthly: p1.alimenteMonthly || 500 } : { alimenteMonthly: 0 })}>
+                              {v ? 'Ja' : 'Nein'}
+                            </button>
+                          ))}
+                        </div>
+                        {(p1.alimenteMonthly ?? 0) > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <label style={{ fontSize: 12, color: 'var(--ink-600)', flexShrink: 0 }}>CHF/Monat:</label>
+                              <input type="number" className="input" style={{ maxWidth: 120 }} min={0} step={100}
+                                value={p1.alimenteMonthly ?? 0}
+                                onChange={e => updatePerson(1, { alimenteMonthly: parseInt(e.target.value) || 0 })} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <label style={{ fontSize: 12, color: 'var(--ink-600)', flexShrink: 0 }}>Laufzeit:</label>
+                              <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <input type="checkbox" checked={p1.alimenteUnbefristet ?? false}
+                                  onChange={e => updatePerson(1, { alimenteUnbefristet: e.target.checked })} />
+                                Unbefristet
+                              </label>
+                              {!p1.alimenteUnbefristet && (
+                                <span style={{ fontSize: 12, color: 'var(--ink-600)' }}>bis Alter:
+                                  <input type="number" className="input" style={{ width: 70, marginLeft: 6 }} min={55} max={90}
+                                    value={p1.alimenteUntilAge ?? 65}
+                                    onChange={e => updatePerson(1, { alimenteUntilAge: parseInt(e.target.value) || 65 })} />
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: '#92400e' }}>
+                              ⚠ Alimente enden häufig bei der Pensionierung des Zahlungspflichtigen. Planen Sie diesen Wegfall ein.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {isCouple && !hasPartner && (
                     <div className="partner-hint">
                       <div className="ph-ico">💡</div>

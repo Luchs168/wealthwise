@@ -47,6 +47,12 @@ export interface PersonVorsorge {
   pkInterestRate: number        // PK interest rate (default 0.0125)
   pkObligatorisch: number       // mandatory portion of capital (0 = unknown)
   pkMaxGuthaben: number         // max regulatory capital for buy-in calc (0 = unknown)
+  // Scheidungsdetails (optional, nur relevant wenn civil = 'geschieden')
+  divorcePkSplitting?: 'ja' | 'nein' | 'weiss_nicht'
+  divorceAhvSplitting?: 'ja' | 'nein' | 'weiss_nicht'
+  alimenteMonthly?: number
+  alimenteUnbefristet?: boolean
+  alimenteUntilAge?: number
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }
@@ -68,6 +74,7 @@ export interface PropertyData {
   mortgage: number
   steuerwert: number       // Steuerwert der Liegenschaft (≈70% Marktwert)
   hypothekZinssatz: number // Hypothekarzinssatz in % (z.B. 1.5)
+  rentMonthly?: number     // Monatliche Miete (nur relevant wenn has = false)
 }
 
 export interface ExpensesData {

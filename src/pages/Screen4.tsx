@@ -18,6 +18,7 @@ import {
 import type { TaxCivilStatus } from '../lib/tax'
 import { applyEventsToProjection, getEventImpactSummary } from '../utils/lifeEventCalculation'
 import { calculateAllVariants, calculateBreakEven, buildBreakEvenChartData, AHV_2026 } from '../utils/ahvCalculation'
+import { AHV_BEZUG_FAKTOREN_2025 } from '../constants/swissVorsorge2025'
 import {
   projectPKCapital, calculatePKPension, estimateContribution,
   calculateEarlyRetirementImpact, calculateBuyInImpact, buildPKProjectionChartData,
@@ -672,10 +673,77 @@ export default function Screen4() {
             )
           })()}
 
+          {/* EL-Frühwarnung – prominent wenn eligible */}
+          {wdELCheck.eligible && (
+            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #bae6fd', borderRadius: 12 }}>
+              <div style={{ fontWeight: 600, color: '#0c4a6e', marginBottom: 6, fontSize: 13.5 }}>
+                Wichtige Information: Möglicher EL-Anspruch
+              </div>
+              <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.65 }}>
+                Basierend auf Ihren Angaben könnten Sie nach der Pensionierung Anspruch auf Ergänzungsleistungen haben. Das ist kein Almosen – es ist Ihr gesetzlicher Anspruch (ELG). Viele Personen mit Teilzeitkarriere oder nach einer Scheidung haben EL-Anspruch, ohne es zu wissen.
+              </div>
+              <div style={{ marginTop: 8, fontWeight: 700, color: '#0c4a6e' }}>
+                Geschätzte EL: CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-500)' }}>
+                Details weiter unten unter «Entnahmeplanung». Tatsächliche Berechnung durch die zuständige AHV-Zweigstelle.
+              </div>
+            </div>
+          )}
+
+          {/* Fix 9: Vorbezug-Warnung für vulnerable Personen */}
+          {(() => {
+            const isVulnerable = !property.has && (freeAssets || 0) < 100000
+            const hasVorbezug = p1.ahvBezugAge < 65
+            if (!isVulnerable || !hasVorbezug) return null
+            const bezugFactor = AHV_BEZUG_FAKTOREN_2025[p1.ahvBezugAge as keyof typeof AHV_BEZUG_FAKTOREN_2025] ?? 1.0
+            const standardMonthly = bezugFactor > 0 ? Math.round(ahvMonthly1 / bezugFactor) : ahvMonthly1
+            const monthlyLoss = standardMonthly - ahvMonthly1
+            const totalLoss20y = monthlyLoss * 12 * 20
+            const vorbezugYears = 65 - p1.ahvBezugAge
+            return (
+              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#fef2f2', border: '2px solid #fecaca', borderRadius: 12 }}>
+                <div style={{ fontWeight: 600, color: '#991b1b', marginBottom: 6, fontSize: 13 }}>
+                  ⚠ Achtung: Vorbezug bei knappem Vermögen
+                </div>
+                <div style={{ fontSize: 12.5, color: '#7f1d1d', lineHeight: 1.65 }}>
+                  Bei Ihrer Vermögenssituation (kein Wohneigentum, Vermögen unter CHF 100'000) bedeutet der AHV-Vorbezug um {vorbezugYears} {vorbezugYears === 1 ? 'Jahr' : 'Jahre'} eine lebenslange Kürzung von CHF {fmtCHF(monthlyLoss)}/Monat ohne finanzielles Polster. Bei einer Lebenserwartung von 87 Jahren verlieren Sie insgesamt ca. CHF {fmtCHF(totalLoss20y)}. Erwägen Sie, ob {vorbezugYears === 1 ? 'ein weiteres Jahr' : `${vorbezugYears} weitere Jahre`} Erwerbstätigkeit diese Lücke nicht deutlich reduzieren könnte.
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Fix 8: Rechte-basierte Empfehlungen für vulnerable Personen */}
+          {(() => {
+            const isVulnerable = Math.abs(Math.min(0, analysis.surplus)) > 1000 && (freeAssets || 0) < 100000
+            if (!isVulnerable) return null
+            const isGeschieden = civilStatus === 'geschieden'
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Zuerst: Ihre Rechte prüfen
+                </div>
+                {[
+                  { text: 'Prüfen Sie Ihren Anspruch auf Ergänzungsleistungen (EL) – Details weiter unten.', border: '#bae6fd', bg: '#eff6ff' },
+                  ...(isGeschieden ? [{ text: 'Prüfen Sie, ob AHV-Einkommenssplitting und Erziehungsgutschriften korrekt im IK-Auszug verbucht sind.', border: '#bae6fd', bg: '#eff6ff' }] : []),
+                  { text: 'Erwägen Sie eine Weiterarbeit bis 65 statt Vorbezug – vermeidet 13.6% lebenslange AHV-Kürzung.', border: '#fde68a', bg: '#fffbeb' },
+                ].map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', marginBottom: 6, background: r.bg, borderRadius: 10, border: `1px solid ${r.border}` }}>
+                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
+                    <span style={{ fontSize: 13, color: 'var(--ink-800)', lineHeight: 1.5 }}>{r.text}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           {/* Top-3 recommendations – prominent */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Ihre Top-3 Massnahmen
+              {(() => {
+                const isVulnerable = Math.abs(Math.min(0, analysis.surplus)) > 1000 && (freeAssets || 0) < 100000
+                return isVulnerable ? 'Weitere Massnahmen' : 'Ihre Top-3 Massnahmen'
+              })()}
             </div>
             {(RECS[analysis.verdict] ?? []).slice(0, 3).map((rec, i) => (
               <div key={i} style={{
@@ -1418,6 +1486,11 @@ export default function Screen4() {
               {property.has && property.value > 0 && (
                 <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: 12, color: '#0c4a6e' }}>
                   Ihre Immobilie (Verkehrswert CHF {fmtCHF(property.value)}) ist NICHT als liquides Vermögen berücksichtigt. Sie könnten diese theoretisch verkaufen oder eine Umkehrhypothek prüfen.
+                </div>
+              )}
+              {!property.has && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 6, fontSize: 12, color: 'var(--ink-600)', lineHeight: 1.5 }}>
+                  Tipp: Als Mieterin / Mieter haben Sie keine Hypothekarschulden. Prüfen Sie nach der Pensionierung Ihren Anspruch auf kantonale Mietzinsbeiträge – viele Kantone bieten einkommensabhängige Mietzinsverbilligungen für Rentnerinnen und Rentner an.
                 </div>
               )}
             </div>

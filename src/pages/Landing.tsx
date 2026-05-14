@@ -233,8 +233,8 @@ export default function Landing() {
             </svg>
 
             <div className="hero-badge tr">
-              <b>CHF 7'850</b>
-              <span>Monatliche Rente</span>
+              <b>CHF 2'000 – 5'500</b>
+              <span>Monatliche Rente (je nach Situation)</span>
             </div>
             <div className="hero-badge bl">
               <b>97%</b>
@@ -286,9 +286,9 @@ export default function Landing() {
                 stars: 5,
               },
               {
-                text: 'Besonders hilfreich war die Gegenüberstellung Rente vs. Kapital. Hat mir geholfen, die richtige Entscheidung vorzubereiten.',
-                name: 'Thomas M.',
-                location: 'Basel, 57 Jahre',
+                text: 'Nach meiner Scheidung hatte ich jahrelang Angst vor den Zahlen. Dieses Tool hat mir gezeigt, dass ich Anspruch auf Ergänzungsleistungen habe – das wusste ich nicht.',
+                name: 'Ruth G.',
+                location: 'Thun, 61 Jahre',
                 stars: 5,
               },
             ].map((t, i) => (

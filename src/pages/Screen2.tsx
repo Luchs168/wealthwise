@@ -629,19 +629,20 @@ export default function Screen2() {
                       </div>
                     </div>
                     <div className="field">
-                      <label htmlFor={`ahv-gaps-p${id}`}>Beitragslücken</label>
-                      <select
+                      <label htmlFor={`ahv-gaps-p${id}`}>Beitragslücken (Anzahl Jahre)</label>
+                      <input
+                        type="number"
                         id={`ahv-gaps-p${id}`}
                         className="input"
+                        min={0}
+                        max={20}
+                        step={1}
                         value={gaps}
-                        onChange={(e) => updatePerson(id, { ahvContributionGaps: parseInt(e.target.value) })}
-                        style={{ appearance: 'auto' }}
-                      >
-                        <option value={0}>Keine Lücken (0 Jahre)</option>
-                        <option value={1}>1–2 Jahre Lücken</option>
-                        <option value={3}>3–5 Jahre Lücken</option>
-                        <option value={6}>Mehr als 5 Jahre Lücken</option>
-                      </select>
+                        onChange={(e) => updatePerson(id, { ahvContributionGaps: Math.min(20, Math.max(0, parseInt(e.target.value) || 0)) })}
+                      />
+                      <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 4 }}>
+                        Lücken entstehen z. B. durch Auslandaufenthalt ohne AHV-Beitrag oder durch Einkommen unter CHF 5'000/Jahr.
+                      </div>
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 4 }}>
@@ -652,6 +653,11 @@ export default function Screen2() {
                   {autoY < 44 && (
                     <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
                       ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erhalten Sie {Math.round(autoY / 44 * 100)}% der vollen AHV-Rente ({44 - autoY} Beitragsjahr{44 - autoY === 1 ? ' fehlt' : 'e fehlen'}). Das sind ca. CHF {fmtCHF(Math.round((44 - autoY) / 44 * 2520))} weniger pro Monat – zusätzlich zur Vorbezugskürzung.
+                    </div>
+                  )}
+                  {gaps > 0 && persons.find(p => p.id === id)?.hasKZG && (
+                    <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
+                      ℹ Gut zu wissen: Ihre Erziehungsgutschriften können Beitragslücken teilweise kompensieren. Die AHV rechnet Ihnen für jedes Jahr mit Kindern unter 16 eine Gutschrift von CHF 45'360 an (hälftig bei Ehepaaren). Diese sind in Ihrer Rentenberechnung bereits berücksichtigt.
                     </div>
                   )}
                 </div>
@@ -1179,9 +1185,18 @@ export default function Screen2() {
                     ⚠ Ein Umwandlungssatz über 6.8% liegt über dem BVG-Minimum. Bitte prüfen Sie Ihre Angabe.
                   </div>
                 )}
-                {cur.pkCurrentCapital > 0 && (
+                {cur.hasPK && (
                   <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)' }}>
-                    ⌀ CH-Vergleich (BFS 2022, Alter 55–64): Frauen CHF 360'000 · Männer CHF 500'000 Altersguthaben
+                    {(() => {
+                      const age = (activeTab === 1 ? pkProj1 : pkProj2)?.currentAge ?? 55
+                      const isFemale = (activeTab === 1 ? p1 : p2).sex === 'f'
+                      const employGrade = (activeTab === 1 ? p1 : p2).employmentGrade ?? 100
+                      const medianFull = isFemale
+                        ? (age < 55 ? 260000 : age < 60 ? 320000 : 370000)
+                        : (age < 55 ? 380000 : age < 60 ? 460000 : 520000)
+                      const medianAdjusted = Math.round(medianFull * (employGrade / 100))
+                      return `⌀ CH-Vergleich (BFS 2022): ${isFemale ? 'Frauen' : 'Männer'}, Alter ${age}, ${employGrade}% Pensum – Median ca. CHF ${fmtCHF(medianAdjusted)}`
+                    })()}
                   </div>
                 )}
               </>
@@ -1318,6 +1333,19 @@ export default function Screen2() {
                   label="Ich besitze selbst genutztes Wohneigentum"
                 />
               </div>
+
+              {!prop.has && (
+                <div style={{ marginTop: 14 }}>
+                  <CHFField
+                    label="Monatliche Miete (optional)"
+                    value={prop.rentMonthly ?? 0}
+                    onChange={(v) => setProperty({ rentMonthly: v })}
+                  />
+                  <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12, color: 'var(--ink-500)', lineHeight: 1.5 }}>
+                    Als Mieterin / Mieter entfällt der Eigenmietwert. Sie haben keine Hypothekarschulden und volle Flexibilität beim Wohnort im Alter.
+                  </div>
+                </div>
+              )}
 
               {prop.has && (
                 <>
