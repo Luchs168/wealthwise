@@ -137,6 +137,12 @@ export interface WealthWiseState {
   // Life events
   lifeEvents: LifeEvent[]
 
+  // Touched flags — true only when user has actively entered a value (not defaults)
+  ahvTouched: boolean
+  pkTouched: boolean
+  pillar3aTouched: boolean
+  wealthTouched: boolean
+
   // Actions
   setGoal: (g: string) => void
   setCivilStatus: (s: CivilStatus) => void
@@ -158,6 +164,10 @@ export interface WealthWiseState {
   addLifeEvent: (e: LifeEvent) => void
   updateLifeEvent: (id: string, patch: Partial<LifeEvent>) => void
   removeLifeEvent: (id: string) => void
+  setAhvTouched: (v: boolean) => void
+  setPkTouched: (v: boolean) => void
+  setPillar3aTouched: (v: boolean) => void
+  setWealthTouched: (v: boolean) => void
   resetStore: () => void
 }
 
@@ -251,6 +261,11 @@ export const useStore = create<WealthWiseState>()(
       riskProfile: 'balanced',
       lifeEvents: [],
 
+      ahvTouched: false,
+      pkTouched: false,
+      pillar3aTouched: false,
+      wealthTouched: false,
+
       setGoal: (g) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
       setPerson1: (p) => set((state) => ({ person1: { ...state.person1, ...p } })),
@@ -277,6 +292,10 @@ export const useStore = create<WealthWiseState>()(
           lifeEvents: state.lifeEvents.map(e => e.id === id ? { ...e, ...patch } : e),
         })),
       removeLifeEvent: (id) => set(state => ({ lifeEvents: state.lifeEvents.filter(e => e.id !== id) })),
+      setAhvTouched: (v) => set({ ahvTouched: v }),
+      setPkTouched: (v) => set({ pkTouched: v }),
+      setPillar3aTouched: (v) => set({ pillar3aTouched: v }),
+      setWealthTouched: (v) => set({ wealthTouched: v }),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
@@ -299,6 +318,10 @@ export const useStore = create<WealthWiseState>()(
         kirchensteuer: false,
         riskProfile: 'balanced',
         lifeEvents: [],
+        ahvTouched: false,
+        pkTouched: false,
+        pillar3aTouched: false,
+        wealthTouched: false,
       }),
     }),
     {

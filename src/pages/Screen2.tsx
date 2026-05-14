@@ -373,7 +373,9 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
 
 export default function Screen2() {
   const navigate = useNavigate()
-  const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer } = useStore()
+  const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer,
+    ahvTouched, pkTouched, pillar3aTouched, wealthTouched,
+    setAhvTouched, setPkTouched, setPillar3aTouched, setWealthTouched } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [subStep, setSubStep] = useState<0 | 1>(0)
   const [ahvExpanded, setAhvExpanded] = useState(false)
@@ -506,13 +508,8 @@ export default function Screen2() {
     (p1.hasPK ? (p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0) : 0) +
     (isPaar && p2.hasPK ? (p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0) : 0)
 
-  // Completion tracking
-  const completedSections = [
-    p1.income > 0,
-    p1.hasPK && p1.pkCapital > 0,
-    p1.has3a && p1.balance3a > 0,
-    useStore.getState().freeAssets > 0,
-  ].filter(Boolean).length
+  // Completion tracking — only count sections the user has actively filled in
+  const completedSections = [ahvTouched, pkTouched, pillar3aTouched, wealthTouched].filter(Boolean).length
 
   const AHV_BEZUG_LABELS: Record<number, string> = {
     63: 'Vorbezug 2 Jahre · Faktor 0.864 (−13.6%)',
@@ -585,10 +582,10 @@ export default function Screen2() {
           {/* Section status pills */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
-              { label: 'AHV', done: p1.income > 0, hint: p1.income > 0 ? `CHF ${fmtCHF(ahvResult1.monthlyRente)}/Mt.` : null },
-              { label: 'Pensionskasse', done: p1.hasPK && p1.pkCapital > 0, hint: p1.hasPK && p1.pkCapital > 0 ? `CHF ${fmtCHF(pk1.monthlyRente)}/Mt.` : null },
-              { label: 'Säule 3a', done: p1.has3a && p1.balance3a > 0, hint: p1.has3a && p1.balance3a > 0 ? `CHF ${fmtCHF(p1.balance3a)}` : null },
-              { label: 'Vermögen', done: useStore.getState().freeAssets > 0, hint: useStore.getState().freeAssets > 0 ? `CHF ${fmtCHF(useStore.getState().freeAssets)}` : null },
+              { label: 'AHV', done: ahvTouched, hint: ahvTouched ? `CHF ${fmtCHF(ahvResult1.monthlyRente)}/Mt.` : null },
+              { label: 'Pensionskasse', done: pkTouched, hint: pkTouched && p1.hasPK ? `CHF ${fmtCHF(pk1.monthlyRente)}/Mt.` : null },
+              { label: 'Säule 3a', done: pillar3aTouched, hint: pillar3aTouched && p1.has3a && p1.balance3a > 0 ? `CHF ${fmtCHF(p1.balance3a)}` : null },
+              { label: 'Vermögen', done: wealthTouched, hint: wealthTouched ? `CHF ${fmtCHF(useStore.getState().freeAssets)}` : null },
             ].map(({ label, done, hint }) => (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', gap: 5,
@@ -799,7 +796,7 @@ export default function Screen2() {
                         max={20}
                         step={1}
                         value={gaps}
-                        onChange={(e) => updatePerson(id, { ahvContributionGaps: Math.min(20, Math.max(0, parseInt(e.target.value) || 0)) })}
+                        onChange={(e) => { setAhvTouched(true); updatePerson(id, { ahvContributionGaps: Math.min(20, Math.max(0, parseInt(e.target.value) || 0)) }) }}
                       />
                       <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 4 }}>
                         Lücken entstehen z. B. durch Auslandaufenthalt ohne AHV-Beitrag oder durch Einkommen unter CHF 5'000/Jahr.
@@ -1376,6 +1373,7 @@ export default function Screen2() {
                   </div>
                 )}
                 <PkUpload onExtract={(fields) => {
+                  setPkTouched(true)
                   const personBase = activeTab === 1 ? person1 : person2
                   const retireAge = personBase.retireAge || 65
                   const tableEntry = fields.retirementTable?.[retireAge]
@@ -1411,7 +1409,7 @@ export default function Screen2() {
                   <CHFField
                     label="Aktuelles Altersguthaben"
                     value={pkCapitalDisplay}
-                    onChange={(v) => updatePKAndProject(activeTab, { pkCurrentCapital: v })}
+                    onChange={(v) => { if (v > 0) setPkTouched(true); updatePKAndProject(activeTab, { pkCurrentCapital: v }) }}
                   />
                   {isEstimated ? (
                     <div style={{ fontSize: 12, color: '#0369a1', marginTop: 3, paddingLeft: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1939,7 +1937,7 @@ export default function Screen2() {
                 <CHFField
                   label="Aktuelles 3a-Guthaben (Total)"
                   value={cur.balance3a}
-                  onChange={(v) => updatePerson(activeTab, { balance3a: v })}
+                  onChange={(v) => { if (v > 0) setPillar3aTouched(true); updatePerson(activeTab, { balance3a: v }) }}
                 />
                 <CHFField
                   label="Jährliche Einzahlung"
@@ -2101,13 +2099,13 @@ export default function Screen2() {
           <CHFField
             label="Sparkonto / Bargeld (sofort verfügbar)"
             value={useStore.getState().sparkonto}
-            onChange={(v) => useStore.getState().setSparkonto(v)}
+            onChange={(v) => { if (v > 0) setWealthTouched(true); useStore.getState().setSparkonto(v) }}
             hint="Sofort liquidierbar: Sparkonto, Sichtguthaben, Bargeld"
           />
           <CHFField
             label="Wertschriften / Anlagen"
             value={useStore.getState().wertschriften}
-            onChange={(v) => useStore.getState().setWertschriften(v)}
+            onChange={(v) => { if (v > 0) setWealthTouched(true); useStore.getState().setWertschriften(v) }}
             hint="Aktien, Fonds, ETFs, Obligationen (marktabhängig)"
           />
           {(useStore.getState().sparkonto + useStore.getState().wertschriften) > 0 && (
@@ -2323,7 +2321,10 @@ export default function Screen2() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => subStep === 0 ? navigate('/schritt/1') : setSubStep(0)}>← Zurück</button>
-          <button className="btn btn-primary" onClick={() => subStep === 0 ? setSubStep(1) : setShowTransition(true)}>
+          <button className="btn btn-primary" onClick={() => {
+            if (subStep === 0) { setAhvTouched(true); setSubStep(1) }
+            else setShowTransition(true)
+          }}>
             {subStep === 0 ? 'Weiter zu PK & Vermögen' : 'Weiter'}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/>
