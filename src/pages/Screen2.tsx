@@ -10,6 +10,8 @@ import { projectPKCapital, calculatePKPension, estimateContribution } from '../u
 import { PK_CONSTANTS } from '../constants/pkConstants'
 import { parsePKPdf } from '../lib/pkPdfParser'
 import type { PKExtractResult } from '../lib/pkPdfParser'
+import { parseIKAuszug } from '../lib/ikAuszugParser'
+import type { IKAuszugResult } from '../lib/ikAuszugParser'
 
 function TransitionOverlay2({
   onContinue,
@@ -299,6 +301,12 @@ export default function Screen2() {
   const [pkContribMode, setPkContribMode] = useState<['auto' | 'manuell', 'auto' | 'manuell']>(['auto', 'auto'])
   const [pkEinkaufExpanded, setPkEinkaufExpanded] = useState(false)
   const [pkDetailsExpanded, setPkDetailsExpanded] = useState(false)
+  const [ikResult, setIkResult] = useState<IKAuszugResult | null>(null)
+  const [ikResult2, setIkResult2] = useState<IKAuszugResult | null>(null)
+  const [ikLoading, setIkLoading] = useState(false)
+  const [ikLoading2, setIkLoading2] = useState(false)
+  const [ikApplied, setIkApplied] = useState(false)
+  const [ikApplied2, setIkApplied2] = useState(false)
 
   const p1 = persons.find(p => p.id === 1)!
   const p2 = persons.find(p => p.id === 2)!
@@ -919,6 +927,191 @@ export default function Screen2() {
                   )
                 })}
               </div>
+
+              {/* IK-Auszug Upload */}
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--ink-100)' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>
+                  IK-Auszug (AHV-Kontoauszug) hochladen
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 12, lineHeight: 1.5 }}>
+                  Mit Ihrem individuellen Kontoauszug (IK-Auszug) der SVA können wir Ihr massgebendes Durchschnittseinkommen (MDJ) und Ihre Beitragslücken exakt berechnen.
+                  {' '}<a href="https://www.ahv-iv.ch/de/Merkblaetter-Formulare/Formulare/Anmeldung-IK-Auszug" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>IK-Auszug bestellen (kostenlos)</a>
+                </div>
+
+                {[
+                  { id: 1 as const, name: person1.name || 'Person 1', result: ikResult, loading: ikLoading, applied: ikApplied },
+                  ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2', result: ikResult2, loading: ikLoading2, applied: ikApplied2 }] : []),
+                ].map(({ id, name, result, loading, applied }) => {
+                  const setResult = id === 1 ? setIkResult : setIkResult2
+                  const setLoading = id === 1 ? setIkLoading : setIkLoading2
+                  const setApplied = id === 1 ? setIkApplied : setIkApplied2
+
+                  const handleFile = async (file: File) => {
+                    setLoading(true)
+                    setResult(null)
+                    setApplied(false)
+                    try {
+                      const r = await parseIKAuszug(file)
+                      setResult(r)
+                    } finally {
+                      setLoading(false)
+                    }
+                  }
+
+                  const handleApply = () => {
+                    if (!result) return
+                    const pBase = id === 1 ? person1 : person2
+                    const retireAge = pBase.retireAge || 65
+                    const currentYear = new Date().getFullYear()
+                    const birthYear = pBase.dob
+                      ? (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))
+                      : 0
+                    const age = birthYear > 0 ? currentYear - birthYear : 40
+                    const yearsUntilRetire = Math.max(0, retireAge - age)
+                    const projectedContribYears = Math.min(44, result.numYears + yearsUntilRetire)
+                    const detectedGaps = result.gapYears.length
+
+                    updatePerson(id, {
+                      ahvContributionGaps: detectedGaps,
+                      income: result.lastYearIncome > 0 ? result.lastYearIncome : undefined,
+                    })
+                    setApplied(true)
+
+                    // Show erziehungsgutschriften hint if children + low income years
+                    const _ = projectedContribYears // used in UI below
+                    void _
+                  }
+
+                  return (
+                    <div key={`ik-${id}`} style={{ marginBottom: isPaar ? 16 : 0 }}>
+                      {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 8 }}>{name}</div>}
+
+                      {/* Drop zone */}
+                      {!result && !loading && (
+                        <label
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                            gap: 8, padding: '20px 16px', border: '2px dashed var(--navy-200)',
+                            borderRadius: 10, cursor: 'pointer', background: 'var(--navy-50)',
+                            transition: 'border-color 0.15s',
+                          }}
+                          onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-500)' }}
+                          onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)' }}
+                          onDrop={e => {
+                            e.preventDefault()
+                            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--navy-200)'
+                            const file = e.dataTransfer.files[0]
+                            if (file) handleFile(file)
+                          }}
+                        >
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--navy-400)" strokeWidth="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                          <span style={{ fontSize: 13, color: 'var(--navy-600)', fontWeight: 500 }}>IK-Auszug als PDF hochladen</span>
+                          <span style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>oder hier ablegen</span>
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            style={{ display: 'none' }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+                          />
+                        </label>
+                      )}
+
+                      {loading && (
+                        <div style={{ padding: '16px', background: 'var(--navy-50)', borderRadius: 10, textAlign: 'center', fontSize: 13, color: 'var(--navy-600)' }}>
+                          IK-Auszug wird analysiert…
+                        </div>
+                      )}
+
+                      {result && !applied && (
+                        <div style={{ padding: '14px 16px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 10 }}>
+                          <div style={{ fontWeight: 700, color: '#15803d', fontSize: 13.5, marginBottom: 10 }}>
+                            IK-Auszug ausgelesen
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12.5, marginBottom: 12 }}>
+                            <div style={{ color: 'var(--ink-600)' }}>Beitragsjahre erkannt:</div>
+                            <div style={{ fontWeight: 600, color: '#166534' }}>{result.numYears} Jahre ({result.firstYear}–{result.lastYear})</div>
+                            <div style={{ color: 'var(--ink-600)' }}>Lückenjahre:</div>
+                            <div style={{ fontWeight: 600, color: result.gapYears.length > 0 ? '#dc2626' : '#166534' }}>
+                              {result.gapYears.length === 0 ? 'Keine' : `${result.gapYears.length} (${result.gapYears.slice(0, 5).join(', ')}${result.gapYears.length > 5 ? '…' : ''})`}
+                            </div>
+                            <div style={{ color: 'var(--ink-600)' }}>MDJ (Ø-Einkommen AHV):</div>
+                            <div style={{ fontWeight: 600, color: '#166534' }}>CHF {result.mdj.toLocaleString('de-CH')}</div>
+                            <div style={{ color: 'var(--ink-600)' }}>Letztes Jahreseinkommen:</div>
+                            <div style={{ fontWeight: 600, color: '#166534' }}>CHF {result.lastYearIncome.toLocaleString('de-CH')}</div>
+                          </div>
+
+                          {result.warnings.length > 0 && (
+                            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
+                              {result.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+                            </div>
+                          )}
+
+                          {/* Erziehungsgutschriften hint when user has children + low income years */}
+                          {(() => {
+                            const lowIncomeYears = result.entries.filter(e => e.income < 20000 && e.income > 0).length
+                            const hasKids = hasPartner
+                              ? (persons.find(p => p.id === id)?.hasKZG)
+                              : (persons.find(p => p.id === id)?.hasKZG)
+                            if (lowIncomeYears >= 2 && !hasKids) {
+                              return (
+                                <div style={{ marginBottom: 10, padding: '8px 10px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 7, fontSize: 11.5, color: '#1e40af', lineHeight: 1.55 }}>
+                                  Ihr IK-Auszug zeigt {lowIncomeYears} Jahre mit tiefem Einkommen. Falls Sie in diesen Jahren Kinder erzogen haben (unter 16), können Erziehungsgutschriften (CHF 45'360/Jahr) Ihr MDJ erhöhen – aktivieren Sie «Erziehungsgutschriften» oben.
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
+
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={handleApply}
+                              style={{
+                                padding: '8px 16px', background: '#15803d', color: '#fff',
+                                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                              }}
+                            >
+                              Werte übernehmen
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setResult(null); setApplied(false) }}
+                              style={{
+                                padding: '8px 14px', background: 'transparent', color: 'var(--ink-500)',
+                                border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
+                              }}
+                            >
+                              Verwerfen
+                            </button>
+                          </div>
+
+                          <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-400)', lineHeight: 1.5 }}>
+                            Die Auswertung basiert auf den erkannten Einkommenseinträgen. Letztes Jahreseinkommen wird als neues Durchschnittseinkommen übernommen. Massgebendes Durchschnittseinkommen (MDJ) wird für die Rentenprognose verwendet. Prüfen Sie die Werte im Zweifelsfall mit Ihrer SVA-Auskunft.
+                          </div>
+                        </div>
+                      )}
+
+                      {applied && result && (
+                        <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>✓ IK-Auszug übernommen · {result.numYears} Beitragsjahre · MDJ CHF {result.mdj.toLocaleString('de-CH')}</span>
+                          <button
+                            type="button"
+                            onClick={() => { setResult(null); setApplied(false) }}
+                            style={{ fontSize: 11.5, color: 'var(--ink-400)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            Zurücksetzen
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
             </div>
           )}
 
