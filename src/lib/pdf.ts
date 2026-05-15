@@ -158,67 +158,95 @@ export async function exportPDF(data: PdfData): Promise<void> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SEITE 1: DECKBLATT
+  // SEITE 1: DECKBLATT (weisser Hintergrund, druckfreundlich)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  doc.setFillColor(...NAVY)
+  // White background — never dark-mode
+  doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, W, PAGE_H, 'F')
 
-  // Decorative band
-  doc.setFillColor(...NAVY2)
-  doc.rect(0, 80, W, 2, 'F')
-  doc.rect(0, 185, W, 2, 'F')
-
-  // Logo area
-  doc.setFillColor(255, 255, 255)
+  // Navy header bar
+  doc.setFillColor(...NAVY)
+  doc.rect(0, 0, W, 18, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(32)
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
-  doc.text('W', ML + 2, 55)
-  doc.setFontSize(11)
+  doc.text('WealthWise', ML, 11)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(160, 200, 240)
-  doc.text('WealthWise', ML, 63)
-  doc.text('Digitale Vorsorgeplanung Schweiz', ML, 70)
+  doc.text('Digitale Vorsorgeplanung Schweiz', ML + 24, 11)
+  doc.setTextColor(160, 200, 240)
+  doc.text(dateStr, W - MR, 11, { align: 'right' })
 
-  // Title
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(26)
+  // Thin accent band
+  doc.setFillColor(...NAVY2)
+  doc.rect(0, 18, W, 2, 'F')
+
+  // Title block — dark text on white
+  doc.setTextColor(...NAVY)
+  doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
-  doc.text('Persönliche', ML, 100)
-  doc.text('Vorsorgeanalyse', ML, 112)
+  doc.text('Persönliche', ML, 55)
+  doc.text('Vorsorgeanalyse', ML, 70)
 
   // Name & location
   doc.setFontSize(14)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(180, 210, 240)
-  doc.text(names, ML, 128)
+  doc.setTextColor(...INK)
+  doc.text(names, ML, 86)
   if (data.location) {
     doc.setFontSize(11)
-    doc.setTextColor(130, 165, 200)
-    doc.text(`${data.location.ort}, Kanton ${data.location.kanton}`, ML, 136)
+    doc.setTextColor(...INK5)
+    doc.text(`${data.location.ort}, Kanton ${data.location.kanton}`, ML, 94)
   }
 
-  // Verdict box
+  // Horizontal rule
+  doc.setDrawColor(...NAVY)
+  doc.setLineWidth(0.8)
+  doc.line(ML, 100, W - MR, 100)
+  doc.setLineWidth(0.2)
+
+  // Verdict box (colored, white text)
   doc.setFillColor(...verdictColor)
-  doc.roundedRect(ML, 150, CW, 32, 6, 6, 'F')
+  doc.roundedRect(ML, 108, CW, 32, 6, 6, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(verdictLabel, ML + 10, 163)
+  doc.text(verdictLabel, ML + 10, 121)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Score ${analysis.sustainabilityScore}/100`, ML + 10, 173)
-  doc.text(`Renten: CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, ML + 60, 163)
-  doc.text(`Budget: CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ML + 60, 173)
+  doc.text(`Score ${analysis.sustainabilityScore}/100`, ML + 10, 131)
+  doc.text(`Renten: CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt.`, ML + 60, 121)
+  doc.text(`Budget: CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, ML + 60, 131)
 
-  // Date
-  doc.setTextColor(130, 165, 200)
+  // Key info grid on white
+  const coverItems: [string, string][] = [
+    ['Pensionierungsalter', `${data.retirementAge1} Jahre`],
+    ['Risikoprofil', riskLabel],
+    ['Steuerkanton', data.location?.kanton ?? '–'],
+    ['Analyse erstellt', dateStr],
+  ]
   doc.setFontSize(9)
-  doc.text(`Erstellt am ${dateStr} auf Basis Ihrer Angaben`, ML, PAGE_H - 22)
+  const ciW = (CW - 6) / 2
+  coverItems.forEach(([label, value], i) => {
+    const cx = ML + (i % 2) * (ciW + 6)
+    const cy = 152 + Math.floor(i / 2) * 18
+    doc.setFillColor(...INK1)
+    doc.roundedRect(cx, cy, ciW, 14, 2, 2, 'F')
+    doc.setTextColor(...INK5)
+    doc.setFont('helvetica', 'normal')
+    doc.text(label, cx + 6, cy + 6)
+    doc.setTextColor(...NAVY)
+    doc.setFont('helvetica', 'bold')
+    doc.text(value, cx + 6, cy + 11.5)
+  })
+
+  // Footer disclaimer — dark on white
+  doc.setTextColor(...INK5)
   doc.setFontSize(8)
-  doc.setTextColor(100, 140, 180)
-  doc.text('Diese Analyse ersetzt keine professionelle Finanz- oder Vorsorgeberatung.', ML, PAGE_H - 14)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Erstellt am ${dateStr} auf Basis Ihrer Angaben.`, ML, PAGE_H - 22)
+  doc.text('Diese Analyse ersetzt keine professionelle Finanz- oder Vorsorgeberatung.', ML, PAGE_H - 15)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SEITE 2: ZUSAMMENFASSUNG
