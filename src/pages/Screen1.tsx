@@ -216,6 +216,7 @@ export default function Screen1() {
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [showOnboarding, setShowOnboarding] = useState(() => !sessionStorage.getItem('ww_onboarded'))
   const [showTransition, setShowTransition] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const isCouple = person1.civil === 'verheiratet' || person1.civil === 'partnerschaft'
 
   useEffect(() => {
@@ -238,6 +239,23 @@ export default function Screen1() {
     setPerson1({ civil: 'verheiratet' })
     setHasPartner(true)
     setActiveTab(2)
+  }
+
+  const handleWeiter = () => {
+    const errs: Record<string, string> = {}
+    if (!person1.dob) errs.dob1 = 'Bitte Geburtsdatum eingeben'
+    if (p1.income <= 0) errs.income = 'Bitte Bruttoeinkommen eingeben'
+    if (!location) errs.location = 'Bitte Wohnort / Kanton auswählen'
+
+    if (Object.keys(errs).length > 0) {
+      if (errs.dob1 || errs.income) setActiveTab(1)
+      setErrors(errs)
+      const firstId = errs.dob1 ? 'dob1' : errs.income ? 'income-p1' : 'location-field'
+      setTimeout(() => document.getElementById(firstId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+      return
+    }
+    setErrors({})
+    setShowTransition(true)
   }
 
   return (
@@ -357,8 +375,10 @@ export default function Screen1() {
                     className="date-input"
                     autoComplete="bday"
                     value={person1.dob}
-                    onChange={(e) => setPerson1({ dob: e.target.value })}
+                    onChange={(e) => { setPerson1({ dob: e.target.value }); setErrors(prev => { const n = { ...prev }; delete n.dob1; return n }) }}
+                    style={errors.dob1 ? { borderColor: '#dc2626', boxShadow: '0 0 0 3px rgba(220,38,38,.12)' } : undefined}
                   />
+                  {errors.dob1 && <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626' }}>{errors.dob1}</div>}
                   <WhyBox text="Ihr Geburtsdatum bestimmt Ihr aktuelles Alter und die verbleibenden Beitragsjahre bis zur Pensionierung – beides massgebend für die Höhe Ihrer AHV-Rente." />
                 </div>
               </div>
@@ -498,11 +518,12 @@ export default function Screen1() {
                   : <>Alter: <span style={{ color: 'var(--ink-400)' }}>–</span></>}
               </div>
 
-              <div style={{ marginTop: 22 }}>
+              <div id="location-field" style={{ marginTop: 22 }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 16, color: 'var(--ink-700)', margin: '0 0 10px' }}>
-                  Wohnort
+                  Wohnort <span style={{ color: '#dc2626' }}>*</span>
                 </h3>
-                <LocationField value={location} onChange={setLocation} />
+                <LocationField value={location} onChange={(l) => { setLocation(l); if (l) setErrors(prev => { const n = { ...prev }; delete n.location; return n }) }} />
+                {errors.location && <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626' }}>{errors.location}</div>}
               </div>
             </div>
           )}
@@ -626,9 +647,11 @@ export default function Screen1() {
                 <IncomeInput
                   id={`income-p${activeTab}`}
                   value={curP.income}
-                  onChange={(v) => updatePerson(activeTab, { income: v })}
+                  hasError={activeTab === 1 && !!errors.income}
+                  onChange={(v) => { updatePerson(activeTab, { income: v }); if (v > 0 && activeTab === 1) setErrors(prev => { const n = { ...prev }; delete n.income; return n }) }}
                 />
               </div>
+              {activeTab === 1 && errors.income && <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626' }}>{errors.income}</div>}
               {curP.employmentStatus === 'selfEmployed'
                 ? <WhyBox text="Als Selbständige/r schwankt Ihr Einkommen. Geben Sie den Durchschnitt der letzten 3 Jahre ein. Das Nettoeinkommen (nach AHV/IV/EO-Abzügen) bestimmt Ihr 3a-Maximum (20%) und die AHV-Rente." />
                 : <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />}
@@ -819,40 +842,6 @@ export default function Screen1() {
           </div>
         </section>
 
-        {/* Summary card */}
-        {(person1.name || age1 !== null || p1.income > 0) && (
-          <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>
-            <div className="block-head">
-              <h2 className="block-title" style={{ color: 'var(--navy-800)' }}>
-                <span className="block-num" style={{ background: 'var(--navy-700)', color: 'white' }}>✓</span>
-                Zusammenfassung – Schritt 1
-              </h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-              {[
-                { label: 'Name', value: person1.name || '—' },
-                { label: 'Alter', value: age1 !== null ? `${age1} Jahre` : '—' },
-                { label: 'Bruttoeinkommen', value: p1.income > 0 ? `CHF ${fmtCHF(p1.income)}/Jahr` : '—' },
-                { label: 'Pensionierungsalter', value: `mit ${person1.retireAge} Jahren` },
-                ...(isPaar ? [
-                  { label: person2.name || 'Partner:in', value: age2 !== null ? `${age2} Jahre` : '—' },
-                  { label: 'Pensionierungsalter P2', value: `mit ${person2.retireAge} Jahren` },
-                ] : []),
-              ].map((item) => (
-                <div key={item.label}>
-                  <div style={{
-                    fontSize: 10.5, color: 'var(--ink-400)', textTransform: 'uppercase',
-                    letterSpacing: '.06em', marginBottom: 2, fontFamily: 'var(--font-mono)',
-                  }}>{item.label}</div>
-                  <div style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--navy-800)',
-                  }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)', textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
           <Link to="/impressum" style={{ color: 'var(--ink-400)' }}>Impressum</Link>
           {' · '}
@@ -868,7 +857,7 @@ export default function Screen1() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" disabled>← Zurück</button>
-          <button className="btn btn-primary" onClick={() => setShowTransition(true)}>
+          <button className="btn btn-primary" onClick={handleWeiter}>
             Weiter <Icons.Arrow />
           </button>
         </div>
@@ -880,7 +869,7 @@ export default function Screen1() {
 }
 
 /* ---- Income input with CHF formatting ---- */
-function IncomeInput({ value, onChange, id }: { value: number; onChange: (v: number) => void; id?: string }) {
+function IncomeInput({ value, onChange, id, hasError }: { value: number; onChange: (v: number) => void; id?: string; hasError?: boolean }) {
   const [raw, setRaw] = useState('')
   const [focused, setFocused] = useState(false)
 
@@ -895,7 +884,7 @@ function IncomeInput({ value, onChange, id }: { value: number; onChange: (v: num
       onBlur={() => { setFocused(false); onChange(parseInt(raw.replace(/[^0-9]/g, '')) || 0) }}
       onChange={(e) => setRaw(e.target.value.replace(/[^0-9]/g, ''))}
       placeholder="z. B. 100'000"
-      style={{ paddingLeft: 48 }}
+      style={{ paddingLeft: 48, ...(hasError ? { borderColor: '#dc2626', boxShadow: '0 0 0 3px rgba(220,38,38,.12)' } : {}) }}
     />
   )
 }
