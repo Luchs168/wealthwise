@@ -169,6 +169,7 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
   const [fileName, setFileName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<PKExtractResult | null>(null)
+  const [showExtractedDetails, setShowExtractedDetails] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -330,40 +331,38 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
         Ihr Dokument wird nur lokal in Ihrem Browser verarbeitet – es wird nichts an einen Server gesendet.
       </div>
 
-      {/* Extracted values summary */}
+      {/* Extracted values summary – compact */}
       {status === 'done' && result && (() => {
-        const hasAny = result.pkCurrentCapital > 0 || result.pkAnnualContribution > 0 ||
-          result.pkMaxGuthaben > 0 || result.insuredSalary > 0 || result.projectedCapital65 > 0
-        // Only show warnings that aren't about "Standardwert" (those are in banner)
+        const hasAny = result.pkCurrentCapital > 0 || result.pkAnnualContribution > 0 || result.pkMaxGuthaben > 0 || result.insuredSalary > 0
         const realWarnings = result.warnings.filter(w => !w.includes('Standardwert') && !w.includes('konnte nicht extrahiert'))
+        if (!hasAny) return null
         return (
-          <div style={{ marginTop: 10, padding: '12px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 12.5, color: '#1e293b' }}>
-            <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--navy-800)' }}>Aus Ihrem PK-Ausweis gelesen:</div>
-            {hasAny ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 16px' }}>
-                {result.pkCurrentCapital > 0 && <div>Aktuelles Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.pkRate > 0 && result.extractedFields.some(f => f.includes('UWS') && !f.includes('Standardwert')) && (() => {
-                  const uwsAtRetire = result.retirementTable[65]?.uws ?? result.pkRate
-                  return <div>UWS@65: <strong>{uwsAtRetire.toFixed(2)}%</strong></div>
-                })()}
-                {result.pkAnnualContribution > 0 && <div>Sparbeitrag AN+AG/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.projectedCapital65 > 0 && <div>Projektion bei 65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.insuredSalary > 0 && <div>Versicherter Lohn: <strong>CHF {result.insuredSalary.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {result.pkObligatorisch > 0 && <div>BVG-Guthaben: <strong>CHF {result.pkObligatorisch.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
-                {Object.keys(result.retirementTable).length > 0 && <div>Leistungstabelle: <strong>Alter {Object.keys(result.retirementTable).join(', ')}</strong></div>}
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setShowExtractedDetails(!showExtractedDetails)}
+              style={{ fontSize: 12, color: 'var(--navy-600)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style={{ transform: showExtractedDetails ? 'rotate(180deg)' : 'none' }}><path d="M2 3l3 4 3-4"/></svg>
+              Details aus Ausweis anzeigen
+            </button>
+            {showExtractedDetails && (
+              <div style={{ marginTop: 6, padding: '10px 12px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 12, color: '#1e293b' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 16px' }}>
+                  {result.pkCurrentCapital > 0 && <div>Guthaben: <strong>CHF {result.pkCurrentCapital.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                  {result.pkRate > 0 && result.extractedFields.some(f => f.includes('UWS') && !f.includes('Standardwert')) && <div>UWS: <strong>{(result.retirementTable[65]?.uws ?? result.pkRate).toFixed(2)}%</strong></div>}
+                  {result.pkAnnualContribution > 0 && <div>Sparbeitrag/Jahr: <strong>CHF {result.pkAnnualContribution.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                  {result.pkMaxGuthaben > 0 && <div>Einkaufspotenzial: <strong>CHF {result.pkMaxGuthaben.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                  {result.projectedCapital65 > 0 && <div>Projektion@65: <strong>CHF {result.projectedCapital65.toLocaleString('de-CH', { maximumFractionDigits: 0 })}</strong></div>}
+                  {Object.keys(result.retirementTable).length > 0 && <div>Leistungstabelle: <strong>Alter {Object.keys(result.retirementTable).join(', ')}</strong></div>}
+                </div>
+                {realWarnings.length > 0 && (
+                  <div style={{ marginTop: 6, padding: '4px 8px', background: '#fef9c3', borderRadius: 5, fontSize: 11 }}>
+                    {realWarnings.map((w, i) => <div key={i} style={{ color: '#713f12' }}>⚠ {w}</div>)}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{ color: '#64748b', fontStyle: 'italic' }}>Keine Werte automatisch erkannt – bitte manuell eingeben.</div>
             )}
-            {realWarnings.length > 0 && (
-              <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef9c3', border: '1px solid #fde047', borderRadius: 6 }}>
-                {realWarnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: '#713f12' }}>⚠ {w}</div>)}
-              </div>
-            )}
-            <div style={{ marginTop: 6, fontSize: 11.5, color: '#475569' }}>
-              Bitte prüfen Sie die Felder unten und passen Sie Werte bei Bedarf an.
-            </div>
           </div>
         )
       })()}
@@ -375,7 +374,8 @@ export default function Screen2() {
   const navigate = useNavigate()
   const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer,
     ahvTouched, pkTouched, pillar3aTouched, wealthTouched,
-    setAhvTouched, setPkTouched, setPillar3aTouched, setWealthTouched } = useStore()
+    setAhvTouched, setPkTouched, setPillar3aTouched, setWealthTouched,
+    sparkonto, wertschriften } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [subStep, setSubStep] = useState<0 | 1>(0)
   const [ahvExpanded, setAhvExpanded] = useState(false)
@@ -384,6 +384,7 @@ export default function Screen2() {
   const [pkContribMode, setPkContribMode] = useState<['auto' | 'manuell', 'auto' | 'manuell']>(['auto', 'auto'])
   const [pkEinkaufExpanded, setPkEinkaufExpanded] = useState(false)
   const [pkDetailsExpanded, setPkDetailsExpanded] = useState(false)
+  const [activeAccordion, setActiveAccordion] = useState<string>('pk')
   const [ikResult, setIkResult] = useState<IKAuszugResult | null>(null)
   const [ikResult2, setIkResult2] = useState<IKAuszugResult | null>(null)
   const [ikLoading, setIkLoading] = useState(false)
@@ -1395,9 +1396,9 @@ export default function Screen2() {
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#166534', fontFamily: 'var(--font-display)' }}>
               AHV-Rente: CHF {fmtCHF(ahvCombinedMonthly)}/Mt.
-              {isPaar && plafonierung.plafonReduction > 0 && (
-                <span style={{ fontSize: 12, fontWeight: 400, color: '#16a34a', marginLeft: 6 }}>
-                  (inkl. Plafonierung)
+              {totalMonthly > ahvCombinedMonthly && (
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#16a34a', marginLeft: 10 }}>
+                  + PK = CHF {fmtCHF(totalMonthly)}/Mt. gesamt
                 </span>
               )}
             </div>
@@ -1411,13 +1412,32 @@ export default function Screen2() {
         </div>
 
         {/* B · Pensionskasse */}
-        <section className="block">
-          <div className="block-head">
+        <section className="block" style={{ overflow: 'hidden' }}>
+          <div
+            className="block-head"
+            onClick={() => setActiveAccordion(prev => prev === 'pk' ? '' : 'pk')}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
             <h2 className="block-title">
               <span className="block-num">B</span>Pensionskasse – 2. Säule
             </h2>
-            <span className="block-hint" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>BVG 2026 · Projektion</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeAccordion !== 'pk' && (
+                <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
+                  {cur.hasPK && cur.pkCurrentCapital > 0
+                    ? `✓ CHF ${fmtCHF(cur.pkCurrentCapital)} · UWS ${cur.pkRate.toFixed(2)}%`
+                    : cur.hasPK ? '✓ Versichert · Guthaben nicht erfasst' : '— Keine PK'}
+                </span>
+              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transform: activeAccordion === 'pk' ? 'rotate(90deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </div>
+
+          {activeAccordion === 'pk' && (
+          <div style={{ paddingBottom: 4 }}>
 
           {isPaar && (
             <div className="tabs" style={{ marginBottom: 20 }}>
@@ -1602,49 +1622,20 @@ export default function Screen2() {
                   <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>
                     Zinssatz Ihrer Pensionskasse
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 6 }}>
-                    {[
-                      { id: 'bvg', label: 'Ges. Minimum', sub: '1.25%', val: 0.0125 },
-                      { id: 'moderat', label: 'Moderat', sub: '2.0%', val: 0.02 },
-                      { id: 'gut', label: 'Gut', sub: '3.0%', val: 0.03 },
-                      { id: 'manuell', label: 'Manuell', sub: `${(cur.pkInterestRate * 100).toFixed(2)}%`, val: null },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        className={`option-card ${curInterestMode === opt.id ? 'active' : ''}`}
-                        style={{ padding: '8px 6px' }}
-                        onClick={() => {
-                          setPkInterestMode(prev => {
-                            const next = [...prev] as typeof prev
-                            next[interestModeIdx] = opt.id
-                            return next
-                          })
-                          if (opt.val !== null) {
-                            updatePKAndProject(activeTab, { pkInterestRate: opt.val })
-                          }
-                        }}
-                      >
-                        <div className="option-card-label" style={{ fontSize: 12 }}>{opt.label}</div>
-                        <div className="option-card-hint">{opt.sub}</div>
-                      </button>
-                    ))}
+                  <div className="amount-wrap" style={{ maxWidth: 160 }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={6}
+                      step={0.05}
+                      value={(cur.pkInterestRate * 100).toFixed(2)}
+                      onChange={(e) => updatePKAndProject(activeTab, { pkInterestRate: (parseFloat(e.target.value) || 0) / 100 })}
+                      style={{ textAlign: 'right', paddingRight: 32 }}
+                    />
+                    <span className="suffix">%</span>
                   </div>
-                  {curInterestMode === 'manuell' && (
-                    <div className="amount-wrap">
-                      <input
-                        type="number"
-                        min={0}
-                        max={6}
-                        step={0.05}
-                        value={(cur.pkInterestRate * 100).toFixed(2)}
-                        onChange={(e) => updatePKAndProject(activeTab, { pkInterestRate: (parseFloat(e.target.value) || 0) / 100 })}
-                        style={{ textAlign: 'right', paddingRight: 32 }}
-                      />
-                      <span className="suffix">%</span>
-                    </div>
-                  )}
                   <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
-                    BVG-Mindestzins 2026: 1.25% · Finden Sie den Wert im Geschäftsbericht Ihrer PK oder auf Ihrem letzten Kontoauszug
+                    BVG-Mindestzins 2026: 1.25%. Finden Sie den Wert im Geschäftsbericht Ihrer PK.
                   </div>
                 </div>
 
@@ -1652,29 +1643,9 @@ export default function Screen2() {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     Umwandlungssatz bei Pensionierung
-                    <span
-                      title="Der Umwandlungssatz bestimmt, wie viel Jahresrente Sie pro CHF 100'000 Altersguthaben erhalten. Bei CHF 500'000 und 5.4% = CHF 27'000/Jahr = CHF 2'250/Monat."
-                      style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}
-                    >?</span>
+                    <span title="Der Umwandlungssatz bestimmt, wie viel Jahresrente Sie pro CHF 100'000 Altersguthaben erhalten. Bei CHF 500'000 und 5.4% = CHF 27'000/Jahr = CHF 2'250/Monat." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 8 }}>
-                    {[
-                      { label: 'BVG-Min', sub: '6.8%', val: 6.8 },
-                      { label: 'Typisch', sub: '5.4%', val: 5.4 },
-                      { label: 'Tief', sub: '5.0%', val: 5.0 },
-                    ].map((opt) => (
-                      <button
-                        key={opt.val}
-                        className={`option-card ${Math.abs(cur.pkRate - opt.val) < 0.05 ? 'active' : ''}`}
-                        style={{ padding: '8px 6px' }}
-                        onClick={() => updatePKAndProject(activeTab, { pkRate: opt.val })}
-                      >
-                        <div className="option-card-label" style={{ fontSize: 12 }}>{opt.label}</div>
-                        <div className="option-card-hint">{opt.sub}</div>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="amount-wrap">
+                  <div className="amount-wrap" style={{ maxWidth: 160 }}>
                     <input
                       type="number"
                       min={3}
@@ -1687,37 +1658,8 @@ export default function Screen2() {
                     <span className="suffix">%</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
-                    80% der Schweizer Pensionskassen liegen zwischen 5.0–5.8%. BVG-Minimum (6.8%) gilt nur für den obligatorischen Teil.
-                    Finden Sie auf Ihrem Vorsorgeausweis.
+                    Steht auf Ihrem Vorsorgeausweis. BVG-Minimum: 6.8% (gilt nur für obligatorischen Teil). Schweizer Durchschnitt: ca. 5.0–5.8%.
                   </div>
-                </div>
-
-                {/* 5. Bezugsart */}
-                <div style={{ marginBottom: 16 }}>
-                  <div id="bezugsart-label" style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 8 }}>Bezugsart</div>
-                  <div className="option-grid-3" role="radiogroup" aria-labelledby="bezugsart-label">
-                    {[
-                      { id: 'rente', label: 'Rente', hint: 'Lebenslang, planbar' },
-                      { id: 'kapital', label: 'Kapital', hint: 'Flexibel, Steuer fällig' },
-                      { id: 'mix', label: '50/50 Mix', hint: 'Kombiniert' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        role="radio"
-                        aria-checked={cur.pkBezugsart === opt.id}
-                        className={`option-card ${cur.pkBezugsart === opt.id ? 'active' : ''}`}
-                        onClick={() => updatePerson(activeTab, { pkBezugsart: opt.id as 'rente' | 'kapital' | 'mix' })}
-                      >
-                        <div className="option-card-label">{opt.label}</div>
-                        <div className="option-card-hint">{opt.hint}</div>
-                      </button>
-                    ))}
-                  </div>
-                  {cur.pkBezugsart === 'rente' && (
-                    <div style={{ marginTop: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12, color: '#166534' }}>
-                      Für die meisten Angestellten ist die Rente die sicherste Wahl. In der Analyse zeigen wir Ihnen den Vergleich im Detail.
-                    </div>
-                  )}
                 </div>
 
                 {/* 6. Einkaufspotenzial (optional) */}
@@ -1847,77 +1789,51 @@ export default function Screen2() {
                   })()}
                 </div>
 
-                {/* Result: Projektionsvorschau */}
-                <div style={{
-                  background: 'var(--navy-800)', borderRadius: 14, padding: '18px 20px', marginTop: 4,
-                }}>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 10, fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }}>
-                    PROJEKTION BEI ALTER {proj.retireAge}
+                {/* Compact Projektion */}
+                <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink-600)' }}>
+                    Projektion bei Alter {proj.retireAge}:{' '}
+                    <strong style={{ color: 'var(--navy-800)', fontFamily: 'var(--font-display)' }}>CHF {fmtCHF(proj.projected)}</strong>
+                    {' · Rente '}
+                    <strong style={{ color: 'var(--navy-800)' }}>CHF {fmtCHF(proj.pension.monthly)}/Mt.</strong>
+                    {proj.fromTable && <span style={{ marginLeft: 6, fontSize: 11, color: '#059669', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 4, padding: '1px 6px' }}>Aus Leistungstabelle</span>}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.45)' }}>Voraussichtliches Guthaben</div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: '#fff', marginTop: 2 }}>
-                        CHF {fmtCHF(proj.projected)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,.45)' }}>Monatliche Rente</div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: '#fff', marginTop: 2 }}>
-                        CHF {fmtCHF(
-                          cur.pkBezugsart === 'kapital' ? 0
-                          : cur.pkBezugsart === 'mix' ? Math.round(proj.pension.monthly / 2)
-                          : proj.pension.monthly
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
                   {cur.pkCurrentCapital > 0 && (
                     <button
                       onClick={() => setPkDetailsExpanded(!pkDetailsExpanded)}
-                      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.6)', fontSize: 12, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+                      style={{ fontSize: 12, color: 'var(--navy-600)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                        style={{ transform: pkDetailsExpanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}>
-                        <polyline points="9 18 15 12 9 6"/>
-                      </svg>
-                      Details zur Berechnung
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style={{ transform: pkDetailsExpanded ? 'rotate(180deg)' : 'none' }}><path d="M2 3l3 4 3-4"/></svg>
+                      Details
                     </button>
                   )}
-                  {pkDetailsExpanded && cur.pkCurrentCapital > 0 && (
-                    <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(255,255,255,.06)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,.75)', lineHeight: 1.8 }}>
-                      {proj.fromTable ? (
-                        <>
-                          <div style={{ color: 'rgba(255,255,255,.5)', marginBottom: 4 }}>Gemäss Leistungstabelle Ihres Vorsorgeausweises (Alter {proj.retireAge})</div>
-                          <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
-                          <div style={{ borderTop: '1px solid rgba(255,255,255,.15)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
-                            = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
-                          </div>
-                          <div>× Umwandlungssatz {proj.uwsForAge.toFixed(2)}%</div>
-                          <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
-                        </>
-                      ) : (
-                        <>
-                          <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
-                          <div>+ Beiträge ({proj.yearsToRetirement} Jahre × CHF {fmtCHF(proj.effectiveContrib)}): CHF {fmtCHF(proj.effectiveContrib * proj.yearsToRetirement)}</div>
-                          <div>+ Verzinsung (Ø {(cur.pkInterestRate * 100).toFixed(2)}%): CHF {fmtCHF(proj.projected - cur.pkCurrentCapital - proj.effectiveContrib * proj.yearsToRetirement)}</div>
-                          <div style={{ borderTop: '1px solid rgba(255,255,255,.15)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
-                            = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
-                          </div>
-                          <div>× Umwandlungssatz {cur.pkRate}%</div>
-                          <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {cur.pkBezugsart === 'kapital' && (
-                    <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-                      Kapitalbezug: CHF {fmtCHF(proj.projected)} (abzgl. Kapitalbezugssteuer → Schritt 4)
-                    </div>
-                  )}
                 </div>
+                {pkDetailsExpanded && cur.pkCurrentCapital > 0 && (
+                  <div style={{ marginTop: 6, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12, color: 'var(--ink-700)', lineHeight: 1.8 }}>
+                    {proj.fromTable ? (
+                      <>
+                        <div style={{ color: 'var(--ink-500)', marginBottom: 4 }}>Gemäss Leistungstabelle (Alter {proj.retireAge})</div>
+                        <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
+                        <div style={{ borderTop: '1px solid var(--navy-200)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+                          = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
+                        </div>
+                        <div>× Umwandlungssatz {proj.uwsForAge.toFixed(2)}%</div>
+                        <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>Heutiges Guthaben: CHF {fmtCHF(cur.pkCurrentCapital)}</div>
+                        <div>+ Beiträge ({proj.yearsToRetirement} Jahre × CHF {fmtCHF(proj.effectiveContrib)}): CHF {fmtCHF(proj.effectiveContrib * proj.yearsToRetirement)}</div>
+                        <div>+ Verzinsung (Ø {(cur.pkInterestRate * 100).toFixed(2)}%): CHF {fmtCHF(proj.projected - cur.pkCurrentCapital - proj.effectiveContrib * proj.yearsToRetirement)}</div>
+                        <div style={{ borderTop: '1px solid var(--navy-200)', marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+                          = Guthaben bei {proj.retireAge}: CHF {fmtCHF(proj.projected)}
+                        </div>
+                        <div>× Umwandlungssatz {cur.pkRate}%</div>
+                        <div style={{ fontWeight: 600 }}>= CHF {fmtCHF(proj.pension.monthly)}/Monat Rente</div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Validierungshinweise */}
                 {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital < 50000 && proj.currentAge > 50 && (
@@ -1992,13 +1908,35 @@ export default function Screen2() {
               </div>
             )
           })()}
+          </div>
+          )}
         </section>
 
         {/* C · 3a */}
-        <section className="block">
-          <div className="block-head">
+        <section className="block" style={{ overflow: 'hidden' }}>
+          <div
+            className="block-head"
+            onClick={() => setActiveAccordion(prev => prev === '3a' ? '' : '3a')}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
             <h2 className="block-title"><span className="block-num">C</span>Säule 3a – Gebundene Vorsorge</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeAccordion !== '3a' && (
+                <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
+                  {cur.has3a && cur.balance3a > 0
+                    ? `✓ ${cur.num3aAccounts || 1} Konto · CHF ${fmtCHF(cur.balance3a)}`
+                    : cur.has3a ? '✓ 3a aktiv · Guthaben nicht erfasst' : '— Kein 3a-Konto'}
+                </span>
+              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transform: activeAccordion === '3a' ? 'rotate(90deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </div>
+
+          {activeAccordion === '3a' && (
+          <div style={{ paddingBottom: 4 }}>
 
           {isPaar && (
             <div className="tabs" style={{ marginBottom: 20 }}>
@@ -2140,14 +2078,35 @@ export default function Screen2() {
               </div>
             </>
           )}
+          </div>
+          )}
         </section>
 
         {/* FZ · Freizügigkeitsguthaben */}
-        <section className="block">
-          <div className="block-head">
+        <section className="block" style={{ overflow: 'hidden' }}>
+          <div
+            className="block-head"
+            onClick={() => setActiveAccordion(prev => prev === 'fz' ? '' : 'fz')}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
             <h2 className="block-title"><span className="block-num">FZ</span>Freizügigkeitsguthaben</h2>
-            <span className="block-hint">Optional</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeAccordion !== 'fz' && (
+                <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
+                  {cur.hasFZ && cur.fzBalance > 0
+                    ? `✓ CHF ${fmtCHF(cur.fzBalance)}`
+                    : '— Kein Freizügigkeitsguthaben'}
+                </span>
+              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transform: activeAccordion === 'fz' ? 'rotate(90deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </div>
+
+          {activeAccordion === 'fz' && (
+          <div style={{ paddingBottom: 4 }}>
 
           {isPaar && (
             <div className="tabs" style={{ marginBottom: 20 }}>
@@ -2179,13 +2138,35 @@ export default function Screen2() {
               </div>
             </>
           )}
+          </div>
+          )}
         </section>
 
         {/* D · Vermögen */}
-        <section className="block">
-          <div className="block-head">
+        <section className="block" style={{ overflow: 'hidden' }}>
+          <div
+            className="block-head"
+            onClick={() => setActiveAccordion(prev => prev === 'vermoegen' ? '' : 'vermoegen')}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
             <h2 className="block-title"><span className="block-num">D</span>Freies Vermögen</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeAccordion !== 'vermoegen' && (
+                <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
+                  {(useStore.getState().sparkonto + useStore.getState().wertschriften) > 0
+                    ? `CHF ${fmtCHF(useStore.getState().sparkonto + useStore.getState().wertschriften)} total`
+                    : '— CHF 0'}
+                </span>
+              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transform: activeAccordion === 'vermoegen' ? 'rotate(90deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </div>
+
+          {activeAccordion === 'vermoegen' && (
+          <div style={{ paddingBottom: 4 }}>
           <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 16px' }}>
             Erfassen Sie Ihr Vermögen nach Typ – für die Überbrückungsplanung ist es wichtig, zwischen sofort verfügbaren Mitteln und Wertschriften zu unterscheiden.
             Falls Sie keinen genauen Betrag kennen, können Sie schätzen – Sie können die Angabe jederzeit anpassen.
@@ -2230,6 +2211,8 @@ export default function Screen2() {
               </div>
             </div>
           </details>
+          </div>
+          )}
         </section>
 
         {/* E1 · Firmenwert (nur für Selbständige) */}
@@ -2280,11 +2263,28 @@ export default function Screen2() {
           const prop = useStore.getState().property
           const setProperty = useStore.getState().setProperty
           return (
-            <section className="block">
-              <div className="block-head">
+            <section className="block" style={{ overflow: 'hidden' }}>
+              <div
+                className="block-head"
+                onClick={() => setActiveAccordion(prev => prev === 'wohneigentum' ? '' : 'wohneigentum')}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+              >
                 <h2 className="block-title"><span className="block-num">E</span>Wohneigentum</h2>
-                <span className="block-hint">Optional</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {activeAccordion !== 'wohneigentum' && (
+                    <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
+                      {prop.has ? `✓ Eigentümer · CHF ${fmtCHF(prop.value)}` : '— Miete'}
+                    </span>
+                  )}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    style={{ transform: activeAccordion === 'wohneigentum' ? 'rotate(90deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
               </div>
+
+              {activeAccordion === 'wohneigentum' && (
+              <div style={{ paddingBottom: 4 }}>
               <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
                 Falls Sie selbst genutztes Wohneigentum besitzen, erfassen Sie es hier. Dies beeinflusst den Eigenmietwert (fiktives steuerbares Einkommen) und die Schuldzinsabzüge.
               </p>
@@ -2350,53 +2350,11 @@ export default function Screen2() {
                   </div>
                 </>
               )}
+              </div>
+              )}
             </section>
           )
         })()}
-
-        {/* F · Zusammenfassung */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">F</span>Gesamtübersicht Vorsorge</h2>
-          </div>
-          <div className="ahv-card">
-            <div className="ahv-row">
-              <div>
-                <div className="ahv-row-label">AHV-Renten</div>
-                <div className="ahv-row-sub">{isPaar ? 'Haushalt inkl. 13. AHV-Rente' : 'inkl. 13. AHV-Rente'}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">CHF {fmtCHF(ahvCombinedMonthly)}/Mt.</div>
-              </div>
-            </div>
-            <div className="ahv-row">
-              <div>
-                <div className="ahv-row-label">PK-Renten</div>
-                <div className="ahv-row-sub">
-                  {p1.hasPK && p1.pkBezugsart !== 'kapital' ? `${person1.name || 'P1'}: CHF ${fmtCHF(pk1.monthlyRente)}/Mt.` : ''}
-                  {isPaar && p2.hasPK && p2.pkBezugsart !== 'kapital' ? ` · ${person2.name || 'P2'}: CHF ${fmtCHF(pk2.monthlyRente)}/Mt.` : ''}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">
-                  CHF {fmtCHF(
-                    (p1.hasPK && p1.pkBezugsart !== 'kapital' ? pk1.monthlyRente : 0) +
-                    (isPaar && p2.hasPK && p2.pkBezugsart !== 'kapital' ? pk2.monthlyRente : 0)
-                  )}/Mt.
-                </div>
-              </div>
-            </div>
-            <div className="ahv-row ahv-total">
-              <div>
-                <div className="ahv-row-label">Gesamte Renten</div>
-                <div className="ahv-row-sub">Laufende monatliche Einkünfte</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="ahv-row-val">CHF {fmtCHF(totalMonthly)}/Mt.</div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)', textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
           <Link to="/impressum" style={{ color: 'var(--ink-400)' }}>Impressum</Link>
