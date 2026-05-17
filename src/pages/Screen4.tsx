@@ -143,10 +143,12 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile } = state
+  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile,
+    ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
+    setAhvChoice, setPkChoice, setWithdrawalStrategy } = state
+  const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
-  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false)
   const [careStartAge, setCareStartAge] = useState(82)
   const [careType, setCareType] = useState<'spitex_leicht' | 'spitex_mittel' | 'heim_standard' | 'heim_gehoben'>('heim_standard')
 
@@ -196,7 +198,7 @@ export default function Screen4() {
   const currentAge1 = p1.dob ? calculateAge(p1.dob) : (p1.birthDate ? calculateAge(p1.birthDate) : 55)
 
   // Was wäre wenn slider
-  const [altRetireAge, setAltRetireAge] = useState(ra1)
+  const [altRetireAge, setAltRetireAge] = useState(ra1 + 1)
   const altInputData = useMemo(() => ({
     ...inputData,
     person1: { ...p1, retireAge: altRetireAge, retirementAge: altRetireAge },
@@ -456,6 +458,41 @@ export default function Screen4() {
     return calculateOptimalWithdrawal(pkCap, pillar3aTotal, num3aAccounts, fzBal, canton, taxStatus, retirementCalendarYear)
   }, [state.persons, p1, ra1, currentAge1, canton, taxStatus])
 
+  // Hoisted variants1 (needed for AHV tab and fixed header)
+  const variants1 = useMemo(() => {
+    const p1stored = state.persons.find(p => p.id === 1)!
+    const baseYears1 = Math.min(44, Math.max(0, ra1 - 21))
+    const effectiveYears1 = Math.max(0, baseYears1 - (p1stored.ahvContributionGaps || 0))
+    return calculateAllVariants(p1.grossIncome || p1.income || 0, effectiveYears1, p1stored.ahvContributionGaps || 0)
+  }, [state.persons, p1, ra1])
+
+  const top3recs = useMemo(() => {
+    const isSE = p1.employmentStatus === 'selfEmployed'
+    const noPK = !p1.hasPK
+    const pkKeywords = ['PK-Einkauf', 'Pensionskasse', 'Einkäufe in die Pensionskasse']
+    const isLowIncome = (p1.income || 0) < 60000 && (freeAssets || 0) < 50000 && !p1.has3a
+    let recs = (RECS[analysis.verdict] ?? []).filter(r =>
+      !(isSE && noPK && pkKeywords.some(k => r.text.includes(k))) &&
+      !(isLowIncome && (r.text.includes('PK-Einkauf') || r.text.includes('Säule-3a') || r.text.includes('3a-Gelder') || r.text.includes('Kapitalbezug')))
+    )
+    if (isLowIncome) {
+      recs = [
+        { text: 'Prüfen Sie Ihren EL-Anspruch nach der Pensionierung – das ist Ihr gesetzliches Recht (ELG).', priority: 'hoch' as const, detail: '' },
+        { text: 'Bestellen Sie Ihren IK-Auszug und prüfen Sie ob alle Beitragsjahre korrekt verbucht sind.', priority: 'hoch' as const, detail: '' },
+        { text: 'Bis 65 arbeiten statt Vorbezug: Vermeidet lebenslange AHV-Kürzung von 6.8% pro Jahr.', priority: 'mittel' as const, detail: '' },
+        ...recs
+      ].slice(0, 3)
+    }
+    if (isSE && noPK) {
+      recs = [
+        ...(currentAge1 < 58 ? [{ text: 'Prüfen Sie den freiwilligen Beitritt zur BVG-Auffangeinrichtung (sinnvoll bis ca. Alter 58).', priority: 'hoch' as const, detail: '' }] : []),
+        { text: 'Planen Sie die Nachfolge / den Verkauf Ihres Betriebs als Alterskapital.', priority: 'hoch' as const, detail: '' },
+        ...recs
+      ].slice(0, 3)
+    }
+    return recs.slice(0, 3)
+  }, [analysis.verdict, p1, freeAssets, currentAge1])
+
   const eigenmietwertResult = useMemo(() => {
     if (!property.has || !property.value) return null
     const steuerwert = property.steuerwert > 0 ? property.steuerwert : Math.round(property.value * 0.7)
@@ -580,12 +617,72 @@ export default function Screen4() {
         </div>
 
         {/* Haupt-Disclaimer */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 16 }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>ℹ️</span>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6 }}>
             Die folgenden Analysen basieren auf Ihren Angaben und den offiziellen AHV/BVG-Kennzahlen 2026. <strong>WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung.</strong> Alle Berechnungen sind Schätzungen. Bitte konsultieren Sie eine Fachperson für verbindliche Entscheidungen.
           </p>
         </div>
+
+        {/* ── Fixed Summary Header ── */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 10, background: verdictBg, border: `1px solid ${verdictBorder}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ScoreRing score={analysis.sustainabilityScore} verdict={analysis.verdict} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: verdictColor }}>{verdictLabel}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
+                  {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
+                </span>
+                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
+                  Reicht bis {(hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)) >= 99 ? 'Alter 95+' : `Alter ${hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)}`}
+                </span>
+                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
+                  Score: {analysis.sustainabilityScore}/100
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                {top3recs.slice(0,3).map((rec, i) => (
+                  <span key={i} style={{ fontSize: 11, padding: '2px 8px', background: rec.priority === 'hoch' ? '#fef2f2' : '#fffbeb', borderRadius: 20, border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : '#fde68a'}`, color: rec.priority === 'hoch' ? '#dc2626' : '#d97706', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {i+1}. {rec.text.substring(0, 40)}…
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tab Bar ── */}
+        <div style={{ display: 'flex', gap: 2, overflowX: 'auto', borderBottom: '2px solid var(--ink-100)', marginBottom: 0, paddingBottom: 0 }}>
+          {([
+            { id: 'ubersicht', label: 'Übersicht' },
+            { id: 'szenarien', label: 'Szenarien' },
+            { id: 'ahv', label: 'AHV' },
+            { id: 'pk', label: 'PK & Kapital' },
+            { id: 'steuern', label: 'Steuern & 3a' },
+            { id: 'entscheidungen', label: 'Meine Entscheidungen' },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '10px 14px', fontSize: 13, fontWeight: activeTab === tab.id ? 700 : 400,
+                border: 'none', borderBottom: `3px solid ${activeTab === tab.id ? 'var(--navy-600)' : 'transparent'}`,
+                background: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                color: activeTab === tab.id ? 'var(--navy-700)' : 'var(--ink-500)',
+              }}
+            >
+              {tab.label}
+              {tab.id === 'entscheidungen' && (ahvChoice && pkChoice) && <span style={{ marginLeft: 4, color: '#22c55e' }}>✓</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab Content ── */}
+        <div style={{ paddingTop: 8 }}>
+
+        {/* ── Tab: Übersicht ── */}
+        {activeTab === 'ubersicht' && (<>
 
         {/* ── Summary: Vorsorgeanalyse auf einen Blick ── */}
         <section className="block" style={{ background: verdictBg, border: `1px solid ${verdictBorder}` }}>
@@ -875,13 +972,6 @@ export default function Screen4() {
             )
           })()}
 
-          {/* PDF CTA */}
-          <div style={{ marginBottom: 12 }}>
-            <button className="btn btn-primary" onClick={handlePDF} style={{ width: '100%' }}>
-              Analyse als PDF herunterladen
-            </button>
-          </div>
-
           {/* Phasenplan gestaffelte Pensionierung */}
           {hasPartner && p2 && (() => {
             const ra2 = p2.retireAge || p2.retirementAge || 65
@@ -1015,20 +1105,9 @@ export default function Screen4() {
             )
           })()}
 
-          {/* Separator + Detailanalyse toggle */}
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12, textAlign: 'center' }}>
-            <button
-              className="btn btn-ghost"
-              onClick={() => setShowDetailedAnalysis(v => !v)}
-              style={{ fontSize: 13 }}
-            >
-              {showDetailedAnalysis ? '▲ Detailanalyse ausblenden' : '▼ Detailanalyse anzeigen'}
-            </button>
-          </div>
         </section>
 
-        {/* ── Detailed Analysis (collapsible) ── */}
-        {showDetailedAnalysis && (<>
+        {/* Hypothek-Tragbarkeit nach Pensionierung */}
 
         {/* Frühpensionierungs-Überbrückungsanalyse */}
         {ra1 < 65 && (() => {
@@ -1931,6 +2010,28 @@ export default function Screen4() {
           )}
         </section>
 
+        {/* EL Check for Übersicht */}
+        {wdELCheck.eligible && (
+          <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 12 }}>
+            <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 6, fontSize: 14 }}>Ihr gesetzlicher Anspruch: Ergänzungsleistungen (EL)</div>
+            <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.7 }}>
+              EL sind <strong>kein Almosen</strong> – sie sind ein gesetzlicher Anspruch (ELG). Geschätzte EL: <strong>CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat</strong>. Details im Tab «Szenarien».
+            </div>
+          </div>
+        )}
+
+        {/* Langlebigkeitsrisiko hint */}
+        {wdRealistDepletionAge !== null && wdRealistDepletionAge < 88 && (
+          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, fontSize: 13, color: '#92400e' }}>
+            <strong>Langlebigkeitsrisiko:</strong> Im realistischen Szenario reicht Ihr Vermögen bis Alter {wdRealistDepletionAge}. Detaillierte Szenarien im Tab «Szenarien».
+          </div>
+        )}
+
+        </>)} {/* end Übersicht tab */}
+
+        {/* ── Tab: Szenarien ── */}
+        {activeTab === 'szenarien' && (<>
+
         {/* Vermögensentwicklung & Entnahmeplan */}
         {wdInitialWealth > 0 && (
           <section className="block">
@@ -2134,21 +2235,25 @@ export default function Screen4() {
               <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Entnahme-Strategien im Vergleich</div>
               <div style={{ display: 'grid', gap: 8 }}>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {(['deplete90', 'deplete95', 'preserve'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setWdGoalMode(mode)}
-                      style={{
-                        flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 12.5,
-                        border: `2px solid ${wdGoalMode === mode ? 'var(--navy-600)' : 'var(--ink-200)'}`,
-                        background: wdGoalMode === mode ? 'var(--navy-600)' : 'white',
-                        color: wdGoalMode === mode ? 'white' : 'var(--ink-700)',
-                        fontWeight: 600, cursor: 'pointer',
-                      }}
-                    >
-                      {mode === 'deplete90' ? 'Verzehr bis 90' : mode === 'deplete95' ? 'Verzehr bis 95' : 'Kapitalerhalt'}
-                    </button>
-                  ))}
+                  {(['deplete90', 'deplete95', 'preserve'] as const).map(mode => {
+                    const storeMode = mode === 'deplete90' ? 'verzehr90' : mode === 'deplete95' ? 'verzehr95' : 'kapitalerhalt'
+                    const isActive = wdGoalMode === mode
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => { setWdGoalMode(mode); setWithdrawalStrategy(storeMode) }}
+                        style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 12.5,
+                          border: `2px solid ${isActive ? 'var(--navy-600)' : 'var(--ink-200)'}`,
+                          background: isActive ? 'var(--navy-600)' : 'white',
+                          color: isActive ? 'white' : 'var(--ink-700)',
+                          fontWeight: 600, cursor: 'pointer',
+                        }}
+                      >
+                        {mode === 'deplete90' ? 'Verzehr bis 90' : mode === 'deplete95' ? 'Verzehr bis 95' : 'Kapitalerhalt'}
+                      </button>
+                    )
+                  })}
                 </div>
                 <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 12.5 }}>
                   {wdGoalMode === 'deplete90' && (
@@ -2630,6 +2735,11 @@ export default function Screen4() {
           </section>
         )}
 
+        </>)} {/* end Szenarien tab */}
+
+        {/* ── Tab: AHV ── */}
+        {activeTab === 'ahv' && (<>
+
         {/* AHV Detail */}
         <section className="block">
           <div className="block-head">
@@ -2642,7 +2752,7 @@ export default function Screen4() {
             const p2stored = state.persons.find(p => p.id === 2)!
             const baseYears1 = Math.min(44, Math.max(0, ra1 - 21))
             const effectiveYears1 = Math.max(0, baseYears1 - (p1stored.ahvContributionGaps || 0))
-            const variants1 = calculateAllVariants(p1.grossIncome || p1.income || 0, effectiveYears1, p1stored.ahvContributionGaps || 0)
+            // variants1 is hoisted to useMemo above
             const breakEvenData = buildBreakEvenChartData(variants1)
 
             // Break-even between ordentlich and vorbezug 2J
@@ -2843,7 +2953,38 @@ export default function Screen4() {
               </>
             )
           })()}
+
+          {/* AHV Bezugsvariante Choice */}
+          <div style={{ marginTop: 20, padding: '16px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 12 }}>
+            <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 12, fontSize: 15 }}>
+              Ihre AHV-Bezugsvariante wählen
+            </div>
+            {([
+              { key: 'vorbezug2' as const, bezugAge: 63 },
+              { key: 'vorbezug1' as const, bezugAge: 64 },
+              { key: 'ordentlich' as const, bezugAge: 65 },
+              { key: 'aufschub1' as const, bezugAge: 66 },
+              { key: 'aufschub2' as const, bezugAge: 67 },
+            ]).map(({ key: v, bezugAge }) => {
+              const variant = variants1.find(x => x.bezugAge === bezugAge)
+              return (
+                <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', marginBottom: 6, background: ahvChoice === v ? '#dcfce7' : 'white', border: `2px solid ${ahvChoice === v ? '#16a34a' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="radio" name="ahvChoice" value={v} checked={ahvChoice === v} onChange={() => setAhvChoice(v)} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{variant?.shortLabel ?? v}</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-500)' }}>CHF {fmtCHF(variant?.monthlyRente ?? 0)}/Mt.</div>
+                  </div>
+                  {ahvChoice === v && <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Gewählt</span>}
+                </label>
+              )
+            })}
+          </div>
         </section>
+
+        </>)} {/* end AHV tab */}
+
+        {/* ── Tab: PK & Kapital ── */}
+        {activeTab === 'pk' && (<>
 
         {/* PK Projektion */}
         <section className="block">
@@ -3445,8 +3586,34 @@ export default function Screen4() {
             <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 11.5, color: 'var(--ink-500)', lineHeight: 1.6 }}>
               <strong>Hinweis:</strong> Diese Berechnung ist eine Entscheidungshilfe und ersetzt keine individuelle Beratung. Break-even-Alter und Kapitalentwicklung sind Szenarien – tatsächliche Renditen und persönliche Umstände können abweichen. Besprechen Sie Ihre Bezugsstrategie mit Ihrer Pensionskasse und einem Vorsorgeberater.
             </div>
+
+            {/* PK Bezugsentscheidung */}
+            <div style={{ marginTop: 20, padding: '16px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 12 }}>
+              <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: 12, fontSize: 15 }}>
+                Ihre PK-Bezugsentscheidung
+              </div>
+              {(['rente','kapital','mix'] as const).map(choice => (
+                <label key={choice} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', marginBottom: 6, background: pkChoice === choice ? '#dbeafe' : 'white', border: `2px solid ${pkChoice === choice ? '#2563eb' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="radio" name="pkChoice" value={choice} checked={pkChoice === choice} onChange={() => setPkChoice(choice)} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{choice === 'rente' ? '100% Rente' : choice === 'kapital' ? '100% Kapital' : 'Mix (50/50)'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-500)' }}>
+                      {choice === 'rente' ? `CHF ${fmtCHF(Math.round(rvkAnnualPension/12))}/Mt. lebenslang` :
+                       choice === 'kapital' ? `CHF ${fmtCHF(rvkCapitalAfterTax)} nach Steuern` :
+                       `CHF ${fmtCHF(rvkMixVariant.monthlyRente)}/Mt. + CHF ${fmtCHF(rvkMixVariant.kapitalAfterTax)} Kapital`}
+                    </div>
+                  </div>
+                  {pkChoice === choice && <span style={{ color: '#2563eb', fontWeight: 700 }}>✓ Gewählt</span>}
+                </label>
+              ))}
+            </div>
           </section>
         )}
+
+        </>)} {/* end PK & Kapital tab */}
+
+        {/* ── Tab: Steuern & 3a ── */}
+        {activeTab === 'steuern' && (<>
 
         {/* Recommendations */}
         <section className="block">
@@ -4076,6 +4243,11 @@ export default function Screen4() {
           )}
         </section>
 
+        </>)} {/* end Steuern & 3a tab */}
+
+        {/* ── Tab: Meine Entscheidungen ── */}
+        {activeTab === 'entscheidungen' && (<>
+
         {/* H5: Pflegekostenrisiko */}
         <section className="block">
           <div className="block-head">
@@ -4230,19 +4402,82 @@ export default function Screen4() {
           </div>
         </section>
 
-        </>)} {/* end showDetailedAnalysis */}
+        {/* Meine Vorsorgeentscheidungen */}
+        <div style={{ padding: '20px 0' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--navy-800)', marginBottom: 16 }}>
+            Meine Vorsorgeentscheidungen
+          </h2>
 
-        {/* Actions */}
-        <section className="block" style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)' }}>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button className="btn btn-primary" onClick={handlePDF}>
-              ↓ Analyse als PDF herunterladen
-            </button>
-            <button className="btn btn-ghost" onClick={() => navigate('/schritt/1')}>
-              ← Angaben anpassen
-            </button>
+          {/* Decision checklist */}
+          <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+            {/* AHV Decision */}
+            <div style={{ padding: '16px', background: ahvChoice ? '#f0fdf4' : '#fafafa', border: `2px solid ${ahvChoice ? '#22c55e' : '#e2e8f0'}`, borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>1. AHV-Bezugszeitpunkt</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>
+                    {ahvChoice ? `Gewählt: ${ahvChoice === 'vorbezug2' ? 'Vorbezug 2J' : ahvChoice === 'vorbezug1' ? 'Vorbezug 1J' : ahvChoice === 'ordentlich' ? 'Ordentlich (65)' : ahvChoice === 'aufschub1' ? 'Aufschub 1J' : 'Aufschub 2J'}` : 'Noch nicht entschieden → Tab "AHV"'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 20 }}>{ahvChoice ? '✅' : '⬜'}</span>
+              </div>
+            </div>
+
+            {/* PK Decision */}
+            <div style={{ padding: '16px', background: pkChoice ? '#f0fdf4' : '#fafafa', border: `2px solid ${pkChoice ? '#22c55e' : '#e2e8f0'}`, borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>2. PK-Bezugsform</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>
+                    {pkChoice ? `Gewählt: ${pkChoice === 'rente' ? '100% Rente' : pkChoice === 'kapital' ? '100% Kapital' : 'Mix'}` : 'Noch nicht entschieden → Tab "PK & Kapital"'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 20 }}>{pkChoice ? '✅' : '⬜'}</span>
+              </div>
+            </div>
+
+            {/* Withdrawal Strategy */}
+            <div style={{ padding: '16px', background: withdrawalStrategy ? '#f0fdf4' : '#fafafa', border: `2px solid ${withdrawalStrategy ? '#22c55e' : '#e2e8f0'}`, borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>3. Entnahmestrategie</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>
+                    {withdrawalStrategy ? `Gewählt: ${withdrawalStrategy === 'verzehr90' ? 'Verzehr bis 90' : withdrawalStrategy === 'verzehr95' ? 'Verzehr bis 95' : 'Kapitalerhalt'}` : 'Noch nicht entschieden → Tab "Szenarien"'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 20 }}>{withdrawalStrategy ? '✅' : '⬜'}</span>
+              </div>
+            </div>
           </div>
-        </section>
+
+          {/* Gated PDF download */}
+          {ahvChoice && pkChoice ? (
+            <div style={{ padding: '20px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 14, textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d', marginBottom: 8 }}>
+                Ihre Analyse ist vollständig
+              </div>
+              <p style={{ fontSize: 13, color: '#166534', marginBottom: 16 }}>
+                Sie haben die wichtigsten Entscheidungen getroffen. Laden Sie jetzt Ihre persönliche Vorsorgeanalyse als PDF herunter.
+              </p>
+              <button className="btn btn-primary" onClick={handlePDF} style={{ fontSize: 15, padding: '12px 24px' }}>
+                Analyse als PDF herunterladen
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding: '20px', background: '#fafafa', border: '2px solid #e2e8f0', borderRadius: 14, textAlign: 'center' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 8 }}>
+                PDF-Download noch gesperrt
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--ink-500)', marginBottom: 0 }}>
+                Bitte treffen Sie zuerst Ihre AHV- und PK-Entscheidung (Tabs "AHV" und "PK & Kapital"), um den PDF-Download freizuschalten.
+              </p>
+            </div>
+          )}
+        </div>
+
+        </>)} {/* end Meine Entscheidungen tab */}
+
+        </div> {/* end tab content */}
 
         {/* Disclaimer */}
         <div style={{ background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12, padding: '18px 22px', margin: '8px 0' }}>
@@ -4267,7 +4502,6 @@ export default function Screen4() {
         <div className="footer-meta">Schritt 4 von 4 · Analyse</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => navigate('/schritt/3')}>← Zurück</button>
-          <button className="btn btn-primary" onClick={handlePDF}>PDF exportieren</button>
         </div>
       </div>
 

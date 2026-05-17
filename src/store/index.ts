@@ -145,6 +145,12 @@ export interface WealthWiseState {
   pillar3aTouched: boolean
   wealthTouched: boolean
 
+  // Screen 4 decisions (gate the PDF download)
+  ahvChoice: 'vorbezug2' | 'vorbezug1' | 'ordentlich' | 'aufschub1' | 'aufschub2' | null
+  pkChoice: 'rente' | 'kapital' | 'mix' | null
+  pkMixPercent: number   // 0-100, only relevant when pkChoice === 'mix'
+  withdrawalStrategy: 'verzehr90' | 'verzehr95' | 'kapitalerhalt' | null
+
   // Actions
   setGoal: (g: string) => void
   setCivilStatus: (s: CivilStatus) => void
@@ -170,6 +176,10 @@ export interface WealthWiseState {
   setPkTouched: (v: boolean) => void
   setPillar3aTouched: (v: boolean) => void
   setWealthTouched: (v: boolean) => void
+  setAhvChoice: (v: WealthWiseState['ahvChoice']) => void
+  setPkChoice: (v: WealthWiseState['pkChoice']) => void
+  setPkMixPercent: (v: number) => void
+  setWithdrawalStrategy: (v: WealthWiseState['withdrawalStrategy']) => void
   resetStore: () => void
 }
 
@@ -268,6 +278,11 @@ export const useStore = create<WealthWiseState>()(
       pillar3aTouched: false,
       wealthTouched: false,
 
+      ahvChoice: null,
+      pkChoice: null,
+      pkMixPercent: 50,
+      withdrawalStrategy: null,
+
       setGoal: (g) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
       setPerson1: (p) => set((state) => ({ person1: { ...state.person1, ...p } })),
@@ -298,6 +313,10 @@ export const useStore = create<WealthWiseState>()(
       setPkTouched: (v) => set({ pkTouched: v }),
       setPillar3aTouched: (v) => set({ pillar3aTouched: v }),
       setWealthTouched: (v) => set({ wealthTouched: v }),
+      setAhvChoice: (v) => set({ ahvChoice: v }),
+      setPkChoice: (v) => set({ pkChoice: v }),
+      setPkMixPercent: (v) => set({ pkMixPercent: v }),
+      setWithdrawalStrategy: (v) => set({ withdrawalStrategy: v }),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
@@ -324,6 +343,10 @@ export const useStore = create<WealthWiseState>()(
         pkTouched: false,
         pillar3aTouched: false,
         wealthTouched: false,
+        ahvChoice: null,
+        pkChoice: null,
+        pkMixPercent: 50,
+        withdrawalStrategy: null,
       }),
     }),
     {
