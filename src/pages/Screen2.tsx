@@ -1724,6 +1724,95 @@ export default function Screen2() {
                         )
                       })()}
                     </div>
+
+                    {/* PK-Vorbezug */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 8 }}>
+                        Vorbezug aus der Pensionskasse getätigt?
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        {(['Nein', 'Ja'] as const).map(opt => (
+                          <button key={opt} type="button"
+                            onClick={() => updatePerson(activeTab, {
+                              pkVorbezugAmount: opt === 'Nein' ? undefined : (cur.pkVorbezugAmount || 0),
+                              pkVorbezugYear: opt === 'Nein' ? undefined : (cur.pkVorbezugYear || new Date().getFullYear() - 2),
+                              pkVorbezugGrund: opt === 'Nein' ? undefined : (cur.pkVorbezugGrund || 'wef'),
+                            })}
+                            style={{
+                              padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                              border: '1px solid var(--navy-200)',
+                              background: (opt === 'Nein' ? !cur.pkVorbezugAmount : !!cur.pkVorbezugAmount || cur.pkVorbezugGrund !== undefined) ? 'var(--navy-800)' : '#fff',
+                              color: (opt === 'Nein' ? !cur.pkVorbezugAmount : !!cur.pkVorbezugAmount || cur.pkVorbezugGrund !== undefined) ? '#fff' : 'var(--ink-700)',
+                            }}>
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                      {(cur.pkVorbezugGrund !== undefined) && (
+                        <>
+                          <div className="form-grid" style={{ marginBottom: 8 }}>
+                            <div className="field">
+                              <label>Grund des Vorbezugs</label>
+                              <select
+                                className="input"
+                                value={cur.pkVorbezugGrund || 'wef'}
+                                onChange={e => updatePerson(activeTab, { pkVorbezugGrund: e.target.value as 'wef' | 'scheidung' })}
+                              >
+                                <option value="wef">Wohneigentumsförderung (WEF)</option>
+                                <option value="scheidung">Scheidung</option>
+                              </select>
+                            </div>
+                            <div className="field">
+                              <label>Jahr des Vorbezugs</label>
+                              <select
+                                className="input"
+                                value={cur.pkVorbezugYear || new Date().getFullYear() - 2}
+                                onChange={e => updatePerson(activeTab, { pkVorbezugYear: parseInt(e.target.value) })}
+                              >
+                                {Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                                  <option key={y} value={y}>{y}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <CHFField
+                            label="Bezogener Betrag (CHF)"
+                            value={cur.pkVorbezugAmount ?? 0}
+                            onChange={v => updatePerson(activeTab, { pkVorbezugAmount: v })}
+                          />
+                          {cur.pkVorbezugGrund === 'wef' && (() => {
+                            const pBase = activeTab === 1 ? person1 : person2
+                            const currentYear = new Date().getFullYear()
+                            const retireAge = pBase.retireAge || 65
+                            const rueckzahlFrist = retireAge - 3
+                            const currentAge = pBase.dob
+                              ? currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]) || 0)
+                              : 45
+                            const rueckzahlBisJahr = currentYear + Math.max(0, rueckzahlFrist - currentAge)
+                            const renteMinus = cur.pkVorbezugAmount && cur.pkVorbezugAmount > 0
+                              ? Math.round(cur.pkVorbezugAmount * (cur.pkRate / 100) / 12)
+                              : 0
+                            return (
+                              <div style={{ marginTop: 8, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#78350f', lineHeight: 1.6 }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>WEF-Rückzahlung</div>
+                                <div>Rückzahlung möglich bis: <strong>{rueckzahlBisJahr}</strong> (3 Jahre vor Pension)</div>
+                                {renteMinus > 0 && (
+                                  <div>Auswirkung ohne Rückzahlung: ca. <strong>CHF {fmtCHF(renteMinus)}/Mt. weniger Rente</strong></div>
+                                )}
+                                <div style={{ fontSize: 11, color: '#92400e', marginTop: 4 }}>
+                                  Rückzahlungen erhöhen Ihr Altersguthaben und sind steuerlich abzugsfähig (wie ein PK-Einkauf).
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          {cur.pkVorbezugGrund === 'scheidung' && (
+                            <div style={{ marginTop: 8, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e40af', lineHeight: 1.6 }}>
+                              Der bei der Scheidung übertragene Betrag kann durch freiwillige PK-Einkäufe wieder aufgebaut werden. Diese sind steuerlich voll abzugsfähig.
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </details>
 

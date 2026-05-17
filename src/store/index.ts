@@ -50,6 +50,9 @@ export interface PersonVorsorge {
   pkRetirementTable?: Record<number, { agh: number; uws: number; renteMonat: number }>
   pkLastPurchaseYear?: number   // year of most recent PK Einkauf (for 3-year Sperrfrist)
   pkLastPurchaseAmount?: number // amount of most recent PK Einkauf
+  pkVorbezugAmount?: number      // CHF amount of PK withdrawal (WEF or divorce)
+  pkVorbezugYear?: number        // year of withdrawal
+  pkVorbezugGrund?: 'wef' | 'scheidung'  // reason for withdrawal
   // AHV: user-overridden average lifetime income (MDJ); if undefined, falls back to income
   ahvAvgIncome?: number
   // Scheidungsdetails (optional, nur relevant wenn civil = 'geschieden')

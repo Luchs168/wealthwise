@@ -491,8 +491,22 @@ export default function Screen4() {
         ...recs
       ].slice(0, 3)
     }
+    // WEF-Vorbezug: always show if present
+    const p1stored = state.persons.find(p => p.id === 1)
+    if (p1stored?.pkVorbezugGrund === 'wef' && (p1stored.pkVorbezugAmount ?? 0) > 0) {
+      const renteMinus = Math.round((p1stored.pkVorbezugAmount ?? 0) * ((p1stored.pkRate || 5.4) / 100) / 12)
+      const currentYear = new Date().getFullYear()
+      const retireAge = person1.retireAge || 65
+      const currentAge1Calc = person1.dob ? (currentYear - (parseInt(person1.dob.split('.').pop() || '0') || parseInt(person1.dob.split('-')[0]) || 0)) : 55
+      const rueckzahlBisJahr = currentYear + Math.max(0, (retireAge - 3) - currentAge1Calc)
+      recs.unshift({
+        text: `WEF-Rückzahlung prüfen: CHF ${fmtCHF(p1stored.pkVorbezugAmount ?? 0)} vorbezogen – Rückzahlung spart CHF ${fmtCHF(renteMinus)}/Mt. Rente.`,
+        priority: 'hoch' as const,
+        detail: `Sie haben CHF ${fmtCHF(p1stored.pkVorbezugAmount ?? 0)} für Wohneigentum vorbezogen. Eine Rückzahlung erhöht Ihre PK-Rente um ca. CHF ${fmtCHF(renteMinus)}/Monat und ist steuerlich abzugsfähig (wie ein PK-Einkauf). Frist: Bis ${rueckzahlBisJahr} (3 Jahre vor Pensionierung).`,
+      })
+    }
     return recs.slice(0, 3)
-  }, [analysis.verdict, p1, freeAssets, currentAge1])
+  }, [analysis.verdict, p1, freeAssets, currentAge1, state.persons, person1])
 
   const eigenmietwertResult = useMemo(() => {
     if (!property.has || !property.value) return null
