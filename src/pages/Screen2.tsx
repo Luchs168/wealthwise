@@ -208,58 +208,36 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
   const mobile = isMobile()
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{ marginBottom: 8 }}>
       {status === 'idle' && (
-        <>
-          <div style={{ marginBottom: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12, color: '#14532d', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-            <span style={{ flexShrink: 0 }}>🔒</span>
-            <span>Ihr Dokument wird ausschliesslich lokal in Ihrem Browser verarbeitet. Es wird <strong>nicht</strong> auf einen Server übertragen und nach Extraktion der Zahlenwerte sofort verworfen. Ihre AHV-Nummer und Arbeitgeber-Angaben werden nicht gespeichert.</span>
-          </div>
-          <div style={{
-            marginBottom: 10, padding: '10px 14px',
-            background: '#eff6ff', border: '1px solid #bae6fd',
-            borderRadius: 10, fontSize: 12.5, color: '#1e40af',
-            display: 'flex', alignItems: 'flex-start', gap: 8,
-          }}>
-            <span style={{ flexShrink: 0 }}>ℹ</span>
-            <span><strong>Ausfüllhilfe:</strong> Laden Sie Ihren PK-Ausweis hoch – PDF, Foto (JPG/PNG) oder iPhone-Foto (HEIC). Alle Formate werden akzeptiert. Wir lesen Guthaben, Umwandlungssatz und Beiträge aus. Bitte prüfen Sie die extrahierten Werte.</span>
-          </div>
-        </>
-      )}
-
-      {status === 'idle' && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            style={{
+              fontSize: 12.5, padding: '6px 14px', borderRadius: 8,
+              border: '1px solid var(--ink-200)', background: 'var(--surface)',
+              cursor: 'pointer', color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            PK-Ausweis hochladen (PDF/Foto)
+          </button>
           {mobile && (
             <button
               type="button"
               onClick={() => cameraRef.current?.click()}
               style={{
-                flex: 1, minWidth: 140, padding: '12px 16px',
-                background: 'var(--navy-800)', color: '#fff',
-                border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                fontSize: 12.5, padding: '6px 14px', borderRadius: 8,
+                border: '1px solid var(--ink-200)', background: 'var(--surface)',
+                cursor: 'pointer', color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Dokument fotografieren
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Foto
             </button>
           )}
-          <div
-            onClick={() => fileRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-            style={{
-              flex: 1, minWidth: 140,
-              border: '2px dashed var(--ink-200)', borderRadius: 10,
-              background: 'var(--surface)', padding: '12px 16px',
-              cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 600,
-              color: 'var(--ink-600)',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            {mobile ? 'Datei auswählen' : 'PDF / Foto hochladen oder hierher ziehen'}
-          </div>
+          <span style={{ fontSize: 11, color: 'var(--ink-400)' }}>🔒 Nur lokal verarbeitet</span>
         </div>
       )}
 
@@ -272,41 +250,19 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
       )}
 
       {status === 'done' && result && (() => {
-        // Count fields that were actually parsed (not just hardcoded defaults)
         const realFields = result.extractedFields.filter(f => !f.includes('Standardwert'))
         const realValues = [result.pkCurrentCapital, result.pkAnnualContribution, result.pkMaxGuthaben,
           result.insuredSalary, result.projectedCapital65, result.pkObligatorisch].filter(v => v > 0)
         const isSuccess = realFields.length >= 3 || realValues.length >= 3
-        const isPartial = !isSuccess && (realFields.length >= 1 || realValues.length >= 1)
-
-        if (isSuccess) return (
-          <div style={{ padding: '16px 18px', border: '2px solid #16a34a', borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#16a34a', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>✓</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#15803d' }}>Werte erfolgreich erkannt</div>
-              <div style={{ fontSize: 12.5, color: '#16a34a', marginTop: 2 }}>{fileName} · {result.pensionFundName}</div>
-            </div>
-            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
-          </div>
-        )
-        if (isPartial) return (
-          <div style={{ padding: '16px 18px', border: '2px solid #f59e0b', borderRadius: 12, background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#f59e0b', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>⚠</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#92400e' }}>Teilweise erkannt – bitte ergänzen</div>
-              <div style={{ fontSize: 12.5, color: '#b45309', marginTop: 2 }}>{fileName} · Einige Werte manuell prüfen</div>
-            </div>
-            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
-          </div>
-        )
         return (
-          <div style={{ padding: '16px 18px', border: '2px solid #fca5a5', borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#ef4444', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18, flexShrink: 0 }}>!</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#991b1b' }}>Werte konnten nicht erkannt werden</div>
-              <div style={{ fontSize: 12.5, color: '#7f1d1d', marginTop: 2 }}>Bitte alle Felder manuell eingeben. Standardwerte sind vorbelegt.</div>
-            </div>
-            <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--ink-400)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+            <span style={{ color: isSuccess ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>
+              {isSuccess ? '✓' : '⚠'} PK-Ausweis erkannt
+            </span>
+            <span style={{ color: 'var(--ink-400)', fontSize: 11 }}>{fileName}{result.pensionFundName ? ` · ${result.pensionFundName}` : ''}</span>
+            <button onClick={reset} style={{ fontSize: 11, color: 'var(--navy-600)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+              Erneut hochladen
+            </button>
           </div>
         )
       })()}
@@ -326,10 +282,6 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
       <input ref={fileRef} type="file" accept={ACCEPT_ALL} style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
-
-      <div style={{ fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', marginTop: 6, paddingLeft: 2 }}>
-        Ihr Dokument wird nur lokal in Ihrem Browser verarbeitet – es wird nichts an einen Server gesendet.
-      </div>
 
       {/* Extracted values summary – compact */}
       {status === 'done' && result && (() => {
@@ -1539,171 +1491,29 @@ export default function Screen2() {
 
             return (
               <>
-                {isEstimated && (
-                  <div style={{ marginBottom: 14, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 13, color: '#1e40af' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Haben Sie Ihren Vorsorgeausweis nicht zur Hand? Kein Problem.</div>
-                    Wir schätzen Ihr PK-Guthaben basierend auf Alter ({proj.currentAge}) und Einkommen.{' '}
-                    <strong>Tipp: Mit Ihrem PK-Ausweis wird die Analyse deutlich genauer.</strong>
-                  </div>
-                )}
-                <PkUpload onExtract={(fields) => {
-                  setPkTouched(true)
-                  const personBase = activeTab === 1 ? person1 : person2
-                  const retireAge = personBase.retireAge || 65
-                  const tableEntry = fields.retirementTable?.[retireAge]
-                  const uwsForAge = tableEntry?.uws || fields.pkRate
-
-                  // Switch to manual contribution mode when the document provides a real value
-                  if (fields.pkAnnualContribution > 0) {
-                    setPkContribMode(prev => {
-                      const next = [...prev] as typeof prev
-                      next[activeTab === 1 ? 0 : 1] = 'manuell'
-                      return next
-                    })
-                  }
-
-                  // Compact the retirement table to only the fields we store
-                  const compactTable: Record<number, { agh: number; uws: number; renteMonat: number }> = {}
-                  for (const [ageStr, entry] of Object.entries(fields.retirementTable)) {
-                    compactTable[Number(ageStr)] = { agh: entry.agh, uws: entry.uws, renteMonat: entry.renteMonat }
-                  }
-
-                  updatePKAndProject(activeTab, {
-                    pkCurrentCapital: fields.pkCurrentCapital,
-                    pkRate: uwsForAge,
-                    pkAnnualContribution: fields.pkAnnualContribution || undefined,
-                    pkMaxGuthaben: fields.pkMaxGuthaben || undefined,
-                    pkObligatorisch: fields.pkObligatorisch || undefined,
-                    pkRetirementTable: Object.keys(compactTable).length > 0 ? compactTable : undefined,
-                  })
-                }} />
-
-                {/* 1. Aktuelles Altersguthaben */}
-                <div style={{ marginBottom: 4 }}>
+                {/* 1. Aktuelles Altersguthaben – mandatory */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    Aktuelles Altersguthaben
+                    <span title="Steht auf Ihrem PK-Ausweis unter «Altersguthaben» oder «Sparguthaben» (Seite 1)." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                  </label>
                   <CHFField
-                    label="Aktuelles Altersguthaben"
+                    label=""
                     value={pkCapitalDisplay}
                     onChange={(v) => { if (v > 0) setPkTouched(true); updatePKAndProject(activeTab, { pkCurrentCapital: v }) }}
                   />
-                  {isEstimated ? (
-                    <div style={{ fontSize: 12, color: '#0369a1', marginTop: 3, paddingLeft: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 4, padding: '1px 7px', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>Geschätzt</span>
-                      Ersetzen Sie diesen Wert mit der Zahl von Ihrem PK-Ausweis
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 3, paddingLeft: 2 }}>
-                      → Vorsorgeausweis: «Altersguthaben» oder «Sparguthaben» (Seite 1)
+                  {isEstimated && (
+                    <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4, paddingLeft: 2 }}>
+                      Schätzung – ersetzen Sie diesen Wert mit der Zahl Ihres PK-Ausweises
                     </div>
                   )}
                 </div>
 
-                {/* Optional: Aufschlüsselung obligatorisch/überobligatorisch */}
-                <details style={{ marginBottom: 16 }}>
-                  <summary style={{ fontSize: 12, color: 'var(--navy-600)', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style={{ transform: 'rotate(0deg)' }}><path d="M2 3l3 4 3-4"/></svg>
-                    Aufschlüsselung erfassen (optional)
-                  </summary>
-                  <div className="form-grid" style={{ marginTop: 10 }}>
-                    <CHFField
-                      label="Davon obligatorisch"
-                      value={cur.pkObligatorisch}
-                      onChange={(v) => updatePerson(activeTab, { pkObligatorisch: v })}
-                      hint="BVG-Minimum (gesetzlich garantiert)"
-                    />
-                    <CHFField
-                      label="Davon überobligatorisch"
-                      value={cur.pkCurrentCapital > 0 && cur.pkObligatorisch > 0 ? cur.pkCurrentCapital - cur.pkObligatorisch : 0}
-                      onChange={() => {}}
-                      hint="Automatisch berechnet"
-                    />
-                  </div>
-                </details>
-
-                {/* 2. Jährlicher Sparbeitrag */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)' }}>
-                      Jährlicher Sparbeitrag (AN + AG)
-                      {curContribMode === 'manuell' && cur.pkAnnualContribution > 0 && cur.pkRetirementTable && (
-                        <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#059669', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 4, padding: '1px 6px' }}>aus Vorsorgeausweis</span>
-                      )}
-                    </label>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {(['auto', 'manuell'] as const).map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => setPkContribMode(prev => {
-                            const next = [...prev] as typeof prev
-                            next[contribModeIdx] = m
-                            return next
-                          })}
-                          style={{
-                            fontSize: 11, padding: '3px 10px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                            background: curContribMode === m ? 'var(--navy-700)' : 'var(--ink-100)',
-                            color: curContribMode === m ? '#fff' : 'var(--ink-600)',
-                          }}
-                        >
-                          {m === 'auto' ? 'Automatisch' : 'Manuell'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {curContribMode === 'auto' ? (
-                    <div style={{
-                      padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
-                      borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    }}>
-                      <div>
-                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--navy-800)' }}>
-                          CHF {fmtCHF(proj.effectiveContrib)} / Jahr
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 2 }}>
-                          Schätzung BVG: {proj.currentAge < 35 ? '14' : proj.currentAge < 45 ? '21' : proj.currentAge < 55 ? '28' : '35'}% von versichertem Lohn CHF {fmtCHF(proj.insuredSalary)}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', textAlign: 'right', maxWidth: 120 }}>
-                        BVG-Mindest­beitrag · Ihre Kasse kann mehr leisten
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <CHFField
-                        label=""
-                        value={cur.pkAnnualContribution}
-                        onChange={(v) => updatePKAndProject(activeTab, { pkAnnualContribution: v })}
-                        hint="'Sparbeiträge total' auf Ihrem Vorsorgeausweis · oder: Lohnabzug PK × 2"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Zinssatz */}
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>
-                    Zinssatz Ihrer Pensionskasse
-                  </label>
-                  <div className="amount-wrap" style={{ maxWidth: 160 }}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={6}
-                      step={0.05}
-                      value={(cur.pkInterestRate * 100).toFixed(2)}
-                      onChange={(e) => updatePKAndProject(activeTab, { pkInterestRate: (parseFloat(e.target.value) || 0) / 100 })}
-                      style={{ textAlign: 'right', paddingRight: 32 }}
-                    />
-                    <span className="suffix">%</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
-                    BVG-Mindestzins 2026: 1.25%. Finden Sie den Wert im Geschäftsbericht Ihrer PK.
-                  </div>
-                </div>
-
-                {/* 4. Umwandlungssatz */}
+                {/* 2. Umwandlungssatz – mandatory */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    Umwandlungssatz bei Pensionierung
-                    <span title="Der Umwandlungssatz bestimmt, wie viel Jahresrente Sie pro CHF 100'000 Altersguthaben erhalten. Bei CHF 500'000 und 5.4% = CHF 27'000/Jahr = CHF 2'250/Monat." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                    Umwandlungssatz (UWS)
+                    <span title="Der UWS bestimmt, wie viel Jahresrente Sie pro CHF 100'000 erhalten. Beispiel: CHF 500'000 × 5.4% = CHF 27'000/Jahr. Steht auf Ihrem PK-Ausweis. Schweizer Durchschnitt: 5.0–5.8%." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
                   </label>
                   <div className="amount-wrap" style={{ maxWidth: 160 }}>
                     <input
@@ -1717,31 +1527,106 @@ export default function Screen2() {
                     />
                     <span className="suffix">%</span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>
-                    Steht auf Ihrem Vorsorgeausweis. BVG-Minimum: 6.8% (gilt nur für obligatorischen Teil). Schweizer Durchschnitt: ca. 5.0–5.8%.
-                  </div>
                 </div>
 
-                {/* 6. Einkaufspotenzial (optional) */}
-                <div style={{ marginBottom: 16 }}>
-                  <button
-                    className="link-toggle"
-                    onClick={() => setPkEinkaufExpanded(!pkEinkaufExpanded)}
-                    style={{ marginBottom: pkEinkaufExpanded ? 10 : 0 }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                      style={{ transform: pkEinkaufExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                    Einkaufspotenzial erfassen (optional)
-                  </button>
-                  {pkEinkaufExpanded && (
-                    <div className="link-expand">
+                {/* 3. Weitere Angaben (optional) – collapsed */}
+                <details style={{ marginBottom: 16 }}>
+                  <summary style={{ fontSize: 13, color: 'var(--navy-600)', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
+                    Weitere Angaben (optional)
+                  </summary>
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {/* Sparbeitrag */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)' }}>
+                          Jährlicher Sparbeitrag (AN + AG)
+                          {curContribMode === 'manuell' && cur.pkAnnualContribution > 0 && cur.pkRetirementTable && (
+                            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#059669', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 4, padding: '1px 6px' }}>aus Vorsorgeausweis</span>
+                          )}
+                        </label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {(['auto', 'manuell'] as const).map((m) => (
+                            <button
+                              key={m}
+                              onClick={() => setPkContribMode(prev => {
+                                const next = [...prev] as typeof prev
+                                next[contribModeIdx] = m
+                                return next
+                              })}
+                              style={{
+                                fontSize: 11, padding: '3px 10px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                                background: curContribMode === m ? 'var(--navy-700)' : 'var(--ink-100)',
+                                color: curContribMode === m ? '#fff' : 'var(--ink-600)',
+                              }}
+                            >
+                              {m === 'auto' ? 'Automatisch' : 'Manuell'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {curContribMode === 'auto' ? (
+                        <div style={{ padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8 }}>
+                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--navy-800)' }}>
+                            CHF {fmtCHF(proj.effectiveContrib)} / Jahr
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 2 }}>
+                            Schätzung BVG: {proj.currentAge < 35 ? '14' : proj.currentAge < 45 ? '21' : proj.currentAge < 55 ? '28' : '35'}% von versichertem Lohn CHF {fmtCHF(proj.insuredSalary)}
+                          </div>
+                        </div>
+                      ) : (
+                        <CHFField
+                          label=""
+                          value={cur.pkAnnualContribution}
+                          onChange={(v) => updatePKAndProject(activeTab, { pkAnnualContribution: v })}
+                          hint="«Sparbeiträge total» auf Ihrem Vorsorgeausweis"
+                        />
+                      )}
+                    </div>
+
+                    {/* Zinssatz */}
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        Zinssatz Ihrer Pensionskasse
+                        <span title="BVG-Mindestzins 2026: 1.25%. Den genauen Wert finden Sie im Geschäftsbericht Ihrer PK." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                      </label>
+                      <div className="amount-wrap" style={{ maxWidth: 160 }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={6}
+                          step={0.05}
+                          value={(cur.pkInterestRate * 100).toFixed(2)}
+                          onChange={(e) => updatePKAndProject(activeTab, { pkInterestRate: (parseFloat(e.target.value) || 0) / 100 })}
+                          style={{ textAlign: 'right', paddingRight: 32 }}
+                        />
+                        <span className="suffix">%</span>
+                      </div>
+                    </div>
+
+                    {/* Aufschlüsselung obligatorisch/überobligatorisch */}
+                    <div className="form-grid">
+                      <CHFField
+                        label="Davon obligatorisch"
+                        value={cur.pkObligatorisch}
+                        onChange={(v) => updatePerson(activeTab, { pkObligatorisch: v })}
+                        hint="BVG-Minimum (gesetzlich garantiert)"
+                      />
+                      <CHFField
+                        label="Davon überobligatorisch"
+                        value={cur.pkCurrentCapital > 0 && cur.pkObligatorisch > 0 ? cur.pkCurrentCapital - cur.pkObligatorisch : 0}
+                        onChange={() => {}}
+                        hint="Automatisch berechnet"
+                      />
+                    </div>
+
+                    {/* Einkaufspotenzial */}
+                    <div>
                       <CHFField
                         label="Maximales reglementarisches Guthaben"
                         value={cur.pkMaxGuthaben}
                         onChange={(v) => updatePerson(activeTab, { pkMaxGuthaben: v })}
-                        hint="Vorsorgeausweis → 'Einkaufspotenzial' oder 'Möglicher Einkauf'"
+                        hint="Vorsorgeausweis → «Einkaufspotenzial» oder «Möglicher Einkauf»"
                       />
                       {(() => {
                         const currentYear = new Date().getFullYear()
@@ -1749,105 +1634,126 @@ export default function Screen2() {
                         const yearsUntilPension = Math.max(0, (pBase.retireAge || 65) - (pBase.dob ? (currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))) : 40))
                         const sperrfristAktiv = !!(cur.pkLastPurchaseYear && (cur.pkLastPurchaseYear + 3 > currentYear))
                         const einkaufSinnvoll = yearsUntilPension >= 4 && !sperrfristAktiv
+                        if (einkaufspotenzial <= 0) return null
                         return (
-                          <>
-                            {einkaufspotenzial > 0 && einkaufSinnvoll && (
-                              <div style={{ marginTop: 8, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: '#14532d', marginBottom: 4 }}>
-                                  Ihr Einkaufspotenzial: CHF {fmtCHF(einkaufspotenzial)}
+                          <div style={{ marginTop: 8, padding: '10px 14px', background: einkaufSinnvoll ? '#f0fdf4' : '#f1f5f9', border: `1px solid ${einkaufSinnvoll ? '#bbf7d0' : '#cbd5e1'}`, borderRadius: 8 }}>
+                            {einkaufSinnvoll ? (
+                              <>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#14532d', marginBottom: 2 }}>
+                                  Einkaufspotenzial: CHF {fmtCHF(einkaufspotenzial)}
                                 </div>
-                                <div style={{ fontSize: 12, color: '#166534' }}>
-                                  + CHF {fmtCHF(Math.round(einkaufspotenzial * (cur.pkRate / 100) / 12))}/Mt. mehr Rente bei vollem Einkauf
+                                <div style={{ fontSize: 11, color: '#166534' }}>
+                                  + CHF {fmtCHF(Math.round(einkaufspotenzial * (cur.pkRate / 100) / 12))}/Mt. mehr Rente bei vollem Einkauf · steuerlich abzugsfähig
                                 </div>
-                                <div style={{ fontSize: 11, color: '#16a34a', marginTop: 2 }}>
-                                  PK-Einkäufe sind steuerlich voll abzugsfähig → Details im Steuerabschnitt (Schritt 4)
-                                </div>
-                              </div>
-                            )}
-                            {einkaufspotenzial > 0 && !einkaufSinnvoll && (
-                              <div style={{ marginTop: 8, padding: '10px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>
                                 {sperrfristAktiv
                                   ? `PK-Einkauf derzeit nicht empfohlen: Sperrfrist bis ${(cur.pkLastPurchaseYear || 0) + 3} aktiv.`
-                                  : `Ein PK-Einkauf lohnt sich zeitlich nicht mehr (Sperrfrist 3 Jahre, Pensionierung in ${yearsUntilPension} ${yearsUntilPension === 1 ? 'Jahr' : 'Jahren'}).`}
+                                  : `Einkauf lohnt sich zeitlich nicht mehr (Pensionierung in ${yearsUntilPension} ${yearsUntilPension === 1 ? 'Jahr' : 'Jahren'}).`}
                               </div>
                             )}
-                          </>
+                          </div>
                         )
                       })()}
                     </div>
-                  )}
-                </div>
 
-                {/* Sperrfrist – letzter PK-Einkauf */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>
-                    Haben Sie in den letzten 3 Jahren einen PK-Einkauf getätigt?
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    {(['Nein', 'Ja'] as const).map(opt => (
-                      <button key={opt} type="button"
-                        onClick={() => updatePerson(activeTab, {
-                          pkLastPurchaseYear: opt === 'Nein' ? undefined : (cur.pkLastPurchaseYear || new Date().getFullYear() - 1),
-                          pkLastPurchaseAmount: opt === 'Nein' ? undefined : cur.pkLastPurchaseAmount,
-                        })}
-                        style={{
-                          padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
-                          border: '1px solid var(--navy-200)',
-                          background: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? 'var(--navy-800)' : '#fff',
-                          color: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? '#fff' : 'var(--ink-700)',
-                        }}>
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                  {cur.pkLastPurchaseYear && (
-                    <div className="form-grid" style={{ marginBottom: 8 }}>
-                      <div className="field">
-                        <label htmlFor={`pk-purchase-year-p${activeTab}`}>Jahr des Einkaufs</label>
-                        <select
-                          id={`pk-purchase-year-p${activeTab}`}
-                          className="input"
-                          value={cur.pkLastPurchaseYear}
-                          onChange={e => updatePerson(activeTab, { pkLastPurchaseYear: parseInt(e.target.value) })}
-                        >
-                          {[2023, 2024, 2025, 2026].map(y => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
+                    {/* PK-Einkauf in letzten 3 Jahren */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 8 }}>
+                        PK-Einkauf in den letzten 3 Jahren getätigt?
                       </div>
-                      <div className="field">
-                        <CHFField
-                          label="Betrag (CHF)"
-                          value={cur.pkLastPurchaseAmount ?? 0}
-                          onChange={v => updatePerson(activeTab, { pkLastPurchaseAmount: v })}
-                        />
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        {(['Nein', 'Ja'] as const).map(opt => (
+                          <button key={opt} type="button"
+                            onClick={() => updatePerson(activeTab, {
+                              pkLastPurchaseYear: opt === 'Nein' ? undefined : (cur.pkLastPurchaseYear || new Date().getFullYear() - 1),
+                              pkLastPurchaseAmount: opt === 'Nein' ? undefined : cur.pkLastPurchaseAmount,
+                            })}
+                            style={{
+                              padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                              border: '1px solid var(--navy-200)',
+                              background: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? 'var(--navy-800)' : '#fff',
+                              color: (opt === 'Nein' ? !cur.pkLastPurchaseYear : !!cur.pkLastPurchaseYear) ? '#fff' : 'var(--ink-700)',
+                            }}>
+                            {opt}
+                          </button>
+                        ))}
                       </div>
+                      {cur.pkLastPurchaseYear && (
+                        <div className="form-grid" style={{ marginBottom: 8 }}>
+                          <div className="field">
+                            <label htmlFor={`pk-purchase-year-p${activeTab}`}>Jahr des Einkaufs</label>
+                            <select
+                              id={`pk-purchase-year-p${activeTab}`}
+                              className="input"
+                              value={cur.pkLastPurchaseYear}
+                              onChange={e => updatePerson(activeTab, { pkLastPurchaseYear: parseInt(e.target.value) })}
+                            >
+                              {[2023, 2024, 2025, 2026].map(y => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="field">
+                            <CHFField
+                              label="Betrag (CHF)"
+                              value={cur.pkLastPurchaseAmount ?? 0}
+                              onChange={v => updatePerson(activeTab, { pkLastPurchaseAmount: v })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {cur.pkLastPurchaseYear && (() => {
+                        const sperrfristBis = cur.pkLastPurchaseYear + 3
+                        const currentYear = new Date().getFullYear()
+                        const sperrfristAktiv = sperrfristBis > currentYear
+                        const pBase = activeTab === 1 ? person1 : person2
+                        const yearsUntilPension = Math.max(0, (pBase.retireAge || 65) - (pBase.dob ? (currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))) : 40))
+                        const pensionYear = currentYear + yearsUntilPension
+                        const pensionBeforeSperrfrist = pensionYear < sperrfristBis
+                        if (!sperrfristAktiv && !pensionBeforeSperrfrist) return null
+                        return (
+                          <div style={{ padding: '10px 14px', background: pensionBeforeSperrfrist ? '#fef2f2' : '#fffbeb', border: `2px solid ${pensionBeforeSperrfrist ? '#fca5a5' : '#fde68a'}`, borderRadius: 8, fontSize: 12.5, color: pensionBeforeSperrfrist ? '#7f1d1d' : '#78350f', lineHeight: 1.65 }}>
+                            {pensionBeforeSperrfrist ? (
+                              <><strong>Achtung:</strong> Pensionierung {pensionYear}, Sperrfrist bis {sperrfristBis} – kein Kapitalbezug möglich (Art. 79b BVG).</>
+                            ) : (
+                              <><strong>Sperrfrist aktiv:</strong> Kapitalbezug frühestens <strong>{sperrfristBis}</strong> möglich (Art. 79b BVG).</>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
-                  )}
-                  {cur.pkLastPurchaseYear && (() => {
-                    const sperrfristBis = cur.pkLastPurchaseYear + 3
-                    const currentYear = new Date().getFullYear()
-                    const sperrfristAktiv = sperrfristBis > currentYear
-                    const pBase = activeTab === 1 ? person1 : person2
-                    const yearsUntilPension = Math.max(0, (pBase.retireAge || 65) - (pBase.dob ? (currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]))) : 40))
-                    const pensionYear = currentYear + yearsUntilPension
-                    const pensionBeforeSperrfrist = pensionYear < sperrfristBis
-                    if (!sperrfristAktiv && !pensionBeforeSperrfrist) return null
-                    return (
-                      <div style={{ padding: '12px 14px', background: pensionBeforeSperrfrist ? '#fef2f2' : '#fffbeb', border: `2px solid ${pensionBeforeSperrfrist ? '#fca5a5' : '#fde68a'}`, borderRadius: 8, fontSize: 12.5, color: pensionBeforeSperrfrist ? '#7f1d1d' : '#78350f', lineHeight: 1.65 }}>
-                        {pensionBeforeSperrfrist ? (
-                          <>
-                            <strong>Achtung:</strong> Sie planen die Pensionierung {pensionYear}, aber die Sperrfrist läuft bis {sperrfristBis}. Sie können bei Pensionierung <strong>kein Kapital beziehen</strong> – nur die Rente ist möglich (Art. 79b BVG).
-                          </>
-                        ) : (
-                          <>
-                            <strong>Sperrfrist aktiv:</strong> Aufgrund Ihres PK-Einkaufs {cur.pkLastPurchaseYear} können Sie frühestens <strong>{sperrfristBis}</strong> einen Kapitalbezug vornehmen (3-Jahres-Sperrfrist, Art. 79b BVG).
-                          </>
-                        )}
-                      </div>
-                    )
-                  })()}
-                </div>
+                  </div>
+                </details>
+
+                {/* Upload – compact, at bottom */}
+                <PkUpload onExtract={(fields) => {
+                  setPkTouched(true)
+                  const personBase = activeTab === 1 ? person1 : person2
+                  const retireAge = personBase.retireAge || 65
+                  const tableEntry = fields.retirementTable?.[retireAge]
+                  const uwsForAge = tableEntry?.uws || fields.pkRate
+                  if (fields.pkAnnualContribution > 0) {
+                    setPkContribMode(prev => {
+                      const next = [...prev] as typeof prev
+                      next[activeTab === 1 ? 0 : 1] = 'manuell'
+                      return next
+                    })
+                  }
+                  const compactTable: Record<number, { agh: number; uws: number; renteMonat: number }> = {}
+                  for (const [ageStr, entry] of Object.entries(fields.retirementTable)) {
+                    compactTable[Number(ageStr)] = { agh: entry.agh, uws: entry.uws, renteMonat: entry.renteMonat }
+                  }
+                  updatePKAndProject(activeTab, {
+                    pkCurrentCapital: fields.pkCurrentCapital,
+                    pkRate: uwsForAge,
+                    pkAnnualContribution: fields.pkAnnualContribution || undefined,
+                    pkMaxGuthaben: fields.pkMaxGuthaben || undefined,
+                    pkObligatorisch: fields.pkObligatorisch || undefined,
+                    pkRetirementTable: Object.keys(compactTable).length > 0 ? compactTable : undefined,
+                  })
+                }} />
 
                 {/* Compact Projektion */}
                 <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
