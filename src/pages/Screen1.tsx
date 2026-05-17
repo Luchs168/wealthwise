@@ -790,27 +790,67 @@ export default function Screen1() {
               >
                 <Icons.Plus /> Kind hinzufügen
               </button>
-              {/* Fix 7: AHV-Kinderrente – Kinder in Ausbildung 18-25 */}
-              {children.some(c => {
-                const age = c.year ? new Date().getFullYear() - parseInt(c.year) : 0
-                return age >= 18 && age <= 25
-              }) && (
-                <div style={{ marginTop: 12, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e40af' }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>AHV-Kinderrente möglich</div>
-                  <div style={{ marginBottom: 8, lineHeight: 1.5 }}>
-                    Wenn ein Kind zwischen 18 und 25 noch in Ausbildung ist, erhalten Sie ab AHV-Bezug eine zusätzliche Kinderrente (40% Ihrer AHV-Rente, max. CHF 1'008/Monat).
+              {/* AHV-Kinderrente: only show when a child will be under 25 at retirement */}
+              {(() => {
+                const currentYear = new Date().getFullYear()
+                const retireAge = person1.retireAge || 65
+                const retirementYear = age1 !== null
+                  ? currentYear + Math.max(0, retireAge - age1)
+                  : currentYear + retireAge - 35 // fallback if no DOB
+
+                const relevantChildren = children
+                  .filter(c => c.year && c.year.length === 4)
+                  .map(c => {
+                    const birthYear = parseInt(c.year)
+                    const ageAtRetirement = retirementYear - birthYear
+                    return { birthYear, ageAtRetirement }
+                  })
+                  .filter(c => c.ageAtRetirement >= 0 && c.ageAtRetirement < 25)
+
+                if (relevantChildren.length === 0) return null
+
+                // Children under 18 at retirement → automatic Kinderrente
+                const autoKids = relevantChildren.filter(c => c.ageAtRetirement < 18)
+                // Children 18-25 at retirement → may be in training
+                const trainingKids = relevantChildren.filter(c => c.ageAtRetirement >= 18)
+
+                return (
+                  <div style={{ marginTop: 12, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e40af' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>AHV-Kinderrente möglich</div>
+
+                    {autoKids.map(c => (
+                      <div key={c.birthYear} style={{ marginBottom: 6, lineHeight: 1.5 }}>
+                        Ihr Kind (geb. {c.birthYear}) ist bei Ihrer Pensionierung erst{' '}
+                        <strong>{c.ageAtRetirement} Jahre alt</strong>. Sie erhalten automatisch eine
+                        AHV-Kinderrente (40% Ihrer AHV-Rente, max. CHF 1'008/Monat), solange das Kind
+                        unter 18 ist.
+                      </div>
+                    ))}
+
+                    {trainingKids.length > 0 && (
+                      <>
+                        {trainingKids.map(c => (
+                          <div key={c.birthYear} style={{ marginBottom: 6, lineHeight: 1.5 }}>
+                            Ihr Kind (geb. {c.birthYear}) ist bei Ihrer Pensionierung ca.{' '}
+                            <strong>{c.ageAtRetirement} Jahre alt</strong>. Falls es dann noch in
+                            Ausbildung ist, erhalten Sie eine AHV-Kinderrente (40% Ihrer AHV-Rente,
+                            max. CHF 1'008/Monat).
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                          <input
+                            type="checkbox"
+                            checked={p1.hasChildInTraining ?? false}
+                            onChange={e => updatePerson(1, { hasChildInTraining: e.target.checked })}
+                            style={{ width: 15, height: 15, accentColor: '#3b82f6', flexShrink: 0 }}
+                          />
+                          <span>Kind wird bei Pensionierung noch in Ausbildung sein (Kinderrente berücksichtigen)</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={p1.hasChildInTraining ?? false}
-                      onChange={e => updatePerson(1, { hasChildInTraining: e.target.checked })}
-                      style={{ width: 15, height: 15, accentColor: '#3b82f6', flexShrink: 0 }}
-                    />
-                    <span>Ein Kind ist 18–25 und noch in Ausbildung (AHV-Kinderrente berücksichtigen)</span>
-                  </div>
-                </div>
-              )}
+                )
+              })()}
             </>
           )}
         </section>
