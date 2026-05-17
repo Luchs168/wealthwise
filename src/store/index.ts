@@ -50,6 +50,8 @@ export interface PersonVorsorge {
   pkRetirementTable?: Record<number, { agh: number; uws: number; renteMonat: number }>
   pkLastPurchaseYear?: number   // year of most recent PK Einkauf (for 3-year Sperrfrist)
   pkLastPurchaseAmount?: number // amount of most recent PK Einkauf
+  // AHV: user-overridden average lifetime income (MDJ); if undefined, falls back to income
+  ahvAvgIncome?: number
   // Scheidungsdetails (optional, nur relevant wenn civil = 'geschieden')
   divorcePkSplitting?: 'ja' | 'nein' | 'weiss_nicht'
   divorceAhvSplitting?: 'ja' | 'nein' | 'weiss_nicht'

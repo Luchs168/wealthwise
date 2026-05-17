@@ -416,18 +416,22 @@ export default function Screen2() {
   const autoYears1 = useMemo(() => calcAutoYears(person1.retireAge || 65, p1.immigrationYear, person1.dob), [person1.retireAge, p1.immigrationYear, person1.dob])
   const autoYears2 = useMemo(() => calcAutoYears(person2.retireAge || 65, p2.immigrationYear, person2.dob), [person2.retireAge, p2.immigrationYear, person2.dob])
 
+  // Effective MDJ: user override takes priority, else current income (capped at AHV max inside calcBaseRente)
+  const effectiveMdj1 = p1.ahvAvgIncome ?? p1.income
+  const effectiveMdj2 = p2.ahvAvgIncome ?? p2.income
+
   // AHV calculation using precise 2026 factors
   const ahvResult1 = useMemo(() => calculateAHVPension({
-    avgIncome: p1.income,
+    avgIncome: effectiveMdj1,
     bezugAge: p1.ahvBezugAge ?? 65,
     effectiveContributionYears: Math.max(0, (autoYears1) - (p1.ahvContributionGaps || 0)),
-  }), [p1.income, p1.ahvBezugAge, autoYears1, p1.ahvContributionGaps])
+  }), [effectiveMdj1, p1.ahvBezugAge, autoYears1, p1.ahvContributionGaps])
 
   const ahvResult2 = useMemo(() => isPaar ? calculateAHVPension({
-    avgIncome: p2.income,
+    avgIncome: effectiveMdj2,
     bezugAge: p2.ahvBezugAge ?? 65,
     effectiveContributionYears: Math.max(0, (autoYears2) - (p2.ahvContributionGaps || 0)),
-  }) : null, [isPaar, p2.income, p2.ahvBezugAge, autoYears2, p2.ahvContributionGaps])
+  }) : null, [isPaar, effectiveMdj2, p2.ahvBezugAge, autoYears2, p2.ahvContributionGaps])
 
   const plafonierung = useMemo(() => {
     if (!ahvResult2) return { monthly1: ahvResult1.monthlyRente, monthly2: 0, plafonReduction: 0 }
@@ -693,7 +697,10 @@ export default function Screen2() {
               <div>
                 <div className="ahv-row-label">{person1.name || 'Person 1'}</div>
                 <div className="ahv-row-sub">
-                  Ø-Einkommen CHF {fmtCHF(p1.income)} · {Math.max(0, autoYears1 - (p1.ahvContributionGaps || 0))} Beitragsjahre
+                  Ø-Einkommen CHF {fmtCHF(Math.min(effectiveMdj1, 90720))} · {Math.max(0, autoYears1 - (p1.ahvContributionGaps || 0))} Beitragsjahre
+                  {p1.ahvAvgIncome && p1.ahvAvgIncome !== p1.income && (
+                    <span style={{ marginLeft: 6, color: 'rgba(255,255,255,.55)', fontSize: 10 }}>(angepasst)</span>
+                  )}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -706,7 +713,7 @@ export default function Screen2() {
                 <div>
                   <div className="ahv-row-label">{person2.name || 'Person 2'}</div>
                   <div className="ahv-row-sub">
-                    Ø-Einkommen CHF {fmtCHF(p2.income)} · {Math.max(0, autoYears2 - (p2.ahvContributionGaps || 0))} Beitragsjahre
+                    Ø-Einkommen CHF {fmtCHF(Math.min(effectiveMdj2, 90720))} · {Math.max(0, autoYears2 - (p2.ahvContributionGaps || 0))} Beitragsjahre
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -813,6 +820,86 @@ export default function Screen2() {
                       ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erhalten Sie {Math.round(autoY / 44 * 100)}% der vollen AHV-Rente ({44 - autoY} Beitragsjahr{44 - autoY === 1 ? ' fehlt' : 'e fehlen'}). Das sind ca. CHF {fmtCHF(Math.round((44 - autoY) / 44 * 2520))} weniger pro Monat – zusätzlich zur Vorbezugskürzung.
                     </div>
                   )}
+
+                  {/* MDJ – Massgebendes Durchschnittseinkommen */}
+                  {(() => {
+                    const curP2 = persons.find(p => p.id === id)!
+                    const effectiveMdj = curP2.ahvAvgIncome ?? curP2.income
+                    const cappedMdj = Math.min(effectiveMdj, 90720)
+                    const renteMdj = calculateAHVPension({
+                      avgIncome: effectiveMdj,
+                      bezugAge: (id === 1 ? person1 : person2).retireAge || 65,
+                      effectiveContributionYears: Math.max(0, autoY - gaps),
+                    })
+                    const renteAtIncome = calculateAHVPension({
+                      avgIncome: curP2.income,
+                      bezugAge: (id === 1 ? person1 : person2).retireAge || 65,
+                      effectiveContributionYears: Math.max(0, autoY - gaps),
+                    })
+                    const isFromIk = curP2.ahvAvgIncome !== undefined && curP2.ahvAvgIncome !== curP2.income
+                    const mdjDiffers = curP2.ahvAvgIncome !== undefined && curP2.ahvAvgIncome !== curP2.income
+                    return (
+                      <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>
+                          Ø-Lebenseinkommen (MDJ)
+                          {isFromIk && (
+                            <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 400, color: '#166534', background: '#dcfce7', padding: '1px 7px', borderRadius: 10 }}>aus IK-Auszug</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 8, lineHeight: 1.5 }}>
+                          Die AHV-Rente basiert auf Ihrem durchschnittlichen Einkommen über alle Beitragsjahre – nicht auf dem heutigen Lohn. Falls Sie früher weniger verdient haben, passen Sie diesen Wert an.
+                        </div>
+                        <div className="amount-wrap" style={{ maxWidth: 220 }}>
+                          <span className="prefix">CHF</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="input"
+                            style={{ paddingLeft: 48 }}
+                            value={curP2.ahvAvgIncome !== undefined ? fmtCHF(curP2.ahvAvgIncome) : (curP2.income > 0 ? fmtCHF(curP2.income) : '')}
+                            placeholder={curP2.income > 0 ? fmtCHF(curP2.income) : "z. B. 80'000"}
+                            onFocus={(e) => { e.target.value = String((curP2.ahvAvgIncome ?? curP2.income) || '') }}
+                            onBlur={(e) => {
+                              const v = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0
+                              setAhvTouched(true)
+                              updatePerson(id, { ahvAvgIncome: v > 0 ? v : undefined })
+                              e.target.value = v > 0 ? fmtCHF(v) : (curP2.income > 0 ? fmtCHF(curP2.income) : '')
+                            }}
+                            onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9']/g, '') }}
+                          />
+                        </div>
+                        {cappedMdj >= 90720 && (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#15803d' }}>
+                            ✓ Über dem AHV-Maximum (CHF 90'720) → Maximale Rente CHF 2'520/Mt.
+                          </div>
+                        )}
+                        {mdjDiffers && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+                            <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(curP2.income)}: </span>
+                            <strong>CHF {fmtCHF(renteAtIncome.monthlyRente)}/Mt.</strong>
+                            <span style={{ margin: '0 6px', color: 'var(--ink-300)' }}>→</span>
+                            <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(Math.min(curP2.ahvAvgIncome!, 90720))}: </span>
+                            <strong style={{ color: renteMdj.monthlyRente < renteAtIncome.monthlyRente ? '#dc2626' : '#16a34a' }}>CHF {fmtCHF(renteMdj.monthlyRente)}/Mt.</strong>
+                          </div>
+                        )}
+                        <details style={{ marginTop: 8 }}>
+                          <summary style={{ fontSize: 11.5, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
+                            Typische Richtwerte
+                          </summary>
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--ink-600)', lineHeight: 1.7, paddingLeft: 4 }}>
+                            <div>· Karriere mit stetigem Anstieg: ca. 60–75% des heutigen Einkommens</div>
+                            <div>· Lange Teilzeit-Phasen: ca. 40–60% des heutigen Einkommens</div>
+                            <div>· Immer ähnlich verdient: ca. 90–100% des heutigen Einkommens</div>
+                            <div style={{ marginTop: 4, color: 'var(--ink-400)' }}>Den genauen Wert finden Sie auf Ihrem IK-Auszug – kostenlos bestellbar unter{' '}
+                              <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    )
+                  })()}
+
                   {gaps > 0 && persons.find(p => p.id === id)?.hasKZG && (
                     <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
                       ℹ Gut zu wissen: Ihre Erziehungsgutschriften können Beitragslücken teilweise kompensieren. Die AHV rechnet Ihnen für jedes Jahr mit Kindern unter 16 eine Gutschrift von CHF 45'360 an (hälftig bei Ehepaaren). Diese sind in Ihrer Rentenberechnung bereits berücksichtigt.
@@ -1086,12 +1173,19 @@ export default function Screen2() {
 
                   const handleApply = () => {
                     const gapsNum = Math.max(0, parseInt(editState.gaps) || 0)
+                    const fYear = parseInt(editState.firstYear) || 0
+                    const lYear = parseInt(editState.lastYear) || 0
+                    const totalInc = parseIKNum(editState.totalIncome)
                     const lastInc = parseIKNum(editState.lastIncome)
                     if (lastInc < 100) return
+                    const contribYears = fYear && lYear ? Math.max(1, lYear - fYear + 1 - gapsNum) : 0
+                    const previewMdj = contribYears > 0 && totalInc > 0 ? Math.round(totalInc / contribYears) : 0
                     updatePerson(id, {
                       ahvContributionGaps: gapsNum,
-                      income: lastInc > 0 ? lastInc : undefined,
+                      // Store the computed average (MDJ) for AHV calc; keep income as current gross for PK
+                      ...(previewMdj > 0 ? { ahvAvgIncome: previewMdj } : {}),
                     })
+                    setAhvTouched(true)
                     setApplied(true)
                   }
 
@@ -1255,7 +1349,7 @@ export default function Screen2() {
 
                       {applied && (
                         <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>✓ IK-Auszug übernommen · {Math.max(0, (parseInt(editState.lastYear) || 0) - (parseInt(editState.firstYear) || 0) + 1 - (parseInt(editState.gaps) || 0))} Beitragsjahre · Letztes Einkommen CHF {parseIKNum(editState.lastIncome).toLocaleString('de-CH')}</span>
+                          <span>✓ IK-Auszug übernommen · {Math.max(0, (parseInt(editState.lastYear) || 0) - (parseInt(editState.firstYear) || 0) + 1 - (parseInt(editState.gaps) || 0))} Beitragsjahre · MDJ CHF {(() => { const fy = parseInt(editState.firstYear)||0; const ly = parseInt(editState.lastYear)||0; const g = parseInt(editState.gaps)||0; const cy = fy && ly ? Math.max(1, ly - fy + 1 - g) : 0; const tot = parseIKNum(editState.totalIncome); return cy > 0 && tot > 0 ? Math.round(tot/cy).toLocaleString('de-CH') : '—' })()}</span>
                           <button
                             type="button"
                             onClick={() => { setResult(null); setApplied(false); setEditState(IK_EDIT_EMPTY) }}
