@@ -153,6 +153,10 @@ export interface WealthWiseState {
   pillar3aTouched: boolean
   wealthTouched: boolean
 
+  // Savings strategy (Screen 3A)
+  savingsStrategy: 'sparkonto' | 'investiert' | 'teilweise'
+  monthlySavingsAmount: number   // monthly CHF to invest (only for 'teilweise')
+
   // Screen 4 decisions (gate the PDF download)
   ahvChoice: 'vorbezug2' | 'vorbezug1' | 'ordentlich' | 'aufschub1' | 'aufschub2' | null
   pkChoice: 'rente' | 'kapital' | 'mix' | null
@@ -185,6 +189,8 @@ export interface WealthWiseState {
   setPkTouched: (v: boolean) => void
   setPillar3aTouched: (v: boolean) => void
   setWealthTouched: (v: boolean) => void
+  setSavingsStrategy: (v: WealthWiseState['savingsStrategy']) => void
+  setMonthlySavingsAmount: (v: number) => void
   setAhvChoice: (v: WealthWiseState['ahvChoice']) => void
   setPkChoice: (v: WealthWiseState['pkChoice']) => void
   setPkMixPercent: (v: number) => void
@@ -288,6 +294,9 @@ export const useStore = create<WealthWiseState>()(
       pillar3aTouched: false,
       wealthTouched: false,
 
+      savingsStrategy: 'investiert',
+      monthlySavingsAmount: 0,
+
       ahvChoice: null,
       pkChoice: null,
       pkMixPercent: 50,
@@ -324,6 +333,8 @@ export const useStore = create<WealthWiseState>()(
       setPkTouched: (v) => set({ pkTouched: v }),
       setPillar3aTouched: (v) => set({ pillar3aTouched: v }),
       setWealthTouched: (v) => set({ wealthTouched: v }),
+      setSavingsStrategy: (v) => set({ savingsStrategy: v }),
+      setMonthlySavingsAmount: (v) => set({ monthlySavingsAmount: v }),
       setAhvChoice: (v) => set({ ahvChoice: v }),
       setPkChoice: (v) => set({ pkChoice: v }),
       setPkMixPercent: (v) => set({ pkMixPercent: v }),
@@ -355,6 +366,8 @@ export const useStore = create<WealthWiseState>()(
         pkTouched: false,
         pillar3aTouched: false,
         wealthTouched: false,
+        savingsStrategy: 'investiert',
+        monthlySavingsAmount: 0,
         ahvChoice: null,
         pkChoice: null,
         pkMixPercent: 50,

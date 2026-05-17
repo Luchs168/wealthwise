@@ -389,7 +389,7 @@ function LifeEventCard({ event, onUpdate, onDelete, currentYear, retirementYear,
 
 export default function Screen3() {
   const navigate = useNavigate()
-  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften } = useStore()
+  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, wealthInvestmentProfile, savingsStrategy, setSavingsStrategy, monthlySavingsAmount, setMonthlySavingsAmount } = useStore()
   const isPaar = hasPartner
 
   const [subStep, setSubStep] = useState(0)
@@ -407,6 +407,12 @@ export default function Screen3() {
   const p1Age = person1.dob ? Math.max(0, currentYear - new Date(person1.dob).getFullYear()) : 50
   const retirementYear = currentYear + Math.max(1, (person1.retireAge || 65) - p1Age)
   const p1 = persons.find(p => p.id === 1)!
+  const p2stored = hasPartner ? persons.find(p => p.id === 2) : null
+  const p1Income = p1?.income || 0
+  const p2Income = p2stored?.income || 0
+  const nettoMonatlich = Math.round((p1Income + p2Income) * 0.88 / 12)
+  const SAVINGS_RETURNS: Record<string, number> = { conservative: 0.025, balanced: 0.035, growth: 0.05, aggressive: 0.06 }
+  const savingsRate = SAVINGS_RETURNS[wealthInvestmentProfile] ?? 0.035
 
   const detailedTotal = useMemo(
     () => CATEGORIES.reduce((sum, cat) => sum + (expenses.detailed[cat.id] ?? cat.bfsMonthly), 0),
@@ -416,6 +422,15 @@ export default function Screen3() {
   const baseTotal = budgetTab === 'detailliert' ? detailedTotal : (expenses.customAmount || 0)
   const retirementTotal = Math.round(baseTotal * retirementAdjust)
   const bfsRef = isPaar ? BFS_RENTNER_PAAR : BFS_RENTNER_EINZEL
+  const yearsToRetirement = Math.max(1, retirementYear - currentYear)
+  const surplus = nettoMonatlich - baseTotal
+  const monthlyToInvest = savingsStrategy === 'teilweise'
+    ? Math.min(Math.max(0, monthlySavingsAmount), Math.max(0, surplus))
+    : Math.max(0, surplus)
+  const effectiveRate = savingsStrategy === 'sparkonto' ? 0.0075 : savingsRate
+  const projectedExtra = monthlyToInvest > 0 && effectiveRate > 0 && yearsToRetirement > 0
+    ? Math.round(monthlyToInvest * 12 * ((Math.pow(1 + effectiveRate, yearsToRetirement) - 1) / effectiveRate))
+    : 0
 
   const impactSummary = useMemo(
     () => getEventImpactSummary(lifeEvents, retirementYear),
@@ -735,6 +750,94 @@ export default function Screen3() {
                     >
                       CHF {fmtCHF(importResult.monthly)}/Mt. übernehmen
                     </button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Sparrate block – shown for all budget tabs when baseTotal > 0 */}
+            {baseTotal > 0 && nettoMonatlich > 0 && (
+              <section className="block">
+                <div className="block-head">
+                  <h2 className="block-title">Ihr monatlicher Überschuss</h2>
+                </div>
+                <div style={{ display: 'grid', gap: 10, marginBottom: 14, padding: '12px 14px', background: 'var(--ink-50)', border: '1px solid var(--ink-100)', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--ink-600)' }}>
+                    <span>Netto-Einkommen</span>
+                    <span style={{ fontWeight: 500 }}>CHF {fmtCHF(nettoMonatlich)}/Mt.</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--ink-600)' }}>
+                    <span>Ausgaben</span>
+                    <span style={{ fontWeight: 500 }}>− CHF {fmtCHF(baseTotal)}/Mt.</span>
+                  </div>
+                  <div style={{ height: 1, background: 'var(--ink-200)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
+                    <span style={{ color: 'var(--navy-800)' }}>Sparrate</span>
+                    <span style={{ color: surplus > 0 ? '#16a34a' : '#dc2626' }}>
+                      {surplus > 0 ? '+' : ''}CHF {fmtCHF(surplus)}/Mt.
+                    </span>
+                  </div>
+                </div>
+
+                {surplus > 0 ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 10 }}>
+                      Was passiert mit diesem Geld?
+                    </div>
+                    <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                      {([
+                        { id: 'sparkonto' as const, label: 'Bleibt auf dem Sparkonto', hint: '0.75% p.a.' },
+                        { id: 'investiert' as const, label: 'Wird investiert', hint: `${(savingsRate * 100).toFixed(1)}% p.a. (${wealthInvestmentProfile === 'conservative' ? 'konservativ' : wealthInvestmentProfile === 'balanced' ? 'ausgewogen' : wealthInvestmentProfile === 'growth' ? 'Wachstum' : 'aggressiv'})` },
+                        { id: 'teilweise' as const, label: 'Teilweise investiert', hint: 'Rest auf Sparkonto' },
+                      ]).map(opt => (
+                        <button key={opt.id} onClick={() => setSavingsStrategy(opt.id)} style={{
+                          textAlign: 'left', padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
+                          border: `2px solid ${savingsStrategy === opt.id ? 'var(--navy-700)' : 'var(--ink-200)'}`,
+                          background: savingsStrategy === opt.id ? 'var(--navy-50)' : 'white',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                          <div style={{
+                            width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                            border: `2px solid ${savingsStrategy === opt.id ? 'var(--navy-700)' : 'var(--ink-300)'}`,
+                            display: 'grid', placeItems: 'center',
+                          }}>
+                            {savingsStrategy === opt.id && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--navy-700)' }} />}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--navy-800)' }}>{opt.label}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>{opt.hint}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {savingsStrategy === 'teilweise' && (
+                      <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
+                        <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>
+                          Monatlich investieren
+                        </label>
+                        <CHFAmountInput value={monthlySavingsAmount} onChange={setMonthlySavingsAmount} />
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 4 }}>
+                          Max. CHF {fmtCHF(surplus)}/Mt. verfügbar
+                        </div>
+                      </div>
+                    )}
+
+                    {projectedExtra > 0 && (
+                      <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 12 }}>
+                        <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Zusätzliches Vermögen bis Pension</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--navy-800)' }}>
+                          + CHF {fmtCHF(projectedExtra)}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 2 }}>
+                          CHF {fmtCHF(monthlyToInvest)}/Mt. · {yearsToRetirement} Jahre · {(effectiveRate * 100).toFixed(1)}% p.a.
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+                    ⚠ Ausgaben übersteigen das geschätzte Netto-Einkommen. Bitte prüfen Sie Ihre Angaben.
                   </div>
                 )}
               </section>
