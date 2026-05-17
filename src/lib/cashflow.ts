@@ -40,6 +40,7 @@ export interface CashflowInput {
     dob?: string
     hasFZ?: boolean
     fzBalance?: number
+    fzInvestmentType?: string
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
@@ -72,6 +73,7 @@ export interface CashflowInput {
     dob?: string
     hasFZ?: boolean
     fzBalance?: number
+    fzInvestmentType?: string
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
@@ -83,6 +85,7 @@ export interface CashflowInput {
   inflationRate?: number
   investmentReturn?: number
   riskProfile?: 'conservative' | 'balanced' | 'growth'
+  wealthInvestmentProfile?: string
   endAge?: number
   freeAssets?: number
   sparkonto?: number
@@ -107,6 +110,7 @@ function normalizeP(p: CashflowInput['person1']) {
     ahvBezugAge: p.ahvBezugAge || p.retirementAge || p.retireAge || 65,
     hasFZ: p.hasFZ ?? false,
     fzBalance: p.fzBalance ?? 0,
+    fzInvestmentType: p.fzInvestmentType ?? 'sparkonto',
     hasKZG: p.hasKZG ?? false,
     kzgChildren: p.kzgChildren ?? 0,
     kzgYears: p.kzgYears ?? 0,
@@ -202,6 +206,9 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const taxStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft' ? civilStatus : 'ledig') as TaxCivilStatus
   const inflationRate = data.inflationRate ?? CONSTANTS.DEFAULT_INFLATION_RATE
   const investmentReturn = data.investmentReturn ?? CONSTANTS.RETURNS[data.riskProfile || 'balanced']
+  const wealthReturn = data.wealthInvestmentProfile
+    ? (CONSTANTS.RETURNS_WEALTH[data.wealthInvestmentProfile] ?? investmentReturn)
+    : investmentReturn
 
   const currentAge = p1raw.birthDate ? calculateAge(p1raw.birthDate) : 55
   const ra1 = p1raw.retirementAge || 65
@@ -212,14 +219,26 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const ahv = buildAhvHousehold(p1raw, p2raw, civilStatus)
   const pk = calculatePkHousehold(p1raw, p2raw)
 
-  // Blended return: sparkonto earns 0.75%, wertschriften earn investmentReturn
+  // Blended return: sparkonto earns 0.75%, wertschriften earn wealthReturn
   const totalFreeAssets = (data.freeAssets || 0)
   const sparkontoAmt = data.sparkonto ?? 0
-  const wertschriftenAmt = data.wertschriften ?? 0
   const sparkontoFraction = totalFreeAssets > 0
     ? Math.min(1, sparkontoAmt / totalFreeAssets)
     : (sparkontoAmt > 0 ? 1 : 0)
-  const blendedReturn = sparkontoFraction * CONSTANTS.SPARKONTO_RENDITE + (1 - sparkontoFraction) * investmentReturn
+  const blendedReturn = sparkontoFraction * CONSTANTS.SPARKONTO_RENDITE + (1 - sparkontoFraction) * wealthReturn
+
+  // Pre-project FZ balances to retirement using chosen investment type
+  const yearsUntilRet1 = Math.max(0, ra1 - currentAge)
+  const fzRate1 = CONSTANTS.RETURNS_FZ[p1raw.fzInvestmentType || 'sparkonto']
+  const projectedFz1 = p1raw.hasFZ && p1raw.fzBalance > 0
+    ? Math.round(p1raw.fzBalance * Math.pow(1 + fzRate1, yearsUntilRet1))
+    : 0
+  const currentAgeP2 = p2raw?.birthDate ? calculateAge(p2raw.birthDate) : currentAge
+  const yearsUntilRet2 = p2raw ? Math.max(0, (p2raw.retirementAge || 65) - currentAgeP2) : 0
+  const fzRate2 = p2raw ? (CONSTANTS.RETURNS_FZ[p2raw.fzInvestmentType || 'sparkonto']) : 0
+  const projectedFz2 = p2raw && p2raw.hasFZ && p2raw.fzBalance > 0
+    ? Math.round(p2raw.fzBalance * Math.pow(1 + fzRate2, yearsUntilRet2))
+    : 0
 
   // Vermögenssteuer rate for canton
   const vermStSatz = CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? CONSTANTS.VERMÖGENSSTEUER_SATZ['ZH'] ?? 0.002
@@ -307,25 +326,23 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     // K3+K4: Kapitalbezüge im gleichen Pensionierungsjahr zusammenfassen (höhere Progression vermeiden)
     // P1-Pensionierungsjahr: PK-Kapital + Säule-3a + FZ werden kombiniert besteuert
     if (isRetirementYearP1) {
-      const fz1 = p1raw.hasFZ && p1raw.fzBalance > 0 ? p1raw.fzBalance : 0
       const the3a = start3a > 0 && yearsFromNow === ra1 - currentAge ? start3a : 0
-      const totalP1Capital = cap1 + the3a + fz1
+      const totalP1Capital = cap1 + the3a + projectedFz1
       if (totalP1Capital > 0) {
         const combinedTax = calculateCapitalTax(totalP1Capital, canton, taxStatus).totalTax
         if (cap1 > 0) { pkKapitalWithdrawal += cap1; wealth += cap1 }
         if (the3a > 0) pillar3aWithdrawal = the3a   // principal already in wealth from start3a
-        if (fz1 > 0) wealth += fz1
+        if (projectedFz1 > 0) wealth += projectedFz1
         wealth -= combinedTax
       }
     }
     // P2-Pensionierungsjahr: PK-Kapital + FZ kombiniert (3a bereits im P1-Jahr besteuert)
     if (isRetirementYearP2) {
-      const fz2 = p2raw && p2raw.hasFZ && p2raw.fzBalance > 0 ? p2raw.fzBalance : 0
-      const totalP2Capital = cap2 + fz2
+      const totalP2Capital = cap2 + projectedFz2
       if (totalP2Capital > 0) {
         const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
         if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
-        if (fz2 > 0) wealth += fz2
+        if (projectedFz2 > 0) wealth += projectedFz2
         wealth -= combinedTax
       }
     }

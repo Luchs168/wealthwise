@@ -327,7 +327,7 @@ export default function Screen2() {
   const { persons, updatePerson, hasPartner, person1, person2, civilStatus,
     ahvTouched, pkTouched, pillar3aTouched, wealthTouched,
     setAhvTouched, setPkTouched, setPillar3aTouched, setWealthTouched,
-    sparkonto, wertschriften, children } = useStore()
+    sparkonto, wertschriften, children, wealthInvestmentProfile, setWealthInvestmentProfile } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [subStep, setSubStep] = useState<0 | 1>(0)
   const [kzgOverride, setKzgOverride] = useState(false) // user chose to edit KZG manually
@@ -2095,15 +2095,46 @@ export default function Screen2() {
             <Switch on={cur.hasFZ} onToggle={() => updatePerson(activeTab, { hasFZ: !cur.hasFZ })} label="Ich habe ein Freizügigkeitskonto" />
           </div>
 
-          {cur.hasFZ && (
-            <>
-              <CHFField label="Freizügigkeitsguthaben" value={cur.fzBalance} onChange={v => updatePerson(activeTab, { fzBalance: v })} />
-              <div className="info-callout" style={{ marginTop: 10 }}>
-                <span className="info-callout-icon">i</span>
-                <span>Freizügigkeitsguthaben entsteht z.B. bei einem Jobwechsel mit Unterbruch oder Auslandsaufenthalt. Es wird bei Pensionierung wie ein Kapitalbezug besteuert (separat vom Einkommen).</span>
-              </div>
-            </>
-          )}
+          {cur.hasFZ && (() => {
+            const pBase = activeTab === 1 ? person1 : person2
+            const currentYear = new Date().getFullYear()
+            const currentAge = pBase.dob
+              ? currentYear - (parseInt(pBase.dob.split('.').pop() || '0') || parseInt(pBase.dob.split('-')[0]) || 0)
+              : 45
+            const yearsToRet = Math.max(0, (pBase.retireAge || 65) - currentAge)
+            const fzRates: Record<string, number> = { sparkonto: 0.0075, wertschriften_konservativ: 0.025, wertschriften_ausgewogen: 0.035, wertschriften_aggressiv: 0.05 }
+            const fzType = cur.fzInvestmentType || 'sparkonto'
+            const fzRate = fzRates[fzType]
+            const projectedFz = cur.fzBalance > 0 && yearsToRet > 0
+              ? Math.round(cur.fzBalance * Math.pow(1 + fzRate, yearsToRet))
+              : cur.fzBalance
+            return (
+              <>
+                <CHFField label="Freizügigkeitsguthaben" value={cur.fzBalance} onChange={v => updatePerson(activeTab, { fzBalance: v })} />
+                <div style={{ marginBottom: 16, marginTop: 8 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 6 }}>
+                    Anlageform
+                  </label>
+                  <select
+                    className="input"
+                    value={fzType}
+                    onChange={e => updatePerson(activeTab, { fzInvestmentType: e.target.value as typeof cur.fzInvestmentType })}
+                    style={{ fontSize: 13 }}
+                  >
+                    <option value="sparkonto">Freizügigkeitskonto (ca. 0.75% p.a.)</option>
+                    <option value="wertschriften_konservativ">Wertschriften konservativ, 25% Aktien (ca. 2.5% p.a.)</option>
+                    <option value="wertschriften_ausgewogen">Wertschriften ausgewogen, 50% Aktien (ca. 3.5% p.a.)</option>
+                    <option value="wertschriften_aggressiv">Wertschriften aggressiv, 80%+ Aktien (ca. 5.0% p.a.)</option>
+                  </select>
+                  {cur.fzBalance > 0 && yearsToRet > 0 && (
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginTop: 4 }}>
+                      Bei Pension in {yearsToRet} {yearsToRet === 1 ? 'Jahr' : 'Jahren'} ({(fzRate * 100).toFixed(2)}% p.a.): ca. <strong>CHF {fmtCHF(projectedFz)}</strong>
+                    </div>
+                  )}
+                </div>
+              </>
+            )
+          })()}
           </div>
           )}
         </section>
@@ -2133,30 +2164,37 @@ export default function Screen2() {
 
           {activeAccordion === 'vermoegen' && (
           <div style={{ paddingBottom: 4 }}>
-          <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 16px' }}>
-            Erfassen Sie Ihr Vermögen nach Typ – für die Überbrückungsplanung ist es wichtig, zwischen sofort verfügbaren Mitteln und Wertschriften zu unterscheiden.
-            Falls Sie keinen genauen Betrag kennen, können Sie schätzen – Sie können die Angabe jederzeit anpassen.
-          </p>
           <CHFField
-            label="Sparkonto / Bargeld (sofort verfügbar)"
+            label="Sparkonto / Bargeld"
             value={useStore.getState().sparkonto}
             onChange={(v) => { if (v > 0) setWealthTouched(true); useStore.getState().setSparkonto(v) }}
-            hint="Sofort liquidierbar: Sparkonto, Sichtguthaben, Bargeld"
           />
           <CHFField
             label="Wertschriften / Anlagen"
             value={useStore.getState().wertschriften}
             onChange={(v) => { if (v > 0) setWealthTouched(true); useStore.getState().setWertschriften(v) }}
-            hint="Aktien, Fonds, ETFs, Obligationen (marktabhängig)"
           />
+          {useStore.getState().wertschriften > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 6 }}>
+                Anlagestrategie Wertschriften
+              </label>
+              <select
+                className="input"
+                value={wealthInvestmentProfile}
+                onChange={e => setWealthInvestmentProfile(e.target.value as typeof wealthInvestmentProfile)}
+                style={{ fontSize: 13 }}
+              >
+                <option value="conservative">Konservativ, 30% Aktien (ca. 2.5% p.a.)</option>
+                <option value="balanced">Ausgewogen, 50% Aktien (ca. 3.5% p.a.)</option>
+                <option value="growth">Wachstum, 75% Aktien (ca. 5.0% p.a.)</option>
+                <option value="aggressive">Aggressiv, 90%+ Aktien (ca. 6.0% p.a.)</option>
+              </select>
+            </div>
+          )}
           {(useStore.getState().sparkonto + useStore.getState().wertschriften) > 0 && (
-            <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
+            <div style={{ marginTop: 4, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
               Freies Vermögen total: <strong>CHF {fmtCHF(useStore.getState().sparkonto + useStore.getState().wertschriften)}</strong>
-              {useStore.getState().wertschriften > 0 && useStore.getState().sparkonto < useStore.getState().wertschriften * 0.5 && (
-                <div style={{ marginTop: 4, fontSize: 11.5, color: '#92400e' }}>
-                  ⚠ Für die Überbrückungsphase stehen CHF {fmtCHF(useStore.getState().sparkonto)} sofort zur Verfügung. Wertschriften sind marktabhängig und sollten nicht kurzfristig liquidiert werden müssen.
-                </div>
-              )}
             </div>
           )}
 

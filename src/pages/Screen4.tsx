@@ -143,7 +143,7 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile,
+  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile,
     ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
     setAhvChoice, setPkChoice, setWithdrawalStrategy } = state
   const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
@@ -188,8 +188,9 @@ export default function Screen4() {
       propertyValue: property.has ? property.value : undefined,
       hypothekZinssatz: property.hypothekZinssatz,
       riskProfile,
+      wealthInvestmentProfile,
     }
-  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile])
+  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])

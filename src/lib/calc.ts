@@ -29,6 +29,20 @@ export const CONSTANTS = {
     wertschriften_ausgewogen: 0.04,       // 50% equities (most common)
     wertschriften_aggressiv: 0.05,        // 80%+ equities (e.g. VIAC Global 100)
   } as Record<string, number>,
+  // Freizügigkeitsguthaben return assumptions (Freizügigkeitskonto / Freizügigkeitsdepot)
+  RETURNS_FZ: {
+    sparkonto: 0.0075,
+    wertschriften_konservativ: 0.025,     // 25% equities
+    wertschriften_ausgewogen: 0.035,      // 50% equities
+    wertschriften_aggressiv: 0.05,        // 80%+ equities
+  } as Record<string, number>,
+  // Freies Vermögen / Wertschriften return assumptions
+  RETURNS_WEALTH: {
+    conservative: 0.025,   // 30% equities
+    balanced: 0.035,       // 50% equities
+    growth: 0.05,          // 75% equities
+    aggressive: 0.06,      // 90%+ equities
+  } as Record<string, number>,
   // AHV Mischindex — average annual increase via inflation/wage mix (historical ca. 1.25%)
   AHV_MISCHINDEX: 0.0125,
   // Sparkonto return: always 0.75% regardless of risk profile

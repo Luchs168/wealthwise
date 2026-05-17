@@ -73,6 +73,8 @@ export interface PersonVorsorge {
   bonusIncome?: number
   // 3a individual account balances
   accounts3a?: number[]
+  // FZ investment type
+  fzInvestmentType?: 'sparkonto' | 'wertschriften_konservativ' | 'wertschriften_ausgewogen' | 'wertschriften_aggressiv'
 }
 
 export type Person = PersonBase & PersonVorsorge & { id: 1 | 2 }
@@ -133,6 +135,9 @@ export interface WealthWiseState {
   // Tax
   kirchensteuer: boolean
 
+  // Wertschriften investment profile (separate from riskProfile)
+  wealthInvestmentProfile: 'conservative' | 'balanced' | 'growth' | 'aggressive'
+
   // Risk profile / Anlagestrategie
   riskProfile: 'conservative' | 'balanced' | 'growth'
 
@@ -168,6 +173,7 @@ export interface WealthWiseState {
   setProperty: (p: Partial<PropertyData>) => void
   setExpenses: (e: Partial<ExpensesData>) => void
   setKirchensteuer: (v: boolean) => void
+  setWealthInvestmentProfile: (v: WealthWiseState['wealthInvestmentProfile']) => void
   setRiskProfile: (v: 'conservative' | 'balanced' | 'growth') => void
   addLifeEvent: (e: LifeEvent) => void
   updateLifeEvent: (id: string, patch: Partial<LifeEvent>) => void
@@ -270,6 +276,7 @@ export const useStore = create<WealthWiseState>()(
       },
 
       kirchensteuer: false,
+      wealthInvestmentProfile: 'balanced',
       riskProfile: 'balanced',
       lifeEvents: [],
 
@@ -302,6 +309,7 @@ export const useStore = create<WealthWiseState>()(
       setProperty: (p) => set((state) => ({ property: { ...state.property, ...p } })),
       setExpenses: (e) => set((state) => ({ expenses: { ...state.expenses, ...e } })),
       setKirchensteuer: (v) => set({ kirchensteuer: v }),
+      setWealthInvestmentProfile: (v) => set({ wealthInvestmentProfile: v }),
       setRiskProfile: (v) => set({ riskProfile: v }),
       addLifeEvent: (e) => set(state => ({ lifeEvents: [...state.lifeEvents, e] })),
       updateLifeEvent: (id, patch) =>
@@ -337,6 +345,7 @@ export const useStore = create<WealthWiseState>()(
         property: { has: false, value: 0, mortgage: 0, steuerwert: 0, hypothekZinssatz: 1.5 },
         expenses: { mode: 'simple', simpleTotal: 0, detailed: {}, goal: '80', customAmount: 0, kkPremium1: 0, kkPremium2: 0, kkFranchise: 300 },
         kirchensteuer: false,
+        wealthInvestmentProfile: 'balanced',
         riskProfile: 'balanced',
         lifeEvents: [],
         ahvTouched: false,
