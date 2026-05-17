@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import TopBar from '../components/TopBar'
@@ -396,7 +396,9 @@ export default function Screen3() {
   const [budgetTab, setBudgetTab] = useState<'schnell' | 'detailliert' | 'import'>('schnell')
   const [importText, setImportText] = useState('')
   const [importMonths, setImportMonths] = useState(3)
-  const [importResult, setImportResult] = useState<{ total: number; monthly: number; transactions: number } | null>(null)
+  const [importResult, setImportResult] = useState<{ total: number; monthly: number; transactions: number; fileName?: string } | null>(null)
+  const [importFileName, setImportFileName] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [retirementAdjust, setRetirementAdjust] = useState(1.0)
   const [showLoading, setShowLoading] = useState(false)
   const [lifeEventsOpen, setLifeEventsOpen] = useState(lifeEvents.length > 0)
@@ -431,8 +433,8 @@ export default function Screen3() {
     setLifeEventsOpen(true)
   }
 
-  function runImportParse() {
-    const lines = importText.split(/\r?\n/).filter(l => l.trim())
+  function parseAndSetResult(text: string, months: number) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
     let totalExpenses = 0
     let transactions = 0
     for (const line of lines) {
@@ -448,7 +450,6 @@ export default function Screen3() {
         }
       }
     }
-    // Fallback: if no negatives found, sum all plausible amounts
     if (totalExpenses === 0) {
       for (const line of lines) {
         const nums = line.match(/\d[\d']*[.,]\d{2}/g) || []
@@ -458,8 +459,24 @@ export default function Screen3() {
         }
       }
     }
-    const monthly = importMonths > 0 ? Math.round(totalExpenses / importMonths) : totalExpenses
+    const monthly = months > 0 ? Math.round(totalExpenses / months) : totalExpenses
     setImportResult({ total: Math.round(totalExpenses), monthly, transactions })
+  }
+
+  function handleFileUpload(file: File) {
+    setImportFileName(file.name)
+    setImportResult(null)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      setImportText(text)
+      parseAndSetResult(text, importMonths)
+    }
+    reader.readAsText(file, 'utf-8')
+  }
+
+  function runImportParse() {
+    parseAndSetResult(importText, importMonths)
   }
 
   function handleFinish() {
@@ -601,19 +618,63 @@ export default function Screen3() {
             {/* Import tab */}
             {budgetTab === 'import' && (
               <section className="block">
-                <div className="info-callout" style={{ marginBottom: 16 }}>
-                  <span className="info-callout-icon">i</span>
-                  <span>E-Banking → «Umsätze exportieren» als CSV. Fügen Sie den Inhalt hier ein. Negative Beträge werden als Ausgaben erkannt.</span>
+                <p style={{ fontSize: 13, color: 'var(--ink-500)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                  Exportieren Sie Ihre Kontobewegungen aus dem E-Banking als CSV oder Textdatei und laden Sie die Datei hoch. Negative Beträge werden als Ausgaben erkannt.
+                </p>
+
+                {/* File upload zone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFileUpload(file) }}
+                  style={{
+                    border: `2px dashed ${importFileName ? 'var(--navy-400)' : 'var(--ink-200)'}`,
+                    borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer',
+                    background: importFileName ? 'var(--navy-50)' : 'var(--surface)',
+                    marginBottom: 14, transition: 'border-color 0.15s',
+                  }}
+                >
+                  {importFileName ? (
+                    <>
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>✓</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy-800)' }}>{importFileName}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Klicken zum Ersetzen</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 24, marginBottom: 6 }}>📄</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink-700)', marginBottom: 2 }}>Datei hochladen</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-400)' }}>Ziehen Sie die Datei hierher oder klicken Sie</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>.csv, .txt akzeptiert</div>
+                    </>
+                  )}
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.txt"
+                  style={{ display: 'none' }}
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); e.target.value = '' }}
+                />
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0', color: 'var(--ink-300)', fontSize: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--ink-100)' }} />
+                  oder manuell einfügen
+                  <div style={{ flex: 1, height: 1, background: 'var(--ink-100)' }} />
+                </div>
+
+                {/* Manual textarea */}
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>CSV-Daten einfügen</label>
                   <textarea
                     value={importText}
-                    onChange={e => { setImportText(e.target.value); setImportResult(null) }}
+                    onChange={e => { setImportText(e.target.value); setImportFileName(''); setImportResult(null) }}
                     placeholder={'Datum;Beschreibung;Betrag\n01.01.2025;Migros;-145.50\n02.01.2025;Miete;-2100.00\n...'}
-                    style={{ width: '100%', minHeight: 130, padding: '10px 12px', border: '1.5px solid var(--ink-200)', borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', color: 'var(--ink-700)' }}
+                    style={{ width: '100%', minHeight: 110, padding: '10px 12px', border: '1.5px solid var(--ink-200)', borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', color: 'var(--ink-700)' }}
                   />
                 </div>
+
+                {/* Time range */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>Zeitraum der Daten</label>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -630,6 +691,7 @@ export default function Screen3() {
                     ))}
                   </div>
                 </div>
+
                 <button
                   onClick={runImportParse}
                   disabled={!importText.trim()}
@@ -643,8 +705,12 @@ export default function Screen3() {
                 >
                   Ausgaben analysieren
                 </button>
+
                 {importResult && (
                   <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 10 }}>
+                    {importFileName && (
+                      <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 6 }}>✓ {importFileName} geladen</div>
+                    )}
                     <div style={{ fontSize: 12.5, color: 'var(--ink-600)', marginBottom: 8 }}>
                       {importResult.transactions} Ausgaben erkannt · {importMonths} {importMonths === 1 ? 'Monat' : 'Monate'} · Total CHF {fmtCHF(importResult.total)}
                     </div>
@@ -657,11 +723,6 @@ export default function Screen3() {
                     >
                       CHF {fmtCHF(importResult.monthly)}/Mt. übernehmen
                     </button>
-                  </div>
-                )}
-                {!importResult && (
-                  <div style={{ fontSize: 12, color: 'var(--ink-400)', textAlign: 'center' }}>
-                    Alternativ: Betrag direkt im Tab «Schnell» eingeben.
                   </div>
                 )}
               </section>
