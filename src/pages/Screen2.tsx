@@ -372,12 +372,13 @@ function PkUpload({ onExtract }: { onExtract: (fields: PkExtractedFields) => voi
 
 export default function Screen2() {
   const navigate = useNavigate()
-  const { persons, updatePerson, hasPartner, person1, person2, civilStatus, kirchensteuer, setKirchensteuer,
+  const { persons, updatePerson, hasPartner, person1, person2, civilStatus,
     ahvTouched, pkTouched, pillar3aTouched, wealthTouched,
     setAhvTouched, setPkTouched, setPillar3aTouched, setWealthTouched,
-    sparkonto, wertschriften } = useStore()
+    sparkonto, wertschriften, children } = useStore()
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const [subStep, setSubStep] = useState<0 | 1>(0)
+  const [kzgOverride, setKzgOverride] = useState(false) // user chose to edit KZG manually
   const [ahvExpanded, setAhvExpanded] = useState(false)
   const [showTransition, setShowTransition] = useState(false)
   const [pkInterestMode, setPkInterestMode] = useState<[string, string]>(['moderat', 'moderat'])
@@ -1042,79 +1043,145 @@ export default function Screen2() {
               })}
 
               {/* KZG – Kinderziehungsgutschriften */}
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>
-                  Haben Sie Kinder unter 16 Jahren erzogen?
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10, lineHeight: 1.5 }}>
-                  Erziehungsgutschriften werden für Jahre mit Kindern unter 16 angerechnet und erhöhen Ihr massgebendes Durchschnittseinkommen – damit auch Ihre AHV-Rente.
-                  {civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
-                    ? ' Bei Ehepaaren werden die Gutschriften hälftig aufgeteilt.'
-                    : ''}
-                </div>
-                {[
-                  { id: 1 as const, name: person1.name || 'Person 1' },
-                  ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2' }] : []),
-                ].map(({ id, name }) => {
-                  const cur2 = persons.find(p => p.id === id)!
-                  return (
-                    <div key={id} style={{ marginBottom: 12 }}>
-                      {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 6 }}>{name}</div>}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                        <input
-                          type="checkbox"
-                          checked={cur2.hasKZG ?? false}
-                          onChange={e => updatePerson(id, { hasKZG: e.target.checked })}
-                          style={{ width: 16, height: 16, accentColor: 'var(--navy-700)', flexShrink: 0 }}
-                        />
-                        <span style={{ fontSize: 13, color: 'var(--ink-700)' }}>Ich habe Kinder erzogen (unter 16 Jahren)</span>
-                      </div>
-                      {cur2.hasKZG && (
-                        <div className="form-grid" style={{ marginLeft: 26 }}>
-                          <div className="field">
-                            <label>Anzahl Kinder</label>
-                            <select
-                              className="input"
-                              value={cur2.kzgChildren ?? 0}
-                              onChange={e => updatePerson(id, { kzgChildren: parseInt(e.target.value) })}
-                              style={{ appearance: 'auto' }}
-                            >
-                              {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Kind' : 'Kinder'}</option>)}
-                            </select>
-                          </div>
-                          <div className="field">
-                            <label>Jahre mit Kindern unter 16</label>
-                            <select
-                              className="input"
-                              value={cur2.kzgYears ?? 0}
-                              onChange={e => updatePerson(id, { kzgYears: parseInt(e.target.value) })}
-                              style={{ appearance: 'auto' }}
-                            >
-                              {Array.from({ length: 32 }, (_, i) => i + 1).map(y => (
-                                <option key={y} value={y}>{y} {y === 1 ? 'Jahr' : 'Jahre'}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                      {cur2.hasKZG && cur2.kzgChildren > 0 && cur2.kzgYears > 0 && (() => {
-                        const KZG_YEARLY = 44100
-                        const totalYears = Math.min(cur2.kzgYears, 16 * cur2.kzgChildren)
-                        const isMarried2 = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
-                        const kzgPerPerson = KZG_YEARLY * totalYears * (isMarried2 ? 0.5 : 1)
-                        const baseYears = Math.min(44, Math.max(0, ((id === 1 ? person1.retireAge : person2.retireAge) || 65) - 21))
-                        const effectiveYears = Math.max(1, baseYears - (cur2.ahvContributionGaps || 0))
-                        const boost = Math.round(kzgPerPerson / effectiveYears)
-                        return (
-                          <div style={{ marginLeft: 26, marginTop: 6, fontSize: 12, color: '#166534', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7 }}>
-                            KZG-Einkommenserhöhung: +CHF {boost.toLocaleString('de-CH')}/Jahr (Ø-Einkommen für AHV-Berechnung)
-                          </div>
-                        )
-                      })()}
+              {(() => {
+                const currentYear = new Date().getFullYear()
+                const validChildren = children.filter(c => c.year && c.year.length === 4)
+                const hasScreen1Children = validChildren.length > 0
+
+                // Compute KZG years: span from first child born to last child turning 16,
+                // capped at current year (only past years count)
+                let autoKzgYears = 0
+                let autoKzgCount = 0
+                if (hasScreen1Children) {
+                  const birthYears = validChildren.map(c => parseInt(c.year))
+                  autoKzgCount = birthYears.length
+                  const firstBirth = Math.min(...birthYears)
+                  const lastTurns16 = Math.max(...birthYears) + 16
+                  autoKzgYears = Math.max(0, Math.min(lastTurns16, currentYear) - firstBirth)
+                }
+
+                const isMarried2 = civilStatus === 'verheiratet' || civilStatus === 'partnerschaft'
+
+                return (
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>
+                      Erziehungsgutschriften (AHV)
                     </div>
-                  )
-                })}
-              </div>
+
+                    {hasScreen1Children && !kzgOverride ? (
+                      // Auto-filled from Screen 1
+                      <div style={{ padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 13 }}>
+                        <div style={{ color: '#166534', marginBottom: 6, lineHeight: 1.5 }}>
+                          Basierend auf Ihren Angaben ({autoKzgCount} {autoKzgCount === 1 ? 'Kind' : 'Kinder'}) werden{' '}
+                          <strong>ca. {autoKzgYears} Jahre</strong> Erziehungsgutschriften berücksichtigt.
+                          {isMarried2 && ' (bei Ehepaaren hälftig aufgeteilt)'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => {
+                              [1, 2].forEach(id => {
+                                updatePerson(id as 1 | 2, {
+                                  hasKZG: true,
+                                  kzgChildren: autoKzgCount,
+                                  kzgYears: autoKzgYears,
+                                })
+                              })
+                            }}
+                            style={{ fontSize: 12, padding: '5px 12px', borderRadius: 6, border: '1px solid #16a34a', background: '#16a34a', color: 'white', cursor: 'pointer' }}
+                          >
+                            ✓ Ja, übernehmen
+                          </button>
+                          <button
+                            onClick={() => setKzgOverride(true)}
+                            style={{ fontSize: 12, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--ink-300)', background: 'white', color: 'var(--ink-600)', cursor: 'pointer' }}
+                          >
+                            Nein, anpassen
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      // Manual entry (either no Screen 1 children, or user chose to override)
+                      <>
+                        <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10, lineHeight: 1.5 }}>
+                          {hasScreen1Children
+                            ? 'Passen Sie die Werte manuell an (z.B. bei Pflegekindern oder geteilter Betreuung).'
+                            : 'Falls Sie Kinder unter 16 erzogen haben (auch Pflegekinder), erhöhen Erziehungsgutschriften Ihre AHV-Rente.'}
+                          {isMarried2 && ' Bei Ehepaaren werden die Gutschriften hälftig aufgeteilt.'}
+                        </div>
+                        {[
+                          { id: 1 as const, name: person1.name || 'Person 1' },
+                          ...(isPaar ? [{ id: 2 as const, name: person2.name || 'Person 2' }] : []),
+                        ].map(({ id, name }) => {
+                          const cur2 = persons.find(p => p.id === id)!
+                          return (
+                            <div key={id} style={{ marginBottom: 12 }}>
+                              {isPaar && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-600)', marginBottom: 6 }}>{name}</div>}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={cur2.hasKZG ?? false}
+                                  onChange={e => updatePerson(id, { hasKZG: e.target.checked })}
+                                  style={{ width: 16, height: 16, accentColor: 'var(--navy-700)', flexShrink: 0 }}
+                                />
+                                <span style={{ fontSize: 13, color: 'var(--ink-700)' }}>Ich habe Kinder erzogen (unter 16 Jahren)</span>
+                              </div>
+                              {cur2.hasKZG && (
+                                <div className="form-grid" style={{ marginLeft: 26 }}>
+                                  <div className="field">
+                                    <label>Anzahl Kinder</label>
+                                    <select
+                                      className="input"
+                                      value={cur2.kzgChildren ?? 0}
+                                      onChange={e => updatePerson(id, { kzgChildren: parseInt(e.target.value) })}
+                                      style={{ appearance: 'auto' }}
+                                    >
+                                      {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Kind' : 'Kinder'}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="field">
+                                    <label>Jahre mit Kindern unter 16</label>
+                                    <select
+                                      className="input"
+                                      value={cur2.kzgYears ?? 0}
+                                      onChange={e => updatePerson(id, { kzgYears: parseInt(e.target.value) })}
+                                      style={{ appearance: 'auto' }}
+                                    >
+                                      {Array.from({ length: 33 }, (_, i) => i).map(y => (
+                                        <option key={y} value={y}>{y} {y === 1 ? 'Jahr' : 'Jahre'}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              )}
+                              {cur2.hasKZG && cur2.kzgChildren > 0 && cur2.kzgYears > 0 && (() => {
+                                const KZG_YEARLY = 44100
+                                const totalYears = Math.min(cur2.kzgYears, 16 * cur2.kzgChildren)
+                                const kzgPerPerson = KZG_YEARLY * totalYears * (isMarried2 ? 0.5 : 1)
+                                const baseYears = Math.min(44, Math.max(0, ((id === 1 ? person1.retireAge : person2.retireAge) || 65) - 21))
+                                const effectiveYears = Math.max(1, baseYears - (cur2.ahvContributionGaps || 0))
+                                const boost = Math.round(kzgPerPerson / effectiveYears)
+                                return (
+                                  <div style={{ marginLeft: 26, marginTop: 6, fontSize: 12, color: '#166534', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7 }}>
+                                    KZG-Einkommenserhöhung: +CHF {boost.toLocaleString('de-CH')}/Jahr (Ø-Einkommen für AHV-Berechnung)
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          )
+                        })}
+                        {hasScreen1Children && (
+                          <button
+                            onClick={() => setKzgOverride(false)}
+                            style={{ fontSize: 12, color: 'var(--navy-600)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
+                          >
+                            ← Automatische Berechnung wiederherstellen
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* IK-Auszug Upload */}
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--ink-100)' }}>
@@ -1368,13 +1435,6 @@ export default function Screen2() {
             </div>
           )}
 
-          <div className="toggle-row" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--ink-100)' }}>
-            <Switch
-              on={kirchensteuer}
-              onToggle={() => setKirchensteuer(!kirchensteuer)}
-              label="Ich bin kirchensteuerpflichtig (wird bei Steueranalyse in Schritt 4 berücksichtigt)"
-            />
-          </div>
         </section>
 
         </>}
