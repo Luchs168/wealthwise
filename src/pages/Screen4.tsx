@@ -155,15 +155,15 @@ export default function Screen4() {
   const { p1, p2, civilStatus } = useMemo(() => getPersonsForCalc(state), [state])
 
   const monthlyBudget = useMemo(() => {
-    const kkTotal = (expenses.kkPremium1 || 0) + (hasPartner ? (expenses.kkPremium2 || 0) : 0)
-    if (expenses.simpleTotal > 0) return expenses.simpleTotal + kkTotal
+    if (expenses.simpleTotal > 0) return expenses.simpleTotal
     if (expenses.mode === 'detailed') {
       const CATS = ['wohnen', 'gesundheit', 'nahrung', 'mobilitaet', 'freizeit', 'bekleidung', 'kommunikation', 'uebrige']
-      const DEFAULTS: Record<string, number> = { wohnen: 1476, gesundheit: 615, nahrung: 1080, mobilitaet: 650, freizeit: 580, bekleidung: 180, kommunikation: 200, uebrige: 600 }
-      return CATS.reduce((s, id) => s + (expenses.detailed[id] ?? DEFAULTS[id]), 0) + kkTotal
+      // gesundheit default includes KK premium + franchise/Selbstbehalt (national avg CHF 698)
+      const DEFAULTS: Record<string, number> = { wohnen: 1476, gesundheit: 698, nahrung: 1080, mobilitaet: 650, freizeit: 580, bekleidung: 180, kommunikation: 200, uebrige: 600 }
+      return CATS.reduce((s, id) => s + (expenses.detailed[id] ?? DEFAULTS[id]), 0)
     }
-    return 4000 + kkTotal
-  }, [expenses, hasPartner])
+    return 4000
+  }, [expenses])
 
   // canton declared early — used in both inputData and tax section
   const canton = location?.kanton ?? 'ZH'

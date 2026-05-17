@@ -75,7 +75,7 @@ function LoadingTransition({ onDone }: { onDone: () => void }) {
 
 const CATEGORIES = [
   { id: 'wohnen', label: 'Wohnen & Energie', icon: '🏠', bfsMonthly: 1476 },
-  { id: 'gesundheit', label: 'Gesundheit', icon: '🏥', bfsMonthly: 615 },
+  { id: 'gesundheit', label: 'Gesundheit & Krankenkasse', icon: '🏥', bfsMonthly: 698 },
   { id: 'nahrung', label: 'Nahrung & Restaurants', icon: '🍽️', bfsMonthly: 1080 },
   { id: 'mobilitaet', label: 'Mobilität', icon: '🚗', bfsMonthly: 650 },
   { id: 'freizeit', label: 'Freizeit & Ferien', icon: '✈️', bfsMonthly: 580 },
@@ -111,7 +111,7 @@ const RISK_PROFILES = [
   { id: 'growth' as const, icon: '📈', title: 'Wachstumsorientiert', sub: 'Überwiegend Aktien', return: '3.5–5%', color: '#d97706', bg: '#fffbeb' },
 ]
 
-const SUB_STEP_LABELS = ['Budget', 'Ruhestand', 'Krankenkasse', 'Ereignisse']
+const SUB_STEP_LABELS = ['Budget', 'Ruhestand', 'Ereignisse']
 
 function parseNum(s: string | number): number {
   if (typeof s === 'number') return s
@@ -566,18 +566,30 @@ export default function Screen3() {
                 </div>
                 <div className="cat-list">
                   {CATEGORIES.map(cat => {
-                    const val = expenses.detailed[cat.id] ?? cat.bfsMonthly
-                    const pctFill = Math.min(100, (val / (cat.bfsMonthly * 2)) * 100)
+                    const canton = location?.kanton ?? 'ZH'
+                    const gesundheitDefault = (KK_CANTON_DEFAULTS[canton] ?? 600) + 83
+                    const catDefault = cat.id === 'gesundheit' ? gesundheitDefault : cat.bfsMonthly
+                    const val = expenses.detailed[cat.id] ?? catDefault
+                    const pctFill = Math.min(100, (val / (catDefault * 2)) * 100)
                     return (
                       <div key={cat.id} className="cat-card">
                         <div className="cat-icon">{cat.icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="cat-label">{cat.label}</div>
-                          <div className="cat-avg">⌀ CHF {fmtCHF(cat.bfsMonthly)}/Mt. (BFS 2022)</div>
+                          <div className="cat-avg">
+                            {cat.id === 'gesundheit'
+                              ? `⌀ ${canton}: CHF ${fmtCHF(gesundheitDefault)}/Mt. (Prämie + Franchise)`
+                              : `⌀ CHF ${fmtCHF(cat.bfsMonthly)}/Mt. (BFS 2022)`}
+                          </div>
                           <div className="compare-bar">
                             <div className="compare-bar-fill" style={{ width: `${pctFill}%` }} />
                             <div className="compare-bar-avg" style={{ left: '50%' }} />
                           </div>
+                          {cat.id === 'gesundheit' && (
+                            <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
+                              Inkl. Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 615/Mt.
+                            </div>
+                          )}
                         </div>
                         <div className="cat-input">
                           <span style={{ fontSize: 13, color: 'var(--ink-400)' }}>CHF</span>
@@ -784,77 +796,11 @@ export default function Screen3() {
           </>
         )}
 
-        {/* === 3C: Krankenkasse === */}
+        {/* === 3C: Life events === */}
         {subStep === 2 && (
           <>
             <div className="page-head">
-              <div className="eyebrow">3C · Krankenkasse</div>
-              <h1 className="title">Krankenkasse</h1>
-            </div>
-            <section className="block">
-              {[
-                { label: isPaar ? `${person1.name || 'Person 1'} – KK-Prämie` : 'KK-Prämie (Grundversicherung)', key: 'kkPremium1' as const },
-                ...(isPaar ? [{ label: 'Person 2 – KK-Prämie', key: 'kkPremium2' as const }] : []),
-              ].map(({ label, key }) => {
-                const canton = location?.kanton ?? 'ZH'
-                const cantonDefault = KK_CANTON_DEFAULTS[canton] ?? 600
-                const val = expenses[key] ?? 0
-                return (
-                  <div key={key} style={{ marginBottom: 18 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>
-                      {isPaar ? label : 'Monatliche KK-Prämie'}
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: 'var(--ink-500)' }}>CHF</span>
-                      <input
-                        className="input"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder={String(cantonDefault)}
-                        value={val > 0 ? fmtCHF(val) : ''}
-                        onChange={e => setExpenses({ [key]: parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0 })}
-                        style={{ maxWidth: 140 }}
-                      />
-                      <span style={{ fontSize: 12, color: 'var(--ink-400)' }}>/Mt. · ⌀ {canton}: CHF {cantonDefault}</span>
-                    </div>
-                  </div>
-                )
-              })}
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 6 }}>Franchise</label>
-                <select className="input" value={expenses.kkFranchise ?? 300} onChange={e => setExpenses({ kkFranchise: parseInt(e.target.value) })} style={{ appearance: 'auto', maxWidth: 220 }}>
-                  {[300, 500, 1000, 1500, 2000, 2500].map(f => <option key={f} value={f}>CHF {f.toLocaleString('de-CH')} Franchise</option>)}
-                </select>
-              </div>
-
-              {(() => {
-                const franchise = expenses.kkFranchise ?? 300
-                const sbMax = 700
-                const monthlyOop = Math.round((franchise + sbMax) / 12)
-                const kkP1 = expenses.kkPremium1 || (KK_CANTON_DEFAULTS[location?.kanton ?? 'ZH'] ?? 600)
-                const kkP2 = isPaar ? (expenses.kkPremium2 || 0) : 0
-                const totalKK = kkP1 + kkP2 + monthlyOop
-                return (
-                  <div style={{ padding: '12px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10, fontSize: 13 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--navy-800)', marginBottom: 6 }}>Gesundheitskosten / Monat</div>
-                    <div style={{ display: 'grid', gap: 3, color: 'var(--ink-600)' }}>
-                      <div>Prämie{isPaar ? ' (beide)' : ''}: CHF {fmtCHF(kkP1 + (isPaar ? kkP2 : 0))}/Mt.</div>
-                      <div>Franchise + Selbstbehalt (max CHF {sbMax}): ≈ CHF {monthlyOop}/Mt.</div>
-                      <div style={{ marginTop: 6, fontWeight: 700, color: 'var(--navy-800)', fontSize: 14 }}>Total: ca. CHF {fmtCHF(totalKK)}/Mt.</div>
-                    </div>
-                  </div>
-                )
-              })()}
-            </section>
-          </>
-        )}
-
-        {/* === 3D: Life events === */}
-        {subStep === 3 && (
-          <>
-            <div className="page-head">
-              <div className="eyebrow">3D · Lebensereignisse</div>
+              <div className="eyebrow">3C · Lebensereignisse</div>
               <h1 className="title">Geplante Ereignisse</h1>
               <p className="subtitle">Optional: Grössere Ausgaben oder Veränderungen beeinflussen Ihren Vermögensverlauf.</p>
             </div>
@@ -1003,7 +949,7 @@ export default function Screen3() {
           <button className="btn btn-ghost" onClick={() => { if (subStep === 0) navigate('/schritt/2'); else setSubStep(subStep - 1) }}>
             ← Zurück
           </button>
-          {subStep < 3 ? (
+          {subStep < 2 ? (
             <button className="btn btn-primary" onClick={() => setSubStep(subStep + 1)}>Weiter →</button>
           ) : (
             <button className="btn btn-primary" onClick={handleFinish}>Zur Analyse →</button>

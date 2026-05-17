@@ -355,8 +355,17 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth -= vermSt
     }
 
+    // Age-based KK surcharge in retirement: KK costs rise with age class
+    // Modelled on ~CHF 700/Mt. per person baseline (premium + franchise/Selbstbehalt)
+    const kkBasePP = 700 * 12
+    const kkPersons = p2raw ? 2 : 1
+    const kkSurchargeFactor = (p1Retired || p2RetiredSimple)
+      ? (age >= 76 ? 0.30 : age >= 66 ? 0.20 : age >= 56 ? 0.10 : 0)
+      : 0
+    const kkAnnualSurcharge = Math.round(kkBasePP * kkPersons * kkSurchargeFactor)
+
     const totalRenten = ahvIncome + pkRenteIncome
-    const totalExpThisYear = inflatedExpenses + (data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0)
+    const totalExpThisYear = inflatedExpenses + kkAnnualSurcharge + (data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0)
 
     if (p1Retired || p2RetiredSimple) {
       const gap = totalExpThisYear - totalRenten
