@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import GlossarModal from './GlossarModal'
+import UserMenu from './UserMenu'
 
 interface Props {
   screenLabel?: string
@@ -55,6 +56,7 @@ export default function TopBar({ screenLabel }: Props) {
             Neustart
           </button>
           <Link to="/">Startseite</Link>
+          <UserMenu />
         </div>
       </header>
 
