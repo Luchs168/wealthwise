@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import UserMenu from '../components/UserMenu'
+import { useAuth } from '../context/AuthContext'
 
 const FAQS = [
   {
@@ -30,6 +32,7 @@ const FAQS = [
 
 export default function Landing() {
   const navigate = useNavigate()
+  const { user, firebaseEnabled, signInWithGoogle } = useAuth()
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [optionalExpanded, setOptionalExpanded] = useState(false)
@@ -82,6 +85,7 @@ export default function Landing() {
             <a href="#so-gehts">So gehts</a>
             <a href="#features">Was Sie erfahren</a>
             <a href="#faq">FAQ</a>
+            <UserMenu />
             <button className="nav-cta" onClick={() => navigate('/schritt/1')}>Analyse starten</button>
           </div>
         </div>
@@ -172,6 +176,38 @@ export default function Landing() {
               </button>
               <a className="btn-link" href="#so-gehts">So funktioniert's</a>
             </div>
+
+            {firebaseEnabled && !user && (
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ height: 1, flex: 1, background: 'var(--ink-200)' }} />
+                <span style={{ fontSize: 12, color: 'var(--ink-400)', whiteSpace: 'nowrap' }}>oder</span>
+                <div style={{ height: 1, flex: 1, background: 'var(--ink-200)' }} />
+              </div>
+            )}
+            {firebaseEnabled && !user && (
+              <button
+                onClick={signInWithGoogle}
+                style={{
+                  marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  width: '100%', padding: '11px 20px', borderRadius: 10, cursor: 'pointer',
+                  border: '1.5px solid var(--ink-200)', background: '#fff',
+                  fontSize: 14, fontWeight: 500, color: 'var(--ink-700)', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z" fill="#4285F4"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                  <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                </svg>
+                Mit Google anmelden &amp; Daten geräteübergreifend speichern
+              </button>
+            )}
+            {firebaseEnabled && user && (
+              <div style={{ marginTop: 14, padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+                ☁ Angemeldet als <strong>{user.displayName || user.email}</strong> – Ihre Daten werden synchronisiert.
+              </div>
+            )}
 
             {/* Time estimate + What to expect */}
             <div style={{
