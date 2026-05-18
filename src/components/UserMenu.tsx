@@ -16,41 +16,78 @@ export default function UserMenu() {
   const { user, loading, syncing, signInWithGoogle, signOutUser, firebaseEnabled } = useAuth()
   const [open, setOpen] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setShowSetup(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  if (!firebaseEnabled) return null
   if (loading) return <div style={{ width: 32, height: 32 }} />
 
+  // Not logged in (with or without Firebase configured)
   if (!user) {
     return (
-      <button
-        onClick={async () => {
-          setSigningIn(true)
-          try { await signInWithGoogle() } catch { /* popup closed */ }
-          finally { setSigningIn(false) }
-        }}
-        disabled={signingIn}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: 'none', border: '1px solid var(--ink-200)', borderRadius: 7,
-          padding: '5px 11px', fontSize: 13, color: 'var(--ink-600)',
-          cursor: signingIn ? 'wait' : 'pointer', fontFamily: 'var(--font-body)',
-          opacity: signingIn ? 0.6 : 1,
-        }}
-      >
-        {signingIn ? '…' : <><GoogleIcon /> Anmelden</>}
-      </button>
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          onClick={async () => {
+            if (!firebaseEnabled) { setShowSetup(!showSetup); return }
+            setSigningIn(true)
+            try { await signInWithGoogle() } catch { /* popup closed */ }
+            finally { setSigningIn(false) }
+          }}
+          disabled={signingIn}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: '1px solid var(--ink-200)', borderRadius: 7,
+            padding: '5px 11px', fontSize: 13, color: 'var(--ink-600)',
+            cursor: signingIn ? 'wait' : 'pointer', fontFamily: 'var(--font-body)',
+            opacity: signingIn ? 0.6 : 1,
+          }}
+        >
+          {signingIn ? '…' : <><GoogleIcon /> Anmelden</>}
+        </button>
+
+        {showSetup && (
+          <div style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 6px)',
+            background: 'white', border: '1px solid var(--ink-200)', borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 280, zIndex: 500, padding: '16px',
+          }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>
+              Firebase nicht konfiguriert
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.55, margin: '0 0 12px' }}>
+              Erstelle eine Datei <code style={{ background: 'var(--ink-50)', padding: '1px 5px', borderRadius: 4, fontFamily: 'monospace' }}>.env.local</code> im Projektverzeichnis mit den Firebase-Credentials.
+            </p>
+            <div style={{ background: 'var(--ink-50)', borderRadius: 8, padding: '10px 12px', fontSize: 11.5, fontFamily: 'monospace', color: 'var(--ink-700)', lineHeight: 1.7, marginBottom: 10 }}>
+              VITE_FIREBASE_API_KEY=...<br />
+              VITE_FIREBASE_AUTH_DOMAIN=...<br />
+              VITE_FIREBASE_PROJECT_ID=...<br />
+              VITE_FIREBASE_APP_ID=...
+            </div>
+            <a
+              href="https://console.firebase.google.com/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12.5, color: 'var(--navy-700)', fontWeight: 500 }}
+            >
+              → Firebase Console öffnen
+            </a>
+          </div>
+        )}
+      </div>
     )
   }
 
+  // Logged in
   const initials = (user.displayName || user.email || '?')[0].toUpperCase()
 
   return (
@@ -92,7 +129,6 @@ export default function UserMenu() {
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-400)' }}>{user.email}</div>
           </div>
-
           <div style={{ padding: '8px 10px 6px' }}>
             <div style={{
               fontSize: 12, color: syncing ? 'var(--navy-600)' : '#16a34a',
@@ -102,7 +138,6 @@ export default function UserMenu() {
               {syncing ? 'Wird synchronisiert…' : 'Cloud-Sync aktiv'}
             </div>
           </div>
-
           <div style={{ borderTop: '1px solid var(--ink-100)', padding: '6px 8px 6px' }}>
             <button
               onClick={() => { setOpen(false); signOutUser() }}
