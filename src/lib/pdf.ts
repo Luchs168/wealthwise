@@ -10,6 +10,8 @@ export interface PdfData {
   retirementAge2?: number
   analysis: ProAnalysisResult
   monthlyBudget: number
+  surplusAfterTax?: number     // after-tax surplus (used throughout instead of analysis.surplus)
+  displayPkMonthly?: number    // actual PK monthly adjusted for Bezugsart (kapital/rente/mix)
   // Extended fields for professional report
   riskProfile?: 'conservative' | 'balanced' | 'growth'
   canton?: string
@@ -18,8 +20,8 @@ export interface PdfData {
   depletionAge?: number | null
   pkCapital1?: number
   pkRate1?: number
-  balance3a1?: number
-  fzBalance1?: number
+  balance3a1?: number          // projected 3a balance at retirement
+  fzBalance1?: number          // projected FZ balance at retirement
   hasProperty?: boolean
   propertyValue?: number
   scenarios?: {
@@ -53,7 +55,10 @@ export async function exportPDF(data: PdfData): Promise<void> {
   const { analysis } = data
   const verdictColor = analysis.verdict === 'green' ? GREEN : analysis.verdict === 'yellow' ? AMBER : RED
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
-  const surplus = analysis.surplus
+  // Use after-tax surplus everywhere — falls back to pre-tax if not provided
+  const surplus = data.surplusAfterTax ?? analysis.surplus
+  // Actual PK monthly (adjusted for Bezugsart) — falls back to calculated value
+  const pkMonthlyDisplay = data.displayPkMonthly ?? analysis.pk.combinedMonthly
   const names = data.person2Name ? `${data.person1Name} & ${data.person2Name}` : data.person1Name
   const dateStr = new Date().toLocaleDateString('de-CH')
   const riskLabel = data.riskProfile === 'conservative' ? 'Konservativ' : data.riskProfile === 'growth' ? 'Wachstum' : 'Ausgewogen'
@@ -298,7 +303,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.text('Pensionskasse (2. Säule)', ML + 3, y)
-  doc.text(`CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  doc.text(`CHF ${fmtCHF(pkMonthlyDisplay)}/Mt.`, W - MR - 3, y, { align: 'right' })
   y += 10
 
   // Row 3: Total – 2-line dark row (no same-line overlap for % text)
@@ -415,11 +420,10 @@ export async function exportPDF(data: PdfData): Promise<void> {
     section('Vermögen bei Pensionierung')
 
     const wealthRows = [
-      data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a', `CHF ${fmtCHF(data.balance3a1)}`] : null,
-      data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
-      data.pkCapital1 && data.pkCapital1 > 0 ? ['PK-Kapitalbezug', `CHF ${fmtCHF(data.pkCapital1)}`] : null,
-      ['Freies Vermögen', `CHF ${fmtCHF(Math.max(0, data.wealthAtRetirement - (data.balance3a1 ?? 0) - (data.fzBalance1 ?? 0) - (data.pkCapital1 ?? 0)))}`],
-      ['Total Vermögen', `CHF ${fmtCHF(data.wealthAtRetirement)}`],
+      data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (bei Pensionierung)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
+      data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben (bei Pensionierung)', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
+      data.pkCapital1 && data.pkCapital1 > 0 ? ['PK-Kapitalbezug (brutto)', `CHF ${fmtCHF(data.pkCapital1)}`] : null,
+      ['Total Vermögen (inkl. Wachstum, n. Steuern)', `CHF ${fmtCHF(data.wealthAtRetirement)}`],
     ].filter(Boolean) as [string, string][]
 
     wealthRows.forEach((r, i) => {
@@ -480,11 +484,10 @@ export async function exportPDF(data: PdfData): Promise<void> {
 
   doc.setTextColor(...INK)
   const pkRows = [
-    // Skip PK-Kapital row when there is no capital withdrawal
-    ...(data.pkCapital1 && data.pkCapital1 > 0 ? [[isCouple ? 'PK-Kapitalbezug Person 1' : 'PK-Kapitalbezug', `CHF ${fmtCHF(data.pkCapital1)}`]] : []),
-    [isCouple ? 'PK-Rente Person 1' : 'PK-Rente', `CHF ${fmtCHF(analysis.pk.person1?.monthlyRente ?? 0)}/Mt.`],
+    ...(data.pkCapital1 && data.pkCapital1 > 0 ? [[isCouple ? 'PK-Kapitalbezug Person 1 (brutto)' : 'PK-Kapitalbezug (brutto)', `CHF ${fmtCHF(data.pkCapital1)}`]] : []),
+    ...(pkMonthlyDisplay > 0 ? [[isCouple ? 'PK-Rente Person 1' : 'PK-Rente', `CHF ${fmtCHF(pkMonthlyDisplay)}/Mt.`]] : []),
     ...(data.pkRate1 ? [['Umwandlungssatz', `${data.pkRate1}%`]] : []),
-    ['Gesamt PK-Renten', `CHF ${fmtCHF(analysis.pk.combinedMonthly)}/Mt.`],
+    ['Gesamt PK-Renten', `CHF ${fmtCHF(pkMonthlyDisplay)}/Mt.`],
   ]
   pkRows.forEach(r => { checkBreak(8, 4); row2col(r[0], r[1], r[0].startsWith('Gesamt')) })
   y += 6
@@ -501,8 +504,8 @@ export async function exportPDF(data: PdfData): Promise<void> {
 
   doc.setTextColor(...INK)
   const p3Rows = [
-    data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (Guthaben)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
-    data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
+    data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (bei Pensionierung)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
+    data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben (bei Pensionierung)', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
     data.hasProperty ? ['Wohneigentum', `CHF ${fmtCHF(data.propertyValue ?? 0)} (Marktwert)`] : null,
   ].filter(Boolean) as [string, string][]
 

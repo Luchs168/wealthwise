@@ -8,7 +8,7 @@ import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
 import ChatPanel from '../components/ChatPanel'
 import { useStore, getPersonsForCalc } from '../store'
-import { fmtCHF, calculateAge } from '../lib/calc'
+import { fmtCHF, calculateAge, CONSTANTS } from '../lib/calc'
 import {
   calculateIncomeTax, calculateRetirementTax, calculateCapitalWithdrawalTax,
   calculateThirdPillarSavings, calculatePkPurchaseSavings, calculateRenteVsKapital,
@@ -642,6 +642,13 @@ export default function Screen4() {
     setPdfError(null)
     try {
       const { exportPDF } = await import('../lib/pdf')
+      // Compute projected FZ at retirement (same formula as cashflow.ts)
+      const yearsToRet = Math.max(0, ra1 - currentAge1)
+      const fzInvType = (p1 as Record<string, unknown>).fzInvestmentType as string | undefined
+      const fzRate = CONSTANTS.RETURNS_FZ[fzInvType || 'sparkonto'] ?? 0.0075
+      const projectedFzForPdf = p1.hasFZ && (p1.fzBalance || 0) > 0
+        ? Math.round((p1.fzBalance || 0) * Math.pow(1 + fzRate, yearsToRet))
+        : 0
       await exportPDF({
         person1Name: person1.name || 'Person 1',
         person2Name: hasPartner ? (person2.name || 'Person 2') : undefined,
@@ -649,6 +656,8 @@ export default function Screen4() {
         retirementAge1: ra1,
         analysis,
         monthlyBudget,
+        surplusAfterTax,
+        displayPkMonthly,
         riskProfile: riskProfileForPdf(),
         canton,
         kirchensteuer,
@@ -656,8 +665,8 @@ export default function Screen4() {
         depletionAge: wdRealistDepletionAge ?? undefined,
         pkCapital1: p1.hasPK && p1.pkBezugsart !== 'rente' ? p1.pkCapital : undefined,
         pkRate1: p1.pkRate,
-        balance3a1: p1.has3a ? p1.balance3a : undefined,
-        fzBalance1: p1.fzBalance,
+        balance3a1: p1.has3a ? projected3aAtRetirement : undefined,
+        fzBalance1: projectedFzForPdf > 0 ? projectedFzForPdf : undefined,
         hasProperty: property.has,
         propertyValue: property.has ? property.value : undefined,
         scenarios,
