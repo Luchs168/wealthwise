@@ -2149,6 +2149,11 @@ export default function Screen2() {
                   ⚠ 3a-Guthaben über CHF 250'000 – bitte Angabe prüfen. Ab CHF 7'258/Jahr (2026) dauert es über 30 Jahre, um diesen Betrag anzusparen.
                 </div>
               )}
+              {cur.hasPK && cur.yearly3a > CONSTANTS.PK_3A_MAX_WITH_PK && (
+                <div style={{ marginTop: 10, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
+                  ⚠ <strong>Achtung Maximum überschritten:</strong> Das steuerlich abzugsfähige Maximum für Angestellte mit PK beträgt CHF {fmtCHF(CONSTANTS.PK_3A_MAX_WITH_PK)}/Jahr (2026). Einzahlungen darüber sind nicht steuerlich absetzbar.
+                </div>
+              )}
               {cur.employmentStatus === 'selfEmployed' && !cur.hasPK && cur.yearly3a > 0 && (() => {
                 const maxAllowed = Math.min(Math.round(cur.income * 0.20), 36288)
                 if (cur.yearly3a <= maxAllowed) return null

@@ -406,12 +406,13 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
         wealth -= combinedTax
       }
     }
-    // P2-Pensionierungsjahr: PK-Kapital + FZ kombiniert (3a bereits im P1-Jahr besteuert)
+    // P2-Pensionierungsjahr: PK-Kapital + 3a + FZ kombiniert besteuert
     if (isRetirementYearP2) {
-      const totalP2Capital = cap2 + projectedFz2
+      const totalP2Capital = cap2 + projected3a2 + projectedFz2
       if (totalP2Capital > 0) {
         const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
         if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
+        if (projected3a2 > 0) wealth += projected3a2
         if (projectedFz2 > 0) wealth += projectedFz2
         wealth -= combinedTax
       }

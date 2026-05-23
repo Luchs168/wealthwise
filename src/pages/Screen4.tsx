@@ -403,6 +403,11 @@ export default function Screen4() {
 
   // Wealth at retirement: free assets + 3a (both persons) + PK capital (if Kapitalbezug) + FZ - taxes
   const wdInitialWealth = useMemo(() => {
+    // Use cashflow's projected retirement-year wealth — correctly includes growth,
+    // 3a/FZ projections, PK capital net of tax, and employment-phase savings.
+    const retRow = analysis.yearlyCashflow.find(r => r.age === ra1)
+    if (retRow && retRow.wealthEndOfYear > 0) return retRow.wealthEndOfYear
+    // Fallback (e.g. person already retired): raw current values
     let w = freeAssets || 0
     if (p1.has3a && p1.balance3a > 0) w += p1.balance3a
     if (p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0) {
@@ -427,7 +432,7 @@ export default function Screen4() {
       }
     }
     return w
-  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, p1.hasFZ, p1.fzBalance, p2, canton, taxStatus])
+  }, [analysis.yearlyCashflow, ra1, freeAssets, p1, p2, canton, taxStatus])
 
   const wdScenarios = useMemo(() =>
     buildDepletionScenarios(wdInitialWealth, wdEffectiveWithdrawal, ra1)
@@ -474,12 +479,19 @@ export default function Screen4() {
     )
   , [ra1, wdMonthlyIncome, monthlyBudget, wdInitialWealth, wdReturnRate, wdInflation, wdAdjustInflation])
 
+  // Projected 3a balance at retirement — derived from cashflow retirement year row
+  const projected3aAtRetirement = useMemo(() => {
+    const retRow = analysis.yearlyCashflow.find(r => r.age === ra1 && r.pillar3aWithdrawal > 0)
+    if (retRow) return retRow.pillar3aWithdrawal
+    return p1.has3a ? (p1.balance3a || 0) : 0
+  }, [analysis.yearlyCashflow, ra1, p1.has3a, p1.balance3a])
+
   const withdrawalPlan = useMemo(() => {
     const p1stored = state.persons.find(p => p.id === 1)
     const pkCap = p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0
       ? (p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital)
       : 0
-    const pillar3aTotal = p1.has3a ? (p1.balance3a || 0) : 0
+    const pillar3aTotal = p1.has3a ? projected3aAtRetirement : 0
     const num3aAccounts = p1stored?.num3aAccounts || 1
     const fzBal = p1.hasFZ ? (p1.fzBalance || 0) : 0
     const retirementCalendarYear = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
@@ -1062,8 +1074,8 @@ export default function Screen4() {
                       <div>PK-Renten: <strong>CHF {fmtCHF(pkMonthly1 + pkMonthly2)}/Mt.</strong></div>
                       <div>Haushaltseinkommen: <strong>CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt.</strong></div>
                       <div>Haushaltsausgaben: <strong>CHF {fmtCHF(monthlyBudget)}/Mt.</strong></div>
-                      <div style={{ color: analysis.surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                        Differenz: {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
+                      <div style={{ color: surplusAfterTax >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                        Differenz (n. St.): {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt.
                       </div>
                     </div>
                   </div>
@@ -1392,7 +1404,7 @@ export default function Screen4() {
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>
-                      <strong>Mögliche Quellen:</strong> Gestaffelter 3a-Bezug (CHF {fmtCHF(p1.balance3a ?? 0)}), freies Vermögen (CHF {fmtCHF(freeAssets || 0)}){(p1.businessValue ?? 0) > 0 ? `, Firmenverkauf (CHF ${fmtCHF(p1.businessValue!)})` : ''}
+                      <strong>Mögliche Quellen:</strong> Gestaffelter 3a-Bezug (CHF {fmtCHF(projected3aAtRetirement)}), freies Vermögen (CHF {fmtCHF(freeAssets || 0)}){(p1.businessValue ?? 0) > 0 ? `, Firmenverkauf (CHF ${fmtCHF(p1.businessValue!)})` : ''}
                     </div>
                   </div>
                 )}
@@ -1544,8 +1556,8 @@ export default function Screen4() {
                     <div style={{ fontSize: 12.5, color: 'var(--ink-600)', lineHeight: 1.65 }}>
                       3a-Konten in den Überbrückungsjahren gestaffelt beziehen – Progressionsvorteil nutzen.
                       <div style={{ marginTop: 4 }}>
-                        Ihr 3a-Guthaben: <strong>CHF {fmtCHF(p1.balance3a)}</strong>{' '}
-                        kann CHF {fmtCHF(Math.min(p1.balance3a, bridgingCapitalNeeds.capitalNeeded))} der Überbrückung finanzieren.
+                        Ihr 3a-Guthaben bei Pensionierung: <strong>CHF {fmtCHF(projected3aAtRetirement)}</strong>{' '}
+                        kann CHF {fmtCHF(Math.min(projected3aAtRetirement, bridgingCapitalNeeds.capitalNeeded))} der Überbrückung finanzieren.
                       </div>
                       <div style={{ marginTop: 4, padding: '6px 8px', background: '#eff6ff', borderRadius: 6, fontSize: 11.5 }}>
                         Tipp: Verteilen Sie den 3a-Bezug auf {bridgingGap.gapYears} separate Steuerjahre. Jeder Bezug wird separat besteuert.
