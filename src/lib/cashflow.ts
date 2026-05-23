@@ -44,6 +44,9 @@ export interface CashflowInput {
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
+    ahvAvgIncome?: number
+    yearly3a?: number
+    form3a?: string
     employmentStatus?: string
     businessValue?: number
     businessSaleYear?: number
@@ -74,6 +77,9 @@ export interface CashflowInput {
     hasFZ?: boolean
     fzBalance?: number
     fzInvestmentType?: string
+    ahvAvgIncome?: number
+    yearly3a?: number
+    form3a?: string
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
@@ -141,7 +147,7 @@ function buildAhvHousehold(
   const baseYears1 = Math.min(FULL_YEARS, Math.max(0, retire1 - 21))
   const years1 = Math.max(0, baseYears1 - (p1.ahvContributionGaps || 0))
   const bezug1 = Math.min(70, Math.max(63, p1.ahvBezugAge || retire1))
-  const avgIncome1 = computeKZGAdjustedIncome(p1.grossIncome || 0, years1, p1.hasKZG, p1.kzgChildren, p1.kzgYears, civilStatus)
+  const avgIncome1 = computeKZGAdjustedIncome(p1.ahvAvgIncome || p1.grossIncome || 0, years1, p1.hasKZG, p1.kzgChildren, p1.kzgYears, civilStatus)
 
   const r1 = calculateAHVPension({ avgIncome: avgIncome1, bezugAge: bezug1, effectiveContributionYears: years1 })
 
@@ -154,7 +160,7 @@ function buildAhvHousehold(
     const baseYears2 = Math.min(FULL_YEARS, Math.max(0, retire2 - 21))
     const years2 = Math.max(0, baseYears2 - (p2.ahvContributionGaps || 0))
     const bezug2 = Math.min(70, Math.max(63, p2.ahvBezugAge || retire2))
-    const avgIncome2 = computeKZGAdjustedIncome(p2.grossIncome || 0, years2, p2.hasKZG, p2.kzgChildren, p2.kzgYears, civilStatus)
+    const avgIncome2 = computeKZGAdjustedIncome(p2.ahvAvgIncome || p2.grossIncome || 0, years2, p2.hasKZG, p2.kzgChildren, p2.kzgYears, civilStatus)
     const r2raw = calculateAHVPension({ avgIncome: avgIncome2, bezugAge: bezug2, effectiveContributionYears: years2 })
     r2Monthly = r2raw.monthlyRente
     r2Income = p2.grossIncome || 0
@@ -258,11 +264,39 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const pk1Monthly = (pk.person1?.monthlyRente || 0) * (1 - pkKapitalShare(p1raw))
   const pk2Monthly = pk.person2 ? (pk.person2.monthlyRente || 0) * (1 - pkKapitalShare(p2raw)) : 0
 
-  const start3a =
-    (p1raw.has3a !== false ? p1raw.pillar3aBalance || 0 : 0) +
-    (p2raw && p2raw.has3a !== false ? p2raw.pillar3aBalance || 0 : 0)
+  // Project 3a balances to retirement using yearly contributions + type-specific rates
+  const yearly3a1 = p1raw.yearly3a || 0
+  const form3a1 = p1raw.form3a || 'sparkonto'
+  const rate3a1 = CONSTANTS.RETURNS_3A[form3a1] ?? 0.0075
+  const projected3a1 = p1raw.has3a !== false
+    ? Math.round(
+        (p1raw.pillar3aBalance || 0) * Math.pow(1 + rate3a1, yearsUntilRet1) +
+        (rate3a1 > 0
+          ? yearly3a1 * (Math.pow(1 + rate3a1, yearsUntilRet1) - 1) / rate3a1
+          : yearly3a1 * yearsUntilRet1)
+      )
+    : 0
 
-  let wealth = (data.freeAssets || 0) + start3a
+  const yearly3a2 = p2raw?.yearly3a || 0
+  const form3a2 = p2raw?.form3a || 'sparkonto'
+  const rate3a2 = p2raw ? (CONSTANTS.RETURNS_3A[form3a2] ?? 0.0075) : 0
+  const projected3a2 = p2raw && p2raw.has3a !== false
+    ? Math.round(
+        (p2raw.pillar3aBalance || 0) * Math.pow(1 + rate3a2, yearsUntilRet2) +
+        (rate3a2 > 0
+          ? yearly3a2 * (Math.pow(1 + rate3a2, yearsUntilRet2) - 1) / rate3a2
+          : yearly3a2 * yearsUntilRet2)
+      )
+    : 0
+
+  if (typeof window !== 'undefined') {
+    console.log('[WealthWise S4] Cashflow projections:', {
+      currentAge, ra1, yearsUntilRet1, ahv: { combinedMonthly: ahv.combinedMonthly, p1monthly: ahv.person1.monthlyRente, avgIncomeUsed: ahv.person1.avgIncomeUsed }, pk: { combinedMonthly: pk.combinedMonthly }, freeAssets: data.freeAssets, projected3a1, projected3a2, projectedFz1, projectedFz2, initialWealth: data.freeAssets || 0, blendedReturn,
+    })
+  }
+
+  // 3a tracked separately and added at retirement as lump sum; initial wealth = free assets only
+  let wealth = (data.freeAssets || 0)
   const baseExpensesYear = (data.monthlyExpenses || 0) * 12
   const cashflow: CashflowRow[] = []
   const currentYear = new Date().getFullYear()
@@ -332,6 +366,8 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (p2raw && !p2RetiredSimple) employmentIncome += p2raw.grossIncome || 0
 
     if (employmentIncome > 0) {
+      assetReturn = Math.round(Math.max(0, wealth) * blendedReturn)
+      wealth += assetReturn
       const netIncome = employmentIncome * 0.72
       const saving = Math.max(0, netIncome - inflatedExpenses - mortgageCostsThisYear)
       wealth += saving
@@ -361,12 +397,11 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     // K3+K4: Kapitalbezüge im gleichen Pensionierungsjahr zusammenfassen (höhere Progression vermeiden)
     // P1-Pensionierungsjahr: PK-Kapital + Säule-3a + FZ werden kombiniert besteuert
     if (isRetirementYearP1) {
-      const the3a = start3a > 0 && yearsFromNow === ra1 - currentAge ? start3a : 0
-      const totalP1Capital = cap1 + the3a + projectedFz1
+      const totalP1Capital = cap1 + projected3a1 + projectedFz1
       if (totalP1Capital > 0) {
         const combinedTax = calculateCapitalTax(totalP1Capital, canton, taxStatus).totalTax
         if (cap1 > 0) { pkKapitalWithdrawal += cap1; wealth += cap1 }
-        if (the3a > 0) pillar3aWithdrawal = the3a   // principal already in wealth from start3a
+        if (projected3a1 > 0) { pillar3aWithdrawal = projected3a1; wealth += projected3a1 }
         if (projectedFz1 > 0) wealth += projectedFz1
         wealth -= combinedTax
       }
@@ -383,8 +418,10 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     }
 
     if (p1Retired || p2RetiredSimple) {
-      assetReturn = Math.round(Math.max(0, wealth) * blendedReturn)
-      wealth += assetReturn
+      if (employmentIncome === 0) {
+        assetReturn = Math.round(Math.max(0, wealth) * blendedReturn)
+        wealth += assetReturn
+      }
       // Vermögenssteuer: annual wealth tax as ongoing cost in retirement
       const vermSt = Math.round(Math.max(0, wealth) * vermStSatz)
       wealth -= vermSt
@@ -464,6 +501,14 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
   const p1 = normalizeP(data.person1)
   const p2 = data.person2 ? normalizeP(data.person2) : null
   const civilStatus = data.civilStatus || 'ledig'
+
+  if (typeof window !== 'undefined') {
+    console.log('[WealthWise S4] calculateProAnalysis input:', {
+      p1: { retirementAge: p1.retirementAge, ahvBezugAge: p1.ahvBezugAge, grossIncome: p1.grossIncome, ahvAvgIncome: p1.ahvAvgIncome, pkCapitalAt65: p1.pkCapitalAt65, pillar3aBalance: p1.pillar3aBalance, yearly3a: p1.yearly3a, form3a: p1.form3a, hasFZ: p1.hasFZ, fzBalance: p1.fzBalance, fzInvestmentType: p1.fzInvestmentType },
+      p2: p2 ? { retirementAge: p2.retirementAge, grossIncome: p2.grossIncome, ahvAvgIncome: p2.ahvAvgIncome, pkCapitalAt65: p2.pkCapitalAt65 } : null,
+      civilStatus: data.civilStatus, canton: data.canton, freeAssets: data.freeAssets, monthlyExpenses: data.monthlyExpenses, wealthInvestmentProfile: data.wealthInvestmentProfile,
+    })
+  }
 
   const ahv = buildAhvHousehold(p1, p2, civilStatus)
   const pk = calculatePkHousehold(p1, p2)
