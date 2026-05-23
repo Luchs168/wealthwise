@@ -92,6 +92,7 @@ export interface CashflowInput {
   investmentReturn?: number
   riskProfile?: 'conservative' | 'balanced' | 'growth'
   wealthInvestmentProfile?: string
+  savingsStrategy?: string
   endAge?: number
   freeAssets?: number
   sparkonto?: number
@@ -228,13 +229,21 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const ahv = buildAhvHousehold(p1raw, p2raw, civilStatus)
   const pk = calculatePkHousehold(p1raw, p2raw)
 
-  // Blended return: sparkonto earns 0.75%, wertschriften earn wealthReturn
+  // Blended return (retirement phase): sparkonto earns 0.75%, wertschriften earn wealthReturn
   const totalFreeAssets = (data.freeAssets || 0)
   const sparkontoAmt = data.sparkonto ?? 0
   const sparkontoFraction = totalFreeAssets > 0
     ? Math.min(1, sparkontoAmt / totalFreeAssets)
     : (sparkontoAmt > 0 ? 1 : 0)
   const blendedReturn = sparkontoFraction * CONSTANTS.SPARKONTO_RENDITE + (1 - sparkontoFraction) * wealthReturn
+
+  // Employment-phase return: follows the savings strategy chosen in Screen3
+  const savingsStrategyRates: Record<string, number> = {
+    sparkonto: 0.0075, konservativ: 0.025, ausgewogen: 0.035, aggressiv: 0.05,
+  }
+  const savingsReturn = data.savingsStrategy
+    ? (savingsStrategyRates[data.savingsStrategy] ?? blendedReturn)
+    : blendedReturn
 
   // Pre-project FZ balances to retirement using chosen investment type
   const yearsUntilRet1 = Math.max(0, ra1 - currentAge)
@@ -366,7 +375,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (p2raw && !p2RetiredSimple) employmentIncome += p2raw.grossIncome || 0
 
     if (employmentIncome > 0) {
-      assetReturn = Math.round(Math.max(0, wealth) * blendedReturn)
+      assetReturn = Math.round(Math.max(0, wealth) * savingsReturn)
       wealth += assetReturn
       const netIncome = employmentIncome * 0.72
       const saving = Math.max(0, netIncome - inflatedExpenses - mortgageCostsThisYear)
