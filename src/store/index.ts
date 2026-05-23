@@ -97,9 +97,11 @@ export interface PropertyData {
   has: boolean
   value: number
   mortgage: number
-  steuerwert: number       // Steuerwert der Liegenschaft (≈70% Marktwert)
-  hypothekZinssatz: number // Hypothekarzinssatz in % (z.B. 1.5)
-  rentMonthly?: number     // Monatliche Miete (nur relevant wenn has = false)
+  steuerwert: number          // Steuerwert der Liegenschaft (≈70% Marktwert)
+  hypothekZinssatz: number    // Hypothekarzinssatz in % (z.B. 1.5)
+  amortisationYearly?: number // Jährliche Amortisation (Rückzahlung, CHF)
+  amortisationYears?: number  // Verbleibende Laufzeit der Amortisation (Jahre)
+  hypothekarmodell?: 'fest' | 'saron' | 'gemischt'
 }
 
 export interface ExpensesData {

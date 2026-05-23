@@ -94,7 +94,10 @@ export interface CashflowInput {
   hasProperty?: boolean
   monthlyMortgageCost?: number
   propertyValue?: number
+  mortgage?: number
   hypothekZinssatz?: number
+  amortisationYearly?: number
+  amortisationYears?: number
 }
 
 function normalizeP(p: CashflowInput['person1']) {
@@ -264,6 +267,14 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   const cashflow: CashflowRow[] = []
   const currentYear = new Date().getFullYear()
 
+  // Property cost helpers — computed dynamically per year when amortisation data is present
+  const propMortgage = data.mortgage ?? 0
+  const propHypRate = (data.hypothekZinssatz ?? 1.5) / 100
+  const propMaintenanceYearly = data.hasProperty ? (data.propertyValue || 0) * 0.01 : 0
+  const propAmortYearly = data.amortisationYearly ?? 0
+  const propAmortYears = data.amortisationYears ?? 0
+  const useDynamicMortgage = !!(data.hasProperty && propMortgage > 0 && propAmortYearly > 0)
+
   const ra2InP1Years = p2raw ? (ra2 || 65) + (currentAge - (p2raw.birthDate ? calculateAge(p2raw.birthDate) : currentAge)) : null
 
   for (let age = currentAge; age <= endAge; age++) {
@@ -277,6 +288,19 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
     const isRetirementYearP1 = age === ra1
     const isRetirementYearP2 = p2raw ? age === (ra2InP1Years || ra2 || 65) : false
+
+    // Year-specific property cost: interest declines as mortgage is paid down
+    let mortgageCostsThisYear = 0
+    if (data.hasProperty) {
+      if (useDynamicMortgage) {
+        const remainingMortgage = Math.max(0, propMortgage - yearsFromNow * propAmortYearly)
+        const yearlyInterest = Math.round(remainingMortgage * propHypRate)
+        const yearlyAmort = yearsFromNow < propAmortYears ? propAmortYearly : 0
+        mortgageCostsThisYear = yearlyInterest + Math.round(propMaintenanceYearly) + yearlyAmort
+      } else {
+        mortgageCostsThisYear = (data.monthlyMortgageCost || 0) * 12
+      }
+    }
 
     let employmentIncome = 0
     let ahvIncome = 0, pkRenteIncome = 0
@@ -298,7 +322,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
     if (employmentIncome > 0) {
       const netIncome = employmentIncome * 0.72
-      const saving = Math.max(0, netIncome - inflatedExpenses - (data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0))
+      const saving = Math.max(0, netIncome - inflatedExpenses - mortgageCostsThisYear)
       wealth += saving
     }
 
@@ -365,7 +389,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     const kkAnnualSurcharge = Math.round(kkBasePP * kkPersons * kkSurchargeFactor)
 
     const totalRenten = ahvIncome + pkRenteIncome
-    const totalExpThisYear = inflatedExpenses + kkAnnualSurcharge + (data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0)
+    const totalExpThisYear = inflatedExpenses + kkAnnualSurcharge + mortgageCostsThisYear
 
     if (p1Retired || p2RetiredSimple) {
       const gap = totalExpThisYear - totalRenten
@@ -401,7 +425,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       businessProceeds: Math.round(businessProceeds),
       totalIncome: Math.round(employmentIncome + ahvIncome + pkRenteIncome + assetReturn + businessProceeds),
       livingExpenses: inflatedExpenses,
-      mortgageCosts: data.hasProperty ? (data.monthlyMortgageCost || 0) * 12 : 0,
+      mortgageCosts: mortgageCostsThisYear,
       taxes: estimatedTax,
       totalExpenses: Math.round(totalExpThisYear + estimatedTax),
       wealthEndOfYear: Math.round(wealth),

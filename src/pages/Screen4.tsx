@@ -186,7 +186,10 @@ export default function Screen4() {
       hasProperty: property.has,
       monthlyMortgageCost: mortgageMonthly,
       propertyValue: property.has ? property.value : undefined,
+      mortgage: property.has ? property.mortgage : undefined,
       hypothekZinssatz: property.hypothekZinssatz,
+      amortisationYearly: property.amortisationYearly,
+      amortisationYears: property.amortisationYears,
       riskProfile,
       wealthInvestmentProfile,
     }

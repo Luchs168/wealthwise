@@ -2397,7 +2397,7 @@ export default function Screen2() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {activeAccordion !== 'wohneigentum' && (
                     <span style={{ fontSize: 12, color: 'var(--ink-500)', fontFamily: 'var(--font-mono)' }}>
-                      {prop.has ? `✓ Eigentümer · CHF ${fmtCHF(prop.value)}` : '— Miete'}
+                      {prop.has ? `✓ CHF ${fmtCHF(prop.value)}` : '— Nicht erfasst'}
                     </span>
                   )}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -2421,19 +2421,6 @@ export default function Screen2() {
                 />
               </div>
 
-              {!prop.has && (
-                <div style={{ marginTop: 14 }}>
-                  <CHFField
-                    label="Monatliche Miete (optional)"
-                    value={prop.rentMonthly ?? 0}
-                    onChange={(v) => setProperty({ rentMonthly: v })}
-                  />
-                  <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12, color: 'var(--ink-500)', lineHeight: 1.5 }}>
-                    Als Mieterin / Mieter entfällt der Eigenmietwert. Sie haben keine Hypothekarschulden und volle Flexibilität beim Wohnort im Alter.
-                  </div>
-                </div>
-              )}
-
               {prop.has && (
                 <>
                   <div className="form-grid" style={{ marginTop: 14 }}>
@@ -2448,12 +2435,42 @@ export default function Screen2() {
                       onChange={(v) => setProperty({ mortgage: v })}
                     />
                   </div>
+
                   <div className="form-grid" style={{ marginTop: 10 }}>
                     <CHFField
-                      label="Steuerwert der Liegenschaft"
-                      value={prop.steuerwert || Math.round(prop.value * 0.7)}
-                      onChange={(v) => setProperty({ steuerwert: v })}
+                      label="Jährliche Amortisation"
+                      value={prop.amortisationYearly ?? 0}
+                      onChange={(v) => setProperty({ amortisationYearly: v || undefined })}
                     />
+                    <div className="field-wrap">
+                      <label className="field-label">Verbleibende Laufzeit (Jahre)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        max="40"
+                        step="1"
+                        placeholder="z. B. 10"
+                        value={prop.amortisationYears ?? ''}
+                        onChange={e => setProperty({ amortisationYears: parseInt(e.target.value) || undefined })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid" style={{ marginTop: 10 }}>
+                    <div className="field-wrap">
+                      <label className="field-label">Hypothekarmodell</label>
+                      <select
+                        className="input"
+                        value={prop.hypothekarmodell ?? 'fest'}
+                        onChange={e => setProperty({ hypothekarmodell: e.target.value as 'fest' | 'saron' | 'gemischt' })}
+                        style={{ fontSize: 13 }}
+                      >
+                        <option value="fest">Festhypothek</option>
+                        <option value="saron">SARON-Hypothek</option>
+                        <option value="gemischt">Gemischt</option>
+                      </select>
+                    </div>
                     <div className="field-wrap">
                       <label className="field-label">Hypothekarzinssatz (%)</label>
                       <input
@@ -2468,9 +2485,25 @@ export default function Screen2() {
                       />
                     </div>
                   </div>
+
+                  <div className="form-grid" style={{ marginTop: 10 }}>
+                    <CHFField
+                      label="Steuerwert der Liegenschaft"
+                      value={prop.steuerwert || Math.round(prop.value * 0.7)}
+                      onChange={(v) => setProperty({ steuerwert: v })}
+                    />
+                  </div>
+
+                  {prop.amortisationYearly && prop.amortisationYears && prop.mortgage > 0 && (
+                    <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
+                      Amortisation: CHF {fmtCHF(prop.amortisationYearly)}/Jahr über {prop.amortisationYears} Jahre
+                      {' '}→ Hypothek sinkt auf CHF {fmtCHF(Math.max(0, prop.mortgage - prop.amortisationYears * prop.amortisationYearly))} (nach Ablauf)
+                    </div>
+                  )}
+
                   <div className="info-callout" style={{ marginTop: 12 }}>
                     <span className="info-callout-icon">i</span>
-                    <span>Steuerwert: Finden Sie auf Ihrer letzten Steuererklärung. Ist meist ca. 70% des Marktwerts. Lassen Sie das Feld leer für automatische Schätzung.</span>
+                    <span>Steuerwert: Steht auf Ihrer Steuererklärung, meist ca. 70% des Marktwerts. Lassen Sie das Feld leer für automatische Schätzung.</span>
                   </div>
                 </>
               )}
