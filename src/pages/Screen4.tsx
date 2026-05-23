@@ -503,10 +503,10 @@ export default function Screen4() {
       : 0
     const pillar3aTotal = p1.has3a ? projected3aAtRetirement : 0
     const num3aAccounts = p1stored?.num3aAccounts || 1
-    const fzBal = p1.hasFZ ? (p1.fzBalance || 0) : 0
+    const fzBal = p1.hasFZ ? projectedFzAtRetirement : 0
     const retirementCalendarYear = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
     return calculateOptimalWithdrawal(pkCap, pillar3aTotal, num3aAccounts, fzBal, canton, taxStatus, retirementCalendarYear)
-  }, [state.persons, p1, ra1, currentAge1, canton, taxStatus])
+  }, [state.persons, p1, projected3aAtRetirement, projectedFzAtRetirement, ra1, currentAge1, canton, taxStatus])
 
   // Hoisted variants1 (needed for AHV tab and fixed header)
   const variants1 = useMemo(() => {

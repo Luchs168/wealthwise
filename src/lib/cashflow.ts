@@ -328,6 +328,9 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     : null
 
   for (let age = currentAge; age <= endAge; age++) {
+    // Prevent negative compounding: once broke, next year starts from 0 not further negative
+    wealth = Math.max(0, wealth)
+
     const year = currentYear + (age - currentAge)
     const yearsFromNow = age - currentAge
     const expFactor = Math.pow(1 + inflationRate, yearsFromNow)
