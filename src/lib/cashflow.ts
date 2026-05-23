@@ -499,19 +499,13 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
   }
 }
 
-const SCENARIO_RETURNS: Record<string, { optimistic: number; pessimistic: number }> = {
-  conservative: { optimistic: 0.035, pessimistic: 0 },
-  balanced:     { optimistic: 0.05,  pessimistic: 0 },
-  growth:       { optimistic: 0.065, pessimistic: -0.01 },
-}
-
 export function calculateScenarios(data: CashflowInput) {
-  const profile = data.riskProfile || 'balanced'
-  const rates = SCENARIO_RETURNS[profile]
+  // Strip wealthInvestmentProfile so fixed investmentReturn values take effect
+  const base = { ...data, wealthInvestmentProfile: undefined }
   return {
-    optimistic: calculateProAnalysis({ ...data, inflationRate: 0.01, investmentReturn: rates.optimistic }),
-    neutral: calculateProAnalysis({ ...data }),
-    pessimistic: calculateProAnalysis({ ...data, inflationRate: 0.025, investmentReturn: rates.pessimistic }),
+    optimistic:  calculateProAnalysis({ ...base, inflationRate: 0.01,  investmentReturn: 0.04  }),
+    neutral:     calculateProAnalysis({ ...base, inflationRate: 0.015, investmentReturn: 0.025 }),
+    pessimistic: calculateProAnalysis({ ...base, inflationRate: 0.02,  investmentReturn: 0.01  }),
   }
 }
 

@@ -222,10 +222,10 @@ export default function Screen4() {
     [analysis.yearlyCashflow, lifeEvents],
   )
   const ageWhenBrokeWithEvents = useMemo(() => {
-    if (!adjustedCashflow) return analysis.ageWhenBroke
+    if (!adjustedCashflow) return scenarios.neutral.ageWhenBroke
     const broke = adjustedCashflow.find(r => r.wealthEndOfYear <= 0)
     return broke ? broke.age : null
-  }, [adjustedCashflow, analysis.ageWhenBroke])
+  }, [adjustedCashflow, scenarios])
   const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
 
   // Tax section
@@ -234,6 +234,9 @@ export default function Screen4() {
   const impliedPkMonthly1 = p1.hasPK ? Math.round(p1.pkCapital * (p1.pkRate / 100) / 12) : 0
   const pkMonthlyForRente = p1.hasPK && p1.pkBezugsart !== 'kapital'
     ? (p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1) : 0
+
+  // PK display monthly adjusted for Kapitalbezug (so AHV+PK cards sum to Total)
+  const displayPkMonthly = Math.max(0, analysis.monthlyIncome.total - Math.round(analysis.ahv.combinedYearlyInkl13 / 12))
 
   const incomeTax1 = useMemo(() => {
     if (!p1.income) return null
@@ -565,7 +568,7 @@ export default function Screen4() {
   const coveragePct = monthlyBudget > 0 ? Math.round((analysis.monthlyIncome.total / monthlyBudget) * 100) : 0
 
   const chartData = useMemo(() => {
-    const base = analysis.yearlyCashflow.filter(r => r.age >= ra1)
+    const base = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1)
     const adj = adjustedCashflow ? adjustedCashflow.filter(r => r.age >= ra1) : null
     return base.map((r, i) => ({
       age: r.age,
@@ -575,7 +578,7 @@ export default function Screen4() {
       einnahmen: Math.round((r.ahvIncome + r.pkRenteIncome) / 12),
       ausgaben: Math.round(r.livingExpenses / 12),
     }))
-  }, [analysis, adjustedCashflow, ra1])
+  }, [scenarios, adjustedCashflow, ra1])
 
   const scenarioChartData = useMemo(() => {
     const ages = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1).map(r => r.age)
@@ -671,7 +674,7 @@ export default function Screen4() {
                   {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
                 </span>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  Reicht bis {(hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)) >= 99 ? 'Alter 95+' : `Alter ${hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)}`}
+                  Reicht bis {(hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)) >= 99 ? 'Alter 95+' : `Alter ${hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)}`}
                 </span>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
                   Score: {analysis.sustainabilityScore}/100
@@ -758,7 +761,7 @@ export default function Screen4() {
             })()}
             {/* Card 2: Wealth longevity */}
             {(() => {
-              const age = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)
+              const age = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)
               const cardColor = age >= 90 ? 'var(--green-600)' : age >= 85 ? '#d97706' : '#dc2626'
               const cardBg = age >= 90 ? '#ecfdf5' : age >= 85 ? '#fffbeb' : '#fef2f2'
               const cardBorder = age >= 90 ? '#bbf7d0' : age >= 85 ? '#fde68a' : '#fecaca'
@@ -805,7 +808,7 @@ export default function Screen4() {
           {/* Was bedeutet das? */}
           {(() => {
             const surplus = analysis.surplus
-            const ageOk = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (analysis.ageWhenBroke ?? 99)
+            const ageOk = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)
             const lifeExp = p1.sex === 'm' ? 85 : 87
             let summaryText = ''
             if (analysis.verdict === 'green') {
@@ -1904,8 +1907,8 @@ export default function Screen4() {
               },
               {
                 label: 'Pensionskasse (2. Säule)', icon: '🏦',
-                monthly: Math.round(analysis.pk.combinedYearly / 12),
-                sub: `CHF ${fmtCHF(analysis.pk.combinedYearly)}/Jahr`,
+                monthly: displayPkMonthly,
+                sub: `CHF ${fmtCHF(displayPkMonthly * 12)}/Jahr`,
               },
               {
                 label: 'Total Renten', icon: '💰',
@@ -2664,9 +2667,9 @@ export default function Screen4() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
             {[
-              { key: 'optimistic', label: 'Optimistisch', color: '#22c55e', bg: 'var(--green-50)', border: 'var(--green-200)', data: scenarios.optimistic, sub: 'Inflation 1.0% · Rendite 4.5%' },
+              { key: 'optimistic', label: 'Optimistisch', color: '#22c55e', bg: 'var(--green-50)', border: 'var(--green-200)', data: scenarios.optimistic, sub: 'Inflation 1.0% · Rendite 4.0%' },
               { key: 'neutral', label: 'Neutral', color: '#1a2b4a', bg: 'var(--navy-50)', border: 'var(--navy-100)', data: scenarios.neutral, sub: 'Inflation 1.5% · Rendite 2.5%' },
-              { key: 'pessimistic', label: 'Pessimistisch', color: '#ef4444', bg: '#fef2f2', border: '#fecaca', data: scenarios.pessimistic, sub: 'Inflation 2.5% · Rendite 1.0%' },
+              { key: 'pessimistic', label: 'Pessimistisch', color: '#ef4444', bg: '#fef2f2', border: '#fecaca', data: scenarios.pessimistic, sub: 'Inflation 2.0% · Rendite 1.0%' },
             ].map((sc) => (
               <div key={sc.key} style={{ padding: '16px 18px', background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>{sc.label}</div>
