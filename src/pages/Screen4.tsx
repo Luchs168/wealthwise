@@ -392,7 +392,7 @@ export default function Screen4() {
   const wdMonthlyGap = Math.max(0, monthlyBudget - wdMonthlyIncome)
   const wdEffectiveWithdrawal = wdCustomWithdrawal ?? wdMonthlyGap
 
-  // Wealth at retirement: free assets + 3a (if any) + PK capital (if Kapitalbezug) + FZ - taxes
+  // Wealth at retirement: free assets + 3a (both persons) + PK capital (if Kapitalbezug) + FZ - taxes
   const wdInitialWealth = useMemo(() => {
     let w = freeAssets || 0
     if (p1.has3a && p1.balance3a > 0) w += p1.balance3a
@@ -405,8 +405,20 @@ export default function Screen4() {
       const tax = calculateCapitalWithdrawalTax(p1.fzBalance, canton, taxStatus)
       w += tax.netAmount
     }
+    if (p2) {
+      if (p2.has3a && p2.balance3a > 0) w += p2.balance3a
+      if (p2.hasPK && p2.pkBezugsart !== 'rente' && p2.pkCapital > 0) {
+        const capAmount2 = p2.pkBezugsart === 'mix' ? Math.round(p2.pkCapital / 2) : p2.pkCapital
+        const tax2 = calculateCapitalWithdrawalTax(capAmount2, canton, taxStatus)
+        w += tax2.netAmount
+      }
+      if (p2.hasFZ && p2.fzBalance > 0) {
+        const tax2 = calculateCapitalWithdrawalTax(p2.fzBalance, canton, taxStatus)
+        w += tax2.netAmount
+      }
+    }
     return w
-  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, p1.hasFZ, p1.fzBalance, canton, taxStatus])
+  }, [freeAssets, p1.has3a, p1.balance3a, p1.hasPK, p1.pkBezugsart, p1.pkCapital, p1.hasFZ, p1.fzBalance, p2, canton, taxStatus])
 
   const wdScenarios = useMemo(() =>
     buildDepletionScenarios(wdInitialWealth, wdEffectiveWithdrawal, ra1)
@@ -531,7 +543,7 @@ export default function Screen4() {
   const careScenario = useMemo(() => {
     const careInfo = CARE_COSTS[careType]
     const monthlyCost = careInfo.monthlyCost
-    const wealthAtCareStart = wdInitialWealth * Math.pow(1 + 0.02, Math.max(0, careStartAge - ra1))
+    const wealthAtCareStart = wdInitialWealth * Math.pow(1 + wdReturnRate, Math.max(0, careStartAge - ra1))
     const monthlyIncome = wdMonthlyIncome
     // EL at home: approx CHF 1000-2000/month for Spitex, more for Heim
     const elEstimate = monthlyCost > 5000 ? 2000 : monthlyCost > 2000 ? 1000 : 0
@@ -548,7 +560,7 @@ export default function Screen4() {
       yearsWealthCovers: Math.min(yearsWealthCovers, 99),
       elEligibilityAge, elFreeWealth,
     }
-  }, [careStartAge, careType, wdInitialWealth, ra1, wdMonthlyIncome, monthlyBudget, civilStatus])
+  }, [careStartAge, careType, wdInitialWealth, ra1, wdMonthlyIncome, monthlyBudget, civilStatus, wdReturnRate])
 
   const [taxExpanded, setTaxExpanded] = useState(false)
   const [taxSubA, setTaxSubA] = useState(false)
@@ -917,7 +929,7 @@ export default function Screen4() {
                 {[
                   { text: 'Prüfen Sie Ihren Anspruch auf Ergänzungsleistungen (EL) – Details weiter unten.', border: '#bae6fd', bg: '#eff6ff' },
                   ...(isGeschieden ? [{ text: 'Prüfen Sie, ob AHV-Einkommenssplitting und Erziehungsgutschriften korrekt im IK-Auszug verbucht sind.', border: '#bae6fd', bg: '#eff6ff' }] : []),
-                  { text: 'Erwägen Sie eine Weiterarbeit bis 65 statt Vorbezug – vermeidet 13.6% lebenslange AHV-Kürzung.', border: '#fde68a', bg: '#fffbeb' },
+                  { text: 'Erwägen Sie eine Weiterarbeit bis 65 statt Vorbezug – vermeidet 6.8% AHV-Kürzung pro Vorbezugsjahr (lebenslang).', border: '#fde68a', bg: '#fffbeb' },
                 ].map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', marginBottom: 6, background: r.bg, borderRadius: 10, border: `1px solid ${r.border}` }}>
                     <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
@@ -1233,7 +1245,8 @@ export default function Screen4() {
                 const phase1End = Math.min(60, bridgingRetireAge + 3)
                 const phase2End = Math.min(63, Math.max(phase1End, bridgingRetireAge))
                 const phase3End = 65
-                const ahvMonthlyEstimate = ahvMonthly1
+                const ahvOrdentlich = variants1.find(v => v.bezugAge === 65)?.monthlyRente ?? ahvMonthly1
+                const ahvMonthlyEstimate = ahvOrdentlich
                 const pkMonthly = pkMonthlyAtEarlyRetirement
 
                 // Phase definitions

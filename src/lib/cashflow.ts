@@ -277,6 +277,13 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
   const ra2InP1Years = p2raw ? (ra2 || 65) + (currentAge - (p2raw.birthDate ? calculateAge(p2raw.birthDate) : currentAge)) : null
 
+  // AHV bezug ages — separate from retirementAge so deferred/early AHV is timed correctly
+  const ahvBezugAge1 = Math.min(70, Math.max(63, p1raw.ahvBezugAge || ra1))
+  const ahvBezugRaw2 = p2raw ? Math.min(70, Math.max(63, p2raw.ahvBezugAge || (ra2 || 65))) : null
+  const ahvBezug2InP1Years = p2raw && ahvBezugRaw2 !== null
+    ? ahvBezugRaw2 + (currentAge - (p2raw.birthDate ? calculateAge(p2raw.birthDate) : currentAge))
+    : null
+
   for (let age = currentAge; age <= endAge; age++) {
     const year = currentYear + (age - currentAge)
     const yearsFromNow = age - currentAge
@@ -285,6 +292,10 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
     const p1Retired = age >= ra1
     const p2RetiredSimple = p2raw ? age >= (ra2InP1Years || ra2 || 65) : false
+
+    // Whether AHV income is actually flowing (respects ahvBezugAge, not just retirementAge)
+    const p1DrawingAHV = age >= ahvBezugAge1
+    const p2DrawingAHV = p2raw ? age >= (ahvBezug2InP1Years ?? (ra2 || 65)) : false
 
     const isRetirementYearP1 = age === ra1
     const isRetirementYearP2 = p2raw ? age === (ra2InP1Years || ra2 || 65) : false
@@ -326,17 +337,17 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth += saving
     }
 
-    // AHV Mischindex: each year after retirement, AHV grows ~1.25%/year
-    const yearsP1Retired = p1Retired ? Math.max(0, age - ra1) : 0
-    const yearsP2Retired = p2RetiredSimple ? Math.max(0, age - (ra2InP1Years || ra2 || 65)) : 0
-    const ahvGrowth1 = Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP1Retired)
-    const ahvGrowth2 = p2raw ? Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP2Retired) : 1
+    // AHV Mischindex: grows from when AHV drawing starts (ahvBezugAge), not from retirementAge
+    const yearsP1DrawingAHV = p1DrawingAHV ? Math.max(0, age - ahvBezugAge1) : 0
+    const yearsP2DrawingAHV = p2DrawingAHV ? Math.max(0, age - (ahvBezug2InP1Years ?? (ra2 || 65))) : 0
+    const ahvGrowth1 = Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP1DrawingAHV)
+    const ahvGrowth2 = p2raw ? Math.pow(1 + CONSTANTS.AHV_MISCHINDEX, yearsP2DrawingAHV) : 1
 
-    if (p1Retired && (!p2raw || p2RetiredSimple)) {
+    if (p1DrawingAHV && (!p2raw || p2DrawingAHV)) {
       ahvIncome = ahv.person1.yearlyInkl13 * ahvGrowth1 + (ahv.person2 ? ahv.person2.yearlyInkl13 * ahvGrowth2 : 0)
-    } else if (p1Retired) {
+    } else if (p1DrawingAHV) {
       ahvIncome = ahv.person1.yearlyInkl13 * ahvGrowth1
-    } else if (p2RetiredSimple) {
+    } else if (p2DrawingAHV) {
       ahvIncome = ahv.person2 ? ahv.person2.yearlyInkl13 * ahvGrowth2 : 0
     }
 
