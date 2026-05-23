@@ -44,6 +44,7 @@ export interface CashflowInput {
     hasKZG?: boolean
     kzgChildren?: number
     kzgYears?: number
+    hasPK?: boolean
     ahvAvgIncome?: number
     yearly3a?: number
     form3a?: string
@@ -65,6 +66,7 @@ export interface CashflowInput {
     pkRate?: number
     pkBezugsart?: string
     pkKapitalanteil?: number
+    hasPK?: boolean
     has3a?: boolean
     pillar3aBalance?: number
     balance3a?: number
@@ -245,6 +247,36 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     ? (savingsStrategyRates[data.savingsStrategy] ?? blendedReturn)
     : blendedReturn
 
+  // Employment-phase net income: actual income tax + AHV+IV+EO (5.3%) + ALV (1.1%)
+  // Pre-computed once per income phase (both work / only P1 / only P2) for efficiency
+  const AHV_EMPLOYEE_RATE = 0.053   // AHV+IV+EO employee share 2026
+  const ALV_RATE = 0.011            // ALV employee rate 2026
+  const ALV_CEILING = 148_200       // ALV wage ceiling 2026
+
+  function computeEmploymentNetFactor(
+    income: number, hasPK: boolean, yearly3a: number, has3a: boolean,
+  ): { netFactor: number; taxAmount: number } {
+    if (income <= 0) return { netFactor: 0.72, taxAmount: 0 }
+    const taxResult = calculateIncomeTax(income, canton, taxStatus, hasPK, yearly3a, has3a, kirchensteuer)
+    const ahvAmt = Math.round(income * AHV_EMPLOYEE_RATE)
+    const alvAmt = Math.round(Math.min(income, ALV_CEILING) * ALV_RATE)
+    const netFactor = Math.max(0.50, Math.min(0.95, (income - taxResult.totalTax - ahvAmt - alvAmt) / income))
+    return { netFactor, taxAmount: taxResult.totalTax }
+  }
+
+  const inc1 = p1raw.grossIncome || 0
+  const inc2 = p2raw?.grossIncome || 0
+  const hasPK1 = Boolean(p1raw.hasPK)
+  const hasPK2 = Boolean(p2raw?.hasPK)
+  const has3a1 = p1raw.has3a !== false
+  const has3a2 = p2raw ? p2raw.has3a !== false : false
+  const y3a1 = p1raw.yearly3a || 0
+  const y3a2 = p2raw?.yearly3a || 0
+
+  const empPhase_both = computeEmploymentNetFactor(inc1 + inc2, hasPK1 || hasPK2, y3a1 + y3a2, has3a1 || has3a2)
+  const empPhase_p1   = computeEmploymentNetFactor(inc1, hasPK1, y3a1, has3a1)
+  const empPhase_p2   = p2raw ? computeEmploymentNetFactor(inc2, hasPK2, y3a2, has3a2) : { netFactor: 0.72, taxAmount: 0 }
+
   // Pre-project FZ balances to retirement using chosen investment type
   const yearsUntilRet1 = Math.max(0, ra1 - currentAge)
   const fzRate1 = CONSTANTS.RETURNS_FZ[p1raw.fzInvestmentType || 'sparkonto']
@@ -364,6 +396,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     let pkKapitalWithdrawal = 0, pillar3aWithdrawal = 0
     let assetReturn = 0, assetConsumption = 0
     let businessProceeds = 0
+    let estimatedTax = 0
 
     // Firmenwert: one-time net proceeds in sale year (approx. 20% Liquidationsgewinnsteuer)
     if (
@@ -380,9 +413,13 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (employmentIncome > 0) {
       assetReturn = Math.round(Math.max(0, wealth) * savingsReturn)
       wealth += assetReturn
-      const netIncome = employmentIncome * 0.72
+      const p1Working = !p1Retired && inc1 > 0
+      const p2Working = p2raw != null && !p2RetiredSimple && inc2 > 0
+      const phase = (p1Working && p2Working) ? empPhase_both : p1Working ? empPhase_p1 : empPhase_p2
+      const netIncome = Math.round(employmentIncome * phase.netFactor)
       const saving = Math.max(0, netIncome - inflatedExpenses - mortgageCostsThisYear)
       wealth += saving
+      estimatedTax = phase.taxAmount
     }
 
     // AHV Mischindex: grows from when AHV drawing starts (ahvBezugAge), not from retirementAge
@@ -406,27 +443,44 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     if (p1Retired) pkRenteIncome += pk1Monthly * 12
     if (p2raw && p2RetiredSimple) pkRenteIncome += pk2Monthly * 12
 
-    // K3+K4: Kapitalbezüge im gleichen Pensionierungsjahr zusammenfassen (höhere Progression vermeiden)
-    // P1-Pensionierungsjahr: PK-Kapital + Säule-3a + FZ werden kombiniert besteuert
-    if (isRetirementYearP1) {
-      const totalP1Capital = cap1 + projected3a1 + projectedFz1
-      if (totalP1Capital > 0) {
-        const combinedTax = calculateCapitalTax(totalP1Capital, canton, taxStatus).totalTax
+    // K3+K4: Kapitalbezüge zusammenfassen um Steuerprogression zu minimieren
+    // Verheiratete mit gleichem Pensionierungsjahr: alle Kapitalien gemeinsam besteuern (Zusammenveranlagung)
+    const isJointRetirement = isRetirementYearP1 && isRetirementYearP2 &&
+      (taxStatus === 'verheiratet' || taxStatus === 'partnerschaft')
+
+    if (isJointRetirement) {
+      const totalAllCapital = cap1 + projected3a1 + projectedFz1 + cap2 + projected3a2 + projectedFz2
+      if (totalAllCapital > 0) {
+        const combinedTax = calculateCapitalTax(totalAllCapital, canton, taxStatus).totalTax
         if (cap1 > 0) { pkKapitalWithdrawal += cap1; wealth += cap1 }
-        if (projected3a1 > 0) { pillar3aWithdrawal = projected3a1; wealth += projected3a1 }
+        if (projected3a1 > 0) { pillar3aWithdrawal += projected3a1; wealth += projected3a1 }
         if (projectedFz1 > 0) wealth += projectedFz1
-        wealth -= combinedTax
-      }
-    }
-    // P2-Pensionierungsjahr: PK-Kapital + 3a + FZ kombiniert besteuert
-    if (isRetirementYearP2) {
-      const totalP2Capital = cap2 + projected3a2 + projectedFz2
-      if (totalP2Capital > 0) {
-        const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
         if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
         if (projected3a2 > 0) { pillar3aWithdrawal += projected3a2; wealth += projected3a2 }
         if (projectedFz2 > 0) wealth += projectedFz2
         wealth -= combinedTax
+      }
+    } else {
+      // Separate taxation: different retirement years, or not married
+      if (isRetirementYearP1) {
+        const totalP1Capital = cap1 + projected3a1 + projectedFz1
+        if (totalP1Capital > 0) {
+          const combinedTax = calculateCapitalTax(totalP1Capital, canton, taxStatus).totalTax
+          if (cap1 > 0) { pkKapitalWithdrawal += cap1; wealth += cap1 }
+          if (projected3a1 > 0) { pillar3aWithdrawal += projected3a1; wealth += projected3a1 }
+          if (projectedFz1 > 0) wealth += projectedFz1
+          wealth -= combinedTax
+        }
+      }
+      if (isRetirementYearP2) {
+        const totalP2Capital = cap2 + projected3a2 + projectedFz2
+        if (totalP2Capital > 0) {
+          const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
+          if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
+          if (projected3a2 > 0) { pillar3aWithdrawal += projected3a2; wealth += projected3a2 }
+          if (projectedFz2 > 0) wealth += projectedFz2
+          wealth -= combinedTax
+        }
       }
     }
 
@@ -461,17 +515,12 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     }
 
     // K2: correct retirement tax via calculateRetirementTax (canton + Kirchensteuer)
-    let estimatedTax = 0
     if (p1Retired || p2RetiredSimple) {
       const ahvMonthly = ahvIncome / 13     // ahvIncome already includes 13th (×13)
       const pkMonthly = pkRenteIncome / 12
       const retTax = calculateRetirementTax(ahvMonthly, pkMonthly, canton, taxStatus, kirchensteuer)
       estimatedTax = retTax.totalTax
       wealth -= estimatedTax
-    } else if (employmentIncome > 0) {
-      // Display only — wealth already reduced via 0.72 factor above
-      const empTax = calculateIncomeTax(employmentIncome, canton, taxStatus, true, 0, false, kirchensteuer)
-      estimatedTax = empTax.totalTax
     }
 
     cashflow.push({
