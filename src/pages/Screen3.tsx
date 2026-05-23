@@ -411,7 +411,7 @@ export default function Screen3() {
   const p1Income = p1?.income || 0
   const p2Income = p2stored?.income || 0
   const nettoMonatlich = Math.round((p1Income + p2Income) * 0.88 / 12)
-  const SAVINGS_RETURNS: Record<string, number> = { conservative: 0.025, balanced: 0.035, growth: 0.05, aggressive: 0.06 }
+  const SAVINGS_RETURNS: Record<string, number> = { konto: 0.0075, conservative: 0.025, balanced: 0.035, growth: 0.05, aggressive: 0.05 }
   const savingsRate = SAVINGS_RETURNS[wealthInvestmentProfile] ?? 0.035
 
   const detailedTotal = useMemo(
@@ -787,7 +787,7 @@ export default function Screen3() {
                     <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
                       {([
                         { id: 'sparkonto' as const, label: 'Bleibt auf dem Sparkonto', hint: '0.75% p.a.' },
-                        { id: 'investiert' as const, label: 'Wird investiert', hint: `${(savingsRate * 100).toFixed(1)}% p.a. (${wealthInvestmentProfile === 'conservative' ? 'konservativ' : wealthInvestmentProfile === 'balanced' ? 'ausgewogen' : wealthInvestmentProfile === 'growth' ? 'Wachstum' : 'aggressiv'})` },
+                        { id: 'investiert' as const, label: 'Wird investiert', hint: `${(savingsRate * 100).toFixed(1)}% p.a. (${wealthInvestmentProfile === 'konto' ? 'Konto' : wealthInvestmentProfile === 'conservative' ? 'konservativ' : wealthInvestmentProfile === 'balanced' ? 'ausgewogen' : 'aggressiv'})` },
                         { id: 'teilweise' as const, label: 'Teilweise investiert', hint: 'Rest auf Sparkonto' },
                       ]).map(opt => (
                         <button key={opt.id} onClick={() => setSavingsStrategy(opt.id)} style={{

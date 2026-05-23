@@ -2123,10 +2123,10 @@ export default function Screen2() {
                     value={cur.form3a || 'sparkonto'}
                     onChange={(e) => updatePerson(activeTab, { form3a: e.target.value as import('../store').Form3a })}
                   >
-                    <option value="sparkonto">Sparkonto (ca. 0.75% p.a.)</option>
-                    <option value="wertschriften_konservativ">Wertschriften konservativ (ca. 2.5% p.a.)</option>
-                    <option value="wertschriften_ausgewogen">Wertschriften ausgewogen (ca. 4.0% p.a.)</option>
-                    <option value="wertschriften_aggressiv">Wertschriften aggressiv (ca. 5.0% p.a.)</option>
+                    <option value="sparkonto">Sparkonto / Konto (ca. 0.75% p.a.)</option>
+                    <option value="wertschriften_konservativ">Wertschriften konservativ, 25% Aktien (ca. 2.5% p.a.)</option>
+                    <option value="wertschriften_ausgewogen">Wertschriften ausgewogen, 50% Aktien (ca. 3.5% p.a.)</option>
+                    <option value="wertschriften_aggressiv">Wertschriften aggressiv, 80%+ Aktien (ca. 5.0% p.a.)</option>
                   </select>
                 </div>
               </div>
@@ -2136,7 +2136,7 @@ export default function Screen2() {
                   <div className="proj-card-label">
                     📈 Geschätztes 3a-Guthaben bei Pensionierung
                     ({activeTab === 1 ? years1 : years2} Jahre,{' '}
-                    {cur.form3a === 'wertschriften_konservativ' ? '2.5' : cur.form3a === 'wertschriften_ausgewogen' ? '4.0' : cur.form3a === 'wertschriften_aggressiv' ? '5.0' : '0.75'}% p.a.)
+                    {cur.form3a === 'wertschriften_konservativ' ? '2.5' : cur.form3a === 'wertschriften_ausgewogen' ? '3.5' : cur.form3a === 'wertschriften_aggressiv' ? '5.0' : '0.75'}% p.a.)
                   </div>
                   <div className="proj-card-val">
                     CHF {fmtCHF(activeTab === 1 ? proj3a1 : proj3a2)}
@@ -2305,10 +2305,10 @@ export default function Screen2() {
                 onChange={e => setWealthInvestmentProfile(e.target.value as typeof wealthInvestmentProfile)}
                 style={{ fontSize: 13 }}
               >
-                <option value="conservative">Konservativ, 30% Aktien (ca. 2.5% p.a.)</option>
+                <option value="konto">Konto / Spareinlagen (ca. 0.75% p.a.)</option>
+                <option value="conservative">Konservativ, 25% Aktien (ca. 2.5% p.a.)</option>
                 <option value="balanced">Ausgewogen, 50% Aktien (ca. 3.5% p.a.)</option>
-                <option value="growth">Wachstum, 75% Aktien (ca. 5.0% p.a.)</option>
-                <option value="aggressive">Aggressiv, 90%+ Aktien (ca. 6.0% p.a.)</option>
+                <option value="aggressive">Aggressiv, 80%+ Aktien (ca. 5.0% p.a.)</option>
               </select>
             </div>
           )}

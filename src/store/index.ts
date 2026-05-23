@@ -139,7 +139,7 @@ export interface WealthWiseState {
   kirchensteuer: boolean
 
   // Wertschriften investment profile (separate from riskProfile)
-  wealthInvestmentProfile: 'conservative' | 'balanced' | 'growth' | 'aggressive'
+  wealthInvestmentProfile: 'konto' | 'conservative' | 'balanced' | 'growth' | 'aggressive'
 
   // Risk profile / Anlagestrategie
   riskProfile: 'conservative' | 'balanced' | 'growth'
