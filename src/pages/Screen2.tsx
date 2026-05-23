@@ -209,7 +209,7 @@ function CHFField({ label, value, onChange, hint, max }: {
 }) {
   const [raw, setRaw] = useState('')
   const [focused, setFocused] = useState(false)
-  const display = focused ? raw : fmtCHF(value)
+  const display = focused ? raw : (value > 0 ? fmtCHF(value) : '')
 
   return (
     <div className="field">
@@ -2131,16 +2131,18 @@ export default function Screen2() {
                 </div>
               </div>
 
-              <div className="proj-card" style={{ marginTop: 14 }}>
-                <div className="proj-card-label">
-                  📈 Geschätztes 3a-Guthaben bei Pensionierung
-                  ({activeTab === 1 ? years1 : years2} Jahre,{' '}
-                  {cur.form3a === 'wertschriften_konservativ' ? '2.5' : cur.form3a === 'wertschriften_ausgewogen' ? '4.0' : cur.form3a === 'wertschriften_aggressiv' ? '5.0' : '0.75'}% p.a.)
+              {(cur.balance3a > 0 || cur.yearly3a > 0) && (
+                <div className="proj-card" style={{ marginTop: 14 }}>
+                  <div className="proj-card-label">
+                    📈 Geschätztes 3a-Guthaben bei Pensionierung
+                    ({activeTab === 1 ? years1 : years2} Jahre,{' '}
+                    {cur.form3a === 'wertschriften_konservativ' ? '2.5' : cur.form3a === 'wertschriften_ausgewogen' ? '4.0' : cur.form3a === 'wertschriften_aggressiv' ? '5.0' : '0.75'}% p.a.)
+                  </div>
+                  <div className="proj-card-val">
+                    CHF {fmtCHF(activeTab === 1 ? proj3a1 : proj3a2)}
+                  </div>
                 </div>
-                <div className="proj-card-val">
-                  CHF {fmtCHF(activeTab === 1 ? proj3a1 : proj3a2)}
-                </div>
-              </div>
+              )}
 
               {cur.balance3a > 250_000 && (
                 <div style={{ marginTop: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
