@@ -61,7 +61,7 @@ export function calculateAHVPension(input: AHVInput): AHVResult {
 
   const clampedAge = Math.min(Math.max(bezugAge, 63), 70)
   const bezugFactor = AHV_BEZUG_FAKTOREN_2025[clampedAge] ?? 1.0
-  const monthly = Math.round(Math.max(MIN_MONTHLY, Math.min(MAX_MONTHLY, afterGap * bezugFactor)))
+  const monthly = Math.round(Math.max(0, Math.min(MAX_MONTHLY, afterGap * bezugFactor)))
 
   return {
     baseMonthly,

@@ -25,6 +25,103 @@ function parseIKNum(s: string): number {
   return parseFloat(s.replace(/['’ʼ\s]/g, '').replace(',', '.')) || 0
 }
 
+interface MdjInputProps {
+  income: number
+  ahvAvgIncome: number | undefined
+  retireAge: number
+  autoY: number
+  gaps: number
+  onUpdate: (v: number | undefined) => void
+  onTouched: () => void
+}
+
+function MdjInput({ income, ahvAvgIncome, retireAge, autoY, gaps, onUpdate, onTouched }: MdjInputProps) {
+  const effectiveMdj = ahvAvgIncome ?? income
+  const [raw, setRaw] = useState('')
+  const [focused, setFocused] = useState(false)
+
+  const renteMdj = calculateAHVPension({
+    avgIncome: effectiveMdj,
+    bezugAge: retireAge || 65,
+    effectiveContributionYears: Math.max(0, autoY - gaps),
+  })
+  const renteAtIncome = calculateAHVPension({
+    avgIncome: income,
+    bezugAge: retireAge || 65,
+    effectiveContributionYears: Math.max(0, autoY - gaps),
+  })
+  const isFromIk = ahvAvgIncome !== undefined && ahvAvgIncome !== income
+  const mdjDiffers = ahvAvgIncome !== undefined && ahvAvgIncome !== income
+
+  return (
+    <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>
+        Ø-Lebenseinkommen (MDJ)
+        {isFromIk && (
+          <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 400, color: '#166534', background: '#dcfce7', padding: '1px 7px', borderRadius: 10 }}>aus IK-Auszug</span>
+        )}
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 8, lineHeight: 1.5 }}>
+        Die AHV-Rente basiert auf Ihrem durchschnittlichen Einkommen über alle Beitragsjahre – nicht auf dem heutigen Lohn. Falls Sie früher weniger verdient haben, passen Sie diesen Wert an.
+      </div>
+      <div className="amount-wrap" style={{ maxWidth: 220 }}>
+        <span className="prefix">CHF</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          className="input"
+          style={{ paddingLeft: 48 }}
+          value={focused ? raw : (effectiveMdj > 0 ? fmtCHF(effectiveMdj) : '')}
+          placeholder={income > 0 ? fmtCHF(income) : "z. B. 80'000"}
+          onFocus={() => {
+            setRaw(String(effectiveMdj || ''))
+            setFocused(true)
+          }}
+          onBlur={() => {
+            setFocused(false)
+            const v = parseInt(raw.replace(/[^0-9]/g, '')) || 0
+            onTouched()
+            onUpdate(v > 0 ? v : undefined)
+          }}
+          onChange={(e) => setRaw(e.target.value.replace(/[^0-9']/g, ''))}
+        />
+      </div>
+      {effectiveMdj >= 90720 ? (
+        <div style={{ marginTop: 6, fontSize: 11.5, color: '#15803d' }}>
+          ✓ Über dem AHV-Maximum (CHF 90'720) → Maximale Rente CHF 2'520/Mt.
+        </div>
+      ) : effectiveMdj > 0 ? (
+        <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--ink-500)' }}>
+          → Geschätzte AHV-Rente: <strong>CHF {fmtCHF(renteMdj.monthlyRente)}/Mt.</strong>
+        </div>
+      ) : null}
+      {mdjDiffers && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+          <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(income)}: </span>
+          <strong>CHF {fmtCHF(renteAtIncome.monthlyRente)}/Mt.</strong>
+          <span style={{ margin: '0 6px', color: 'var(--ink-300)' }}>→</span>
+          <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(Math.min(ahvAvgIncome!, 90720))}: </span>
+          <strong style={{ color: renteMdj.monthlyRente < renteAtIncome.monthlyRente ? '#dc2626' : '#16a34a' }}>CHF {fmtCHF(renteMdj.monthlyRente)}/Mt.</strong>
+        </div>
+      )}
+      <details style={{ marginTop: 8 }}>
+        <summary style={{ fontSize: 11.5, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
+          Typische Richtwerte
+        </summary>
+        <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--ink-600)', lineHeight: 1.7, paddingLeft: 4 }}>
+          <div>· Karriere mit stetigem Anstieg: ca. 60–75% des heutigen Einkommens</div>
+          <div>· Lange Teilzeit-Phasen: ca. 40–60% des heutigen Einkommens</div>
+          <div>· Immer ähnlich verdient: ca. 90–100% des heutigen Einkommens</div>
+          <div style={{ marginTop: 4, color: 'var(--ink-400)' }}>Den genauen Wert finden Sie auf Ihrem IK-Auszug – kostenlos bestellbar unter{' '}
+            <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
+          </div>
+        </div>
+      </details>
+    </div>
+  )
+}
+
 function TransitionOverlay2({
   onContinue,
   totalMonthly,
@@ -776,83 +873,15 @@ export default function Screen2() {
                   )}
 
                   {/* MDJ – Massgebendes Durchschnittseinkommen */}
-                  {(() => {
-                    const curP2 = persons.find(p => p.id === id)!
-                    const effectiveMdj = curP2.ahvAvgIncome ?? curP2.income
-                    const cappedMdj = Math.min(effectiveMdj, 90720)
-                    const renteMdj = calculateAHVPension({
-                      avgIncome: effectiveMdj,
-                      bezugAge: (id === 1 ? person1 : person2).retireAge || 65,
-                      effectiveContributionYears: Math.max(0, autoY - gaps),
-                    })
-                    const renteAtIncome = calculateAHVPension({
-                      avgIncome: curP2.income,
-                      bezugAge: (id === 1 ? person1 : person2).retireAge || 65,
-                      effectiveContributionYears: Math.max(0, autoY - gaps),
-                    })
-                    const isFromIk = curP2.ahvAvgIncome !== undefined && curP2.ahvAvgIncome !== curP2.income
-                    const mdjDiffers = curP2.ahvAvgIncome !== undefined && curP2.ahvAvgIncome !== curP2.income
-                    return (
-                      <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 4 }}>
-                          Ø-Lebenseinkommen (MDJ)
-                          {isFromIk && (
-                            <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 400, color: '#166534', background: '#dcfce7', padding: '1px 7px', borderRadius: 10 }}>aus IK-Auszug</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 8, lineHeight: 1.5 }}>
-                          Die AHV-Rente basiert auf Ihrem durchschnittlichen Einkommen über alle Beitragsjahre – nicht auf dem heutigen Lohn. Falls Sie früher weniger verdient haben, passen Sie diesen Wert an.
-                        </div>
-                        <div className="amount-wrap" style={{ maxWidth: 220 }}>
-                          <span className="prefix">CHF</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="input"
-                            style={{ paddingLeft: 48 }}
-                            value={curP2.ahvAvgIncome !== undefined ? fmtCHF(curP2.ahvAvgIncome) : (curP2.income > 0 ? fmtCHF(curP2.income) : '')}
-                            placeholder={curP2.income > 0 ? fmtCHF(curP2.income) : "z. B. 80'000"}
-                            onFocus={(e) => { e.target.value = String((curP2.ahvAvgIncome ?? curP2.income) || '') }}
-                            onBlur={(e) => {
-                              const v = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0
-                              setAhvTouched(true)
-                              updatePerson(id, { ahvAvgIncome: v > 0 ? v : undefined })
-                              e.target.value = v > 0 ? fmtCHF(v) : (curP2.income > 0 ? fmtCHF(curP2.income) : '')
-                            }}
-                            onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9']/g, '') }}
-                          />
-                        </div>
-                        {cappedMdj >= 90720 && (
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#15803d' }}>
-                            ✓ Über dem AHV-Maximum (CHF 90'720) → Maximale Rente CHF 2'520/Mt.
-                          </div>
-                        )}
-                        {mdjDiffers && (
-                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-600)', lineHeight: 1.6 }}>
-                            <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(curP2.income)}: </span>
-                            <strong>CHF {fmtCHF(renteAtIncome.monthlyRente)}/Mt.</strong>
-                            <span style={{ margin: '0 6px', color: 'var(--ink-300)' }}>→</span>
-                            <span style={{ color: 'var(--ink-400)' }}>Rente bei Ø CHF {fmtCHF(Math.min(curP2.ahvAvgIncome!, 90720))}: </span>
-                            <strong style={{ color: renteMdj.monthlyRente < renteAtIncome.monthlyRente ? '#dc2626' : '#16a34a' }}>CHF {fmtCHF(renteMdj.monthlyRente)}/Mt.</strong>
-                          </div>
-                        )}
-                        <details style={{ marginTop: 8 }}>
-                          <summary style={{ fontSize: 11.5, color: 'var(--navy-600)', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4"/></svg>
-                            Typische Richtwerte
-                          </summary>
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--ink-600)', lineHeight: 1.7, paddingLeft: 4 }}>
-                            <div>· Karriere mit stetigem Anstieg: ca. 60–75% des heutigen Einkommens</div>
-                            <div>· Lange Teilzeit-Phasen: ca. 40–60% des heutigen Einkommens</div>
-                            <div>· Immer ähnlich verdient: ca. 90–100% des heutigen Einkommens</div>
-                            <div style={{ marginTop: 4, color: 'var(--ink-400)' }}>Den genauen Wert finden Sie auf Ihrem IK-Auszug – kostenlos bestellbar unter{' '}
-                              <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
-                            </div>
-                          </div>
-                        </details>
-                      </div>
-                    )
-                  })()}
+                  <MdjInput
+                    income={persons.find(p => p.id === id)!.income}
+                    ahvAvgIncome={persons.find(p => p.id === id)!.ahvAvgIncome}
+                    retireAge={(id === 1 ? person1 : person2).retireAge || 65}
+                    autoY={autoY}
+                    gaps={gaps}
+                    onUpdate={(v) => updatePerson(id, { ahvAvgIncome: v })}
+                    onTouched={() => setAhvTouched(true)}
+                  />
 
                   {gaps > 0 && persons.find(p => p.id === id)?.hasKZG && (
                     <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
