@@ -665,6 +665,8 @@ export default function Screen4() {
         monthlyBudget,
         surplusAfterTax,
         displayPkMonthly,
+        retirementTaxMonthly: retirementTax1.monthlyTax,
+        freeAssets: freeAssets || 0,
         riskProfile: riskProfileForPdf(),
         canton,
         kirchensteuer,

@@ -10,8 +10,10 @@ export interface PdfData {
   retirementAge2?: number
   analysis: ProAnalysisResult
   monthlyBudget: number
-  surplusAfterTax?: number     // after-tax surplus (used throughout instead of analysis.surplus)
-  displayPkMonthly?: number    // actual PK monthly adjusted for Bezugsart (kapital/rente/mix)
+  surplusAfterTax?: number        // after-tax surplus (used throughout instead of analysis.surplus)
+  displayPkMonthly?: number       // actual PK monthly adjusted for Bezugsart (kapital/rente/mix)
+  retirementTaxMonthly?: number   // estimated monthly income tax in retirement
+  freeAssets?: number             // liquid assets at retirement (for wealth composition breakdown)
   // Extended fields for professional report
   riskProfile?: 'conservative' | 'balanced' | 'growth'
   canton?: string
@@ -20,8 +22,8 @@ export interface PdfData {
   depletionAge?: number | null
   pkCapital1?: number
   pkRate1?: number
-  balance3a1?: number          // projected 3a balance at retirement
-  fzBalance1?: number          // projected FZ balance at retirement
+  balance3a1?: number             // projected 3a balance at retirement
+  fzBalance1?: number             // projected FZ balance at retirement
   hasProperty?: boolean
   propertyValue?: number
   scenarios?: {
@@ -281,18 +283,19 @@ export async function exportPDF(data: PdfData): Promise<void> {
   section('Einnahmen & Ausgaben im Ruhestand')
 
   // Row 1: AHV – 2-line row (sub-note below, no same-line overlap)
+  const ahvMonthlyInkl13 = Math.round(analysis.ahv.combinedYearlyInkl13 / 12)
   checkBreak(16, 2)
   doc.setFillColor(...INK1)
   doc.rect(ML, y - 4, CW, 16, 'F')
   doc.setTextColor(...INK)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text('AHV (1. Säule)', ML + 3, y)
-  doc.text(`CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt.`, W - MR - 3, y, { align: 'right' })
+  doc.text('AHV (1. Säule, inkl. 13. Monatsrente)', ML + 3, y)
+  doc.text(`CHF ${fmtCHF(ahvMonthlyInkl13)}/Mt.`, W - MR - 3, y, { align: 'right' })
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...INK5)
-  doc.text(`inkl. 13. AHV-Rente: CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly * 13 / 12))}/Mt.`, ML + 3, y + 6)
+  doc.text(`Basisrente: CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt. · 13. Monatsrente: +CHF ${fmtCHF(Math.round(analysis.ahv.combinedMonthly / 12))}/Mt.`, ML + 3, y + 6)
   y += 16
 
   // Row 2: PK – standard single-line row
@@ -333,6 +336,21 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.text(`CHF ${fmtCHF(data.monthlyBudget)}/Mt.`, W - MR - 3, y, { align: 'right' })
   y += 10
 
+  // Taxes row (if provided)
+  if (data.retirementTaxMonthly && data.retirementTaxMonthly > 0) {
+    checkBreak(10, 2)
+    doc.setFillColor(...INK1)
+    doc.rect(ML, y - 4, CW, 10, 'F')
+    doc.setTextColor(...INK)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Einkommenssteuer (geschätzt)', ML + 3, y)
+    doc.setTextColor(...RED)
+    doc.text(`−CHF ${fmtCHF(data.retirementTaxMonthly)}/Mt.`, W - MR - 3, y, { align: 'right' })
+    doc.setTextColor(...INK)
+    y += 10
+  }
+
   // Surplus/Gap row
   checkBreak(14, 2)
   y += 2
@@ -341,7 +359,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.setTextColor(...(surplus >= 0 ? GREEN : RED))
   doc.setFontSize(11)
   doc.setFont('helvetica', 'bold')
-  doc.text(surplus >= 0 ? 'Monatlicher Überschuss' : 'Monatliche Vorsorgelücke', ML + 4, y + 8)
+  doc.text(surplus >= 0 ? 'Monatlicher Überschuss (n. St.)' : 'Monatliche Vorsorgelücke (n. St.)', ML + 4, y + 8)
   doc.text(`${surplus >= 0 ? '+' : ''}CHF ${fmtCHF(surplus)}/Mt.`, W - MR - 4, y + 8, { align: 'right' })
   y += 18
 
@@ -403,9 +421,9 @@ export async function exportPDF(data: PdfData): Promise<void> {
     doc.setFont('helvetica', 'normal')
     doc.text(`${sc.rate}% / ${sc.inflation}% Infl.`, cols[1], y + 7)
     doc.text(`CHF ${fmtCHF(sc.income)}`, cols[2], y + 7)
-    const diff = sc.income - data.monthlyBudget
+    const diff = sc.income - data.monthlyBudget - (data.retirementTaxMonthly ?? 0)
     doc.setTextColor(...(diff >= 0 ? GREEN : RED))
-    doc.text(`${diff >= 0 ? '+' : ''}CHF ${fmtCHF(diff)}`, cols[3], y + 7)
+    doc.text(`${diff >= 0 ? '+' : ''}CHF ${fmtCHF(diff)} n.St.`, cols[3], y + 7)
     doc.setTextColor(...INK)
     const depLabel = sc.ageWhenBroke ? `Bis Alter ${sc.ageWhenBroke}` : 'Bis Alter 95+'
     doc.text(depLabel, cols[4], y + 7, { align: 'right' })
@@ -420,7 +438,8 @@ export async function exportPDF(data: PdfData): Promise<void> {
     section('Vermögen bei Pensionierung')
 
     const wealthRows = [
-      data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (bei Pensionierung)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
+      data.freeAssets && data.freeAssets > 0 ? ['Bankguthaben / Sparkonten', `CHF ${fmtCHF(data.freeAssets)}`] : null,
+      data.balance3a1 && data.balance3a1 > 0 ? ['Säule 3a (bei Pensionierung, inkl. Wachstum)', `CHF ${fmtCHF(data.balance3a1)}`] : null,
       data.fzBalance1 && data.fzBalance1 > 0 ? ['Freizügigkeitsguthaben (bei Pensionierung)', `CHF ${fmtCHF(data.fzBalance1)}`] : null,
       data.pkCapital1 && data.pkCapital1 > 0 ? ['PK-Kapitalbezug (brutto)', `CHF ${fmtCHF(data.pkCapital1)}`] : null,
       ['Total Vermögen (inkl. Wachstum, n. Steuern)', `CHF ${fmtCHF(data.wealthAtRetirement)}`],
