@@ -239,13 +239,22 @@ export default function Screen4() {
   const displayPkMonthly = Math.max(0, analysis.monthlyIncome.total - Math.round(analysis.ahv.combinedYearlyInkl13 / 12))
 
   const incomeTax1 = useMemo(() => {
-    if (!p1.income) return null
-    return calculateIncomeTax(p1.income, canton, taxStatus, p1.hasPK, p1.yearly3a ?? 0, p1.has3a, kirchensteuer)
-  }, [p1.income, canton, taxStatus, p1.hasPK, p1.yearly3a, p1.has3a, kirchensteuer])
+    const isCouple = taxStatus === 'verheiratet'
+    // For married couples: joint taxation on combined income (Zusammenveranlagung)
+    const grossIncome = isCouple && p2
+      ? (p1.income || 0) + (p2.income || 0)
+      : (p1.income || 0)
+    if (!grossIncome) return null
+    const yearly3aCombined = isCouple ? (p1.yearly3a ?? 0) + (p2?.yearly3a ?? 0) : (p1.yearly3a ?? 0)
+    const has3aCombined = isCouple ? (p1.has3a || !!(p2?.has3a)) : p1.has3a
+    const hasPKCombined = isCouple ? (p1.hasPK || !!(p2?.hasPK)) : p1.hasPK
+    return calculateIncomeTax(grossIncome, canton, taxStatus, hasPKCombined, yearly3aCombined, has3aCombined, kirchensteuer)
+  }, [p1.income, p1.yearly3a, p1.has3a, p1.hasPK, p2, canton, taxStatus, kirchensteuer])
 
+  // Household retirement tax: uses combined AHV (post-plafonierung) + combined PK
   const retirementTax1 = useMemo(() =>
-    calculateRetirementTax(ahvMonthly1, pkMonthlyForRente, canton, taxStatus, kirchensteuer)
-  , [ahvMonthly1, pkMonthlyForRente, canton, taxStatus, kirchensteuer])
+    calculateRetirementTax(analysis.ahv.combinedMonthly, displayPkMonthly, canton, taxStatus, kirchensteuer)
+  , [analysis.ahv.combinedMonthly, displayPkMonthly, canton, taxStatus, kirchensteuer])
 
   const capitalTaxResult = useMemo(() => {
     if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
@@ -442,13 +451,13 @@ export default function Screen4() {
 
   const wdELCheck = useMemo(() =>
     calculateELEligibility(
-      ahvMonthly1 * 12,
-      pkMonthlyForRente * 12,
+      analysis.ahv.combinedMonthly * 12,  // household AHV (post-plafonierung)
+      displayPkMonthly * 12,              // household PK
       freeAssets || 0,
       civilStatus === 'verheiratet' || civilStatus === 'partnerschaft',
       canton,
     )
-  , [ahvMonthly1, pkMonthlyForRente, freeAssets, civilStatus, canton])
+  , [analysis.ahv.combinedMonthly, displayPkMonthly, freeAssets, civilStatus, canton])
 
   const wdLifeExp = p1.sex === 'm' ? WEALTH_CONSTANTS.LIFE_EXPECTANCY_MALE_65 : WEALTH_CONSTANTS.LIFE_EXPECTANCY_FEMALE_65
   const wdRealistDepletionAge = wdScenarios.find(s => s.label === 'Realistisch')?.depletionAge ?? null
@@ -529,9 +538,10 @@ export default function Screen4() {
   const eigenmietwertResult = useMemo(() => {
     if (!property.has || !property.value) return null
     const steuerwert = property.steuerwert > 0 ? property.steuerwert : Math.round(property.value * 0.7)
-    const annualRetirementIncome = (analysis.ahv.person1?.yearlyRente ?? 0) + (pkMonthlyForRente * 12)
+    // Use household retirement income (AHV combinedYearlyInkl13 + combined PK yearly)
+    const annualRetirementIncome = analysis.ahv.combinedYearlyInkl13 + displayPkMonthly * 12
     return calculateEigenmietwert(steuerwert, property.mortgage, property.hypothekZinssatz ?? 1.5, canton, taxStatus, annualRetirementIncome, kirchensteuer)
-  }, [property, analysis.ahv.person1, pkMonthlyForRente, canton, taxStatus, kirchensteuer])
+  }, [property, analysis.ahv.combinedYearlyInkl13, displayPkMonthly, canton, taxStatus, kirchensteuer])
 
   const CARE_COSTS: Record<string, { label: string; monthlyCost: number }> = {
     spitex_leicht: { label: 'Spitex (leicht)', monthlyCost: 1500 },
@@ -571,6 +581,9 @@ export default function Screen4() {
   const [taxSubF, setTaxSubF] = useState(false)
   const [taxSubG, setTaxSubG] = useState(false)
   const [taxSubH, setTaxSubH] = useState(false)
+
+  // After-tax monthly surplus: pension income minus budget minus estimated monthly retirement tax
+  const surplusAfterTax = analysis.surplus - retirementTax1.monthlyTax
 
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
   const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
@@ -683,7 +696,7 @@ export default function Screen4() {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: verdictColor }}>{verdictLabel}</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
+                  {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt. (n. St.)
                 </span>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
                   Reicht bis {(hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)) >= 99 ? 'Alter 95+' : `Alter ${hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)}`}
@@ -753,9 +766,9 @@ export default function Screen4() {
 
           {/* 3 KPI cards */}
           <div aria-live="polite" aria-atomic="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-            {/* Card 1: Monthly situation */}
+            {/* Card 1: Monthly situation (after tax) */}
             {(() => {
-              const surplus = analysis.surplus
+              const surplus = surplusAfterTax
               const cardColor = surplus >= 0 ? 'var(--green-600)' : Math.abs(surplus) <= 500 ? '#d97706' : '#dc2626'
               const cardBg = surplus >= 0 ? '#ecfdf5' : Math.abs(surplus) <= 500 ? '#fffbeb' : '#fef2f2'
               const cardBorder = surplus >= 0 ? '#bbf7d0' : Math.abs(surplus) <= 500 ? '#fde68a' : '#fecaca'
@@ -766,7 +779,7 @@ export default function Screen4() {
                     {surplus >= 0 ? '+' : ''}CHF {fmtCHF(surplus)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
-                    {surplus >= 0 ? 'Überschuss/Monat' : 'Lücke/Monat'}
+                    {surplus >= 0 ? 'Überschuss nach Steuern' : 'Lücke nach Steuern'}
                   </div>
                 </div>
               )
@@ -819,7 +832,7 @@ export default function Screen4() {
 
           {/* Was bedeutet das? */}
           {(() => {
-            const surplus = analysis.surplus
+            const surplus = surplusAfterTax
             const ageOk = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)
             const lifeExp = p1.sex === 'm' ? 85 : 87
             let summaryText = ''
@@ -1951,21 +1964,21 @@ export default function Screen4() {
 
           <div style={{
             display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px',
-            background: analysis.surplus >= 0 ? 'var(--green-50)' : '#fef2f2',
-            border: `1px solid ${analysis.surplus >= 0 ? 'var(--green-200)' : '#fecaca'}`,
+            background: surplusAfterTax >= 0 ? 'var(--green-50)' : '#fef2f2',
+            border: `1px solid ${surplusAfterTax >= 0 ? 'var(--green-200)' : '#fecaca'}`,
             borderRadius: 12,
           }}>
-            <div style={{ fontSize: 22 }}>{analysis.surplus >= 0 ? '✓' : '⚠'}</div>
+            <div style={{ fontSize: 22 }}>{surplusAfterTax >= 0 ? '✓' : '⚠'}</div>
             <div style={{ flex: 1 }}>
               <div style={{
                 fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
-                color: analysis.surplus >= 0 ? 'var(--green-600)' : 'var(--red-500)', marginBottom: 2,
+                color: surplusAfterTax >= 0 ? 'var(--green-600)' : 'var(--red-500)', marginBottom: 2,
               }}>
-                {analysis.surplus >= 0 ? 'Vorsorgeüberschuss' : 'Vorsorgelücke'}: {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(Math.abs(analysis.surplus))}/Monat
+                {surplusAfterTax >= 0 ? 'Überschuss nach Steuern' : 'Lücke nach Steuern'}: {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(Math.abs(surplusAfterTax))}/Monat
               </div>
               <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
-                Renten CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. − Budget CHF {fmtCHF(monthlyBudget)}/Mt.
-                {' = '}{analysis.surplus >= 0 ? 'Überschuss' : 'Lücke'} CHF {fmtCHF(Math.abs(analysis.surplus))}/Mt.
+                Renten CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. − Steuern ~CHF {fmtCHF(retirementTax1.monthlyTax)}/Mt. − Budget CHF {fmtCHF(monthlyBudget)}/Mt.
+                {' = '}{surplusAfterTax >= 0 ? 'Überschuss' : 'Lücke'} CHF {fmtCHF(Math.abs(surplusAfterTax))}/Mt.
               </div>
             </div>
           </div>
@@ -2101,8 +2114,8 @@ export default function Screen4() {
               <div style={{ padding: '14px 16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', marginBottom: 10 }}>Monatliche Einnahmen</div>
                 {[
-                  { label: 'AHV-Rente', value: ahvMonthly1 },
-                  { label: 'PK-Rente', value: pkMonthlyForRente },
+                  { label: hasPartner ? 'AHV-Renten (Haushalt)' : 'AHV-Rente', value: analysis.ahv.combinedMonthly },
+                  { label: hasPartner ? 'PK-Renten (Haushalt)' : 'PK-Rente', value: displayPkMonthly },
                   { label: 'Total Einnahmen', value: wdMonthlyIncome, bold: true },
                 ].map((row, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
@@ -2637,11 +2650,11 @@ export default function Screen4() {
               <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
                 Aktuelle Planung · {ra1} Jahre
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: analysis.surplus >= 0 ? 'var(--green-600)' : '#dc2626' }}>
-                {analysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(analysis.surplus)}/Mt.
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: surplusAfterTax >= 0 ? 'var(--green-600)' : '#dc2626' }}>
+                {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt.
               </div>
               <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
-                Score: {analysis.sustainabilityScore}/100
+                Score: {analysis.sustainabilityScore}/100 · nach Steuern
               </div>
             </div>
             <div style={{
@@ -3795,7 +3808,7 @@ export default function Screen4() {
                     style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubA ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     onClick={() => setTaxSubA(!taxSubA)}
                   >
-                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>A · Einkommenssteuer heute</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>A · Einkommenssteuer heute{hasPartner ? ' (Haushalt)' : ''}</span>
                     <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       CHF {fmtCHF(incomeTax1.totalTax)}/Jahr · {(incomeTax1.effectiveRate * 100).toFixed(1)}% effektiv
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubA ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
