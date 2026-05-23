@@ -587,28 +587,46 @@ export default function Screen4() {
     }))
   }, [scenarios, ra1])
 
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
+  const riskProfileForPdf = (): 'conservative' | 'balanced' | 'growth' => {
+    if (riskProfile === 'conservative') return 'conservative'
+    if (riskProfile === 'growth') return 'growth'
+    return 'balanced'
+  }
+
   const handlePDF = async () => {
-    const { exportPDF } = await import('../lib/pdf')
-    await exportPDF({
-      person1Name: person1.name || 'Person 1',
-      person2Name: hasPartner ? (person2.name || 'Person 2') : undefined,
-      location: location || undefined,
-      retirementAge1: ra1,
-      analysis,
-      monthlyBudget,
-      riskProfile: riskProfile || 'ausgewogen',
-      canton,
-      kirchensteuer,
-      wealthAtRetirement: wdInitialWealth,
-      depletionAge: wdRealistDepletionAge ?? undefined,
-      pkCapital1: p1.hasPK && p1.pkBezugsart !== 'rente' ? p1.pkCapital : undefined,
-      pkRate1: p1.pkRate,
-      balance3a1: p1.has3a ? p1.balance3a : undefined,
-      fzBalance1: p1.fzBalance,
-      hasProperty: property.has,
-      propertyValue: property.has ? property.value : undefined,
-      scenarios,
-    })
+    setPdfLoading(true)
+    setPdfError(null)
+    try {
+      const { exportPDF } = await import('../lib/pdf')
+      await exportPDF({
+        person1Name: person1.name || 'Person 1',
+        person2Name: hasPartner ? (person2.name || 'Person 2') : undefined,
+        location: location || undefined,
+        retirementAge1: ra1,
+        analysis,
+        monthlyBudget,
+        riskProfile: riskProfileForPdf(),
+        canton,
+        kirchensteuer,
+        wealthAtRetirement: wdInitialWealth,
+        depletionAge: wdRealistDepletionAge ?? undefined,
+        pkCapital1: p1.hasPK && p1.pkBezugsart !== 'rente' ? p1.pkCapital : undefined,
+        pkRate1: p1.pkRate,
+        balance3a1: p1.has3a ? p1.balance3a : undefined,
+        fzBalance1: p1.fzBalance,
+        hasProperty: property.has,
+        propertyValue: property.has ? property.value : undefined,
+        scenarios,
+      })
+    } catch (err) {
+      console.error('PDF generation failed:', err)
+      setPdfError('PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.')
+    } finally {
+      setPdfLoading(false)
+    }
   }
 
   const toggleRec = (i: number) => {
@@ -4413,7 +4431,9 @@ export default function Screen4() {
                   {item.link && <> · <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy-600)', textDecoration: 'underline' }}>{item.linkText}</a></>}
                 </div>
                 {item.action && (
-                  <button className="btn btn-primary" onClick={item.action} style={{ fontSize: 12, padding: '4px 10px', flexShrink: 0 }}>PDF</button>
+                  <button className="btn btn-primary" onClick={item.action} disabled={pdfLoading} style={{ fontSize: 12, padding: '4px 10px', flexShrink: 0, opacity: pdfLoading ? 0.7 : 1 }}>
+                    {pdfLoading ? '…' : 'PDF'}
+                  </button>
                 )}
               </div>
             ))}
@@ -4477,9 +4497,12 @@ export default function Screen4() {
               <p style={{ fontSize: 13, color: '#166534', marginBottom: 16 }}>
                 Sie haben die wichtigsten Entscheidungen getroffen. Laden Sie jetzt Ihre persönliche Vorsorgeanalyse als PDF herunter.
               </p>
-              <button className="btn btn-primary" onClick={handlePDF} style={{ fontSize: 15, padding: '12px 24px' }}>
-                Analyse als PDF herunterladen
+              <button className="btn btn-primary" onClick={handlePDF} disabled={pdfLoading} style={{ fontSize: 15, padding: '12px 24px', opacity: pdfLoading ? 0.7 : 1 }}>
+                {pdfLoading ? 'PDF wird erstellt…' : 'Analyse als PDF herunterladen'}
               </button>
+              {pdfError && (
+                <p style={{ color: '#dc2626', fontSize: 13, marginTop: 10, marginBottom: 0 }}>{pdfError}</p>
+              )}
             </div>
           ) : (
             <div style={{ padding: '20px', background: '#fafafa', border: '2px solid #e2e8f0', borderRadius: 14, textAlign: 'center' }}>
