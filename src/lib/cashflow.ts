@@ -164,8 +164,8 @@ function buildAhvHousehold(
     const avgIncome2 = computeKZGAdjustedIncome(p2.ahvAvgIncome || p2.grossIncome || 0, years2, p2.hasKZG, p2.kzgChildren, p2.kzgYears, civilStatus)
     const r2raw = calculateAHVPension({ avgIncome: avgIncome2, bezugAge: bezug2, effectiveContributionYears: years2 })
     r2Monthly = r2raw.monthlyRente
-    r2Income = p2.grossIncome || 0
-    r2Result = { monthlyRente: r2raw.monthlyRente, yearlyRente: r2raw.yearlyRente, yearlyInkl13: r2raw.yearlyInkl13, avgIncomeUsed: r2Income }
+    r2Income = avgIncome2
+    r2Result = { monthlyRente: r2raw.monthlyRente, yearlyRente: r2raw.yearlyRente, yearlyInkl13: r2raw.yearlyInkl13, avgIncomeUsed: avgIncome2 }
   }
 
   const plafon = applyPlafonierung(r1.monthlyRente, r2Monthly, civilStatus)
@@ -177,7 +177,7 @@ function buildAhvHousehold(
 
   const combinedMonthly = m1 + m2
   return {
-    person1: { monthlyRente: m1, yearlyRente: m1 * 12, yearlyInkl13: m1 * 13, avgIncomeUsed: p1.grossIncome || 0 },
+    person1: { monthlyRente: m1, yearlyRente: m1 * 12, yearlyInkl13: m1 * 13, avgIncomeUsed: avgIncome1 },
     person2: r2Result,
     combinedMonthly,
     combinedYearly: combinedMonthly * 12,
@@ -421,7 +421,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       if (totalP2Capital > 0) {
         const combinedTax = calculateCapitalTax(totalP2Capital, canton, taxStatus).totalTax
         if (cap2 > 0) { pkKapitalWithdrawal += cap2; wealth += cap2 }
-        if (projected3a2 > 0) wealth += projected3a2
+        if (projected3a2 > 0) { pillar3aWithdrawal += projected3a2; wealth += projected3a2 }
         if (projectedFz2 > 0) wealth += projectedFz2
         wealth -= combinedTax
       }

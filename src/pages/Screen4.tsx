@@ -210,6 +210,15 @@ export default function Screen4() {
   }), [inputData, p1, altRetireAge])
   const altAnalysis = useMemo(() => calculateProAnalysis(altInputData), [altInputData])
 
+  // Projected FZ balance at retirement — same formula as cashflow.ts projectedFz1
+  const projectedFzAtRetirement = useMemo(() => {
+    if (!p1.hasFZ || !(p1.fzBalance || 0)) return 0
+    const yearsToRet = Math.max(0, ra1 - currentAge1)
+    const fzInvType = (p1 as Record<string, unknown>).fzInvestmentType as string | undefined
+    const fzRate = CONSTANTS.RETURNS_FZ[fzInvType || 'sparkonto'] ?? 0.0075
+    return Math.round((p1.fzBalance || 0) * Math.pow(1 + fzRate, yearsToRet))
+  }, [p1.hasFZ, p1.fzBalance, p1.fzInvestmentType, ra1, currentAge1])
+
   // Life events integration
   const retirementYear = new Date().getFullYear() + Math.max(1, ra1 - currentAge1)
   const eventsImpact = useMemo(
@@ -482,7 +491,7 @@ export default function Screen4() {
 
   // Projected 3a balance at retirement — derived from cashflow retirement year row
   const projected3aAtRetirement = useMemo(() => {
-    const retRow = analysis.yearlyCashflow.find(r => r.age === ra1 && r.pillar3aWithdrawal > 0)
+    const retRow = analysis.yearlyCashflow.find(r => r.age === ra1)
     if (retRow) return retRow.pillar3aWithdrawal
     return p1.has3a ? (p1.balance3a || 0) : 0
   }, [analysis.yearlyCashflow, ra1, p1.has3a, p1.balance3a])
@@ -598,6 +607,11 @@ export default function Screen4() {
   // After-tax monthly surplus: pension income minus budget minus estimated monthly retirement tax
   const surplusAfterTax = analysis.surplus - retirementTax1.monthlyTax
 
+  // Alt analysis after-tax surplus (different retirement age → different AHV/PK amounts → different tax)
+  const altDisplayPkMonthly = Math.max(0, altAnalysis.monthlyIncome.total - Math.round(altAnalysis.ahv.combinedYearlyInkl13 / 12))
+  const altRetirementTax = calculateRetirementTax(altAnalysis.ahv.combinedMonthly, altDisplayPkMonthly, canton, taxStatus, kirchensteuer)
+  const altSurplusAfterTax = altAnalysis.surplus - altRetirementTax.monthlyTax
+
   const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
   const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
   const verdictBg = analysis.verdict === 'green' ? 'var(--green-50)' : analysis.verdict === 'yellow' ? '#fffbeb' : '#fef2f2'
@@ -642,13 +656,6 @@ export default function Screen4() {
     setPdfError(null)
     try {
       const { exportPDF } = await import('../lib/pdf')
-      // Compute projected FZ at retirement (same formula as cashflow.ts)
-      const yearsToRet = Math.max(0, ra1 - currentAge1)
-      const fzInvType = (p1 as Record<string, unknown>).fzInvestmentType as string | undefined
-      const fzRate = CONSTANTS.RETURNS_FZ[fzInvType || 'sparkonto'] ?? 0.0075
-      const projectedFzForPdf = p1.hasFZ && (p1.fzBalance || 0) > 0
-        ? Math.round((p1.fzBalance || 0) * Math.pow(1 + fzRate, yearsToRet))
-        : 0
       await exportPDF({
         person1Name: person1.name || 'Person 1',
         person2Name: hasPartner ? (person2.name || 'Person 2') : undefined,
@@ -666,7 +673,7 @@ export default function Screen4() {
         pkCapital1: p1.hasPK && p1.pkBezugsart !== 'rente' ? p1.pkCapital : undefined,
         pkRate1: p1.pkRate,
         balance3a1: p1.has3a ? projected3aAtRetirement : undefined,
-        fzBalance1: projectedFzForPdf > 0 ? projectedFzForPdf : undefined,
+        fzBalance1: projectedFzAtRetirement > 0 ? projectedFzAtRetirement : undefined,
         hasProperty: property.has,
         propertyValue: property.has ? property.value : undefined,
         scenarios,
@@ -2203,7 +2210,7 @@ export default function Screen4() {
                   <tbody>
                     {[
                       { label: 'Bankguthaben / Sparkonten', value: freeAssets || 0, positive: true },
-                      ...(p1.has3a && p1.balance3a > 0 ? [{ label: 'Säule 3a (Kapitalbezug)', value: p1.balance3a, positive: true }] : []),
+                      ...(p1.has3a && projected3aAtRetirement > 0 ? [{ label: 'Säule 3a bei Pensionierung (inkl. Wachstum)', value: projected3aAtRetirement, positive: true }] : []),
                       ...(p1.hasPK && p1.pkBezugsart !== 'rente' && p1.pkCapital > 0 ? (() => {
                         const cap = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
                         const tax = calculateCapitalWithdrawalTax(cap, canton, taxStatus)
@@ -2212,10 +2219,10 @@ export default function Screen4() {
                           { label: '– Kapitalbezugssteuer PK', value: tax.totalTax, positive: false },
                         ]
                       })() : []),
-                      ...(p1.hasFZ && p1.fzBalance > 0 ? (() => {
-                        const tax = calculateCapitalWithdrawalTax(p1.fzBalance, canton, taxStatus)
+                      ...(p1.hasFZ && projectedFzAtRetirement > 0 ? (() => {
+                        const tax = calculateCapitalWithdrawalTax(projectedFzAtRetirement, canton, taxStatus)
                         return [
-                          { label: 'Freizügigkeitsguthaben (FZ)', value: p1.fzBalance, positive: true },
+                          { label: 'Freizügigkeitsguthaben bei Pensionierung (inkl. Wachstum)', value: projectedFzAtRetirement, positive: true },
                           { label: '– Kapitalbezugssteuer FZ', value: tax.totalTax, positive: false },
                         ]
                       })() : []),
@@ -2681,21 +2688,21 @@ export default function Screen4() {
             </div>
             <div style={{
               padding: '14px 16px', borderRadius: 12,
-              background: altAnalysis.surplus >= 0 ? 'var(--green-50)' : '#fef2f2',
-              border: `1px solid ${altAnalysis.surplus >= 0 ? 'var(--green-200)' : '#fecaca'}`,
+              background: altSurplusAfterTax >= 0 ? 'var(--green-50)' : '#fef2f2',
+              border: `1px solid ${altSurplusAfterTax >= 0 ? 'var(--green-200)' : '#fecaca'}`,
             }}>
               <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
                 Alternative · {altRetireAge} Jahre
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: altAnalysis.surplus >= 0 ? 'var(--green-600)' : '#dc2626' }}>
-                {altAnalysis.surplus >= 0 ? '+' : ''}CHF {fmtCHF(altAnalysis.surplus)}/Mt.
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: altSurplusAfterTax >= 0 ? 'var(--green-600)' : '#dc2626' }}>
+                {altSurplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(altSurplusAfterTax)}/Mt.
               </div>
               <div style={{ fontSize: 12, color: 'var(--ink-400)', marginTop: 2 }}>
-                Score: {altAnalysis.sustainabilityScore}/100
+                Score: {altAnalysis.sustainabilityScore}/100 · nach Steuern
                 {altRetireAge !== ra1 && (
-                  <span style={{ marginLeft: 6, color: altAnalysis.surplus > analysis.surplus ? 'var(--green-600)' : '#dc2626', fontWeight: 600 }}>
-                    {altAnalysis.surplus > analysis.surplus ? '▲' : '▼'}
-                    {' '}CHF {fmtCHF(Math.abs(altAnalysis.surplus - analysis.surplus))}/Mt.
+                  <span style={{ marginLeft: 6, color: altSurplusAfterTax > surplusAfterTax ? 'var(--green-600)' : '#dc2626', fontWeight: 600 }}>
+                    {altSurplusAfterTax > surplusAfterTax ? '▲' : '▼'}
+                    {' '}CHF {fmtCHF(Math.abs(altSurplusAfterTax - surplusAfterTax))}/Mt.
                   </span>
                 )}
               </div>
@@ -2725,8 +2732,8 @@ export default function Screen4() {
                   CHF {fmtCHF(sc.data.monthlyIncome.total)}/Mt.
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>{sc.sub}</div>
-                <div style={{ fontSize: 12, marginTop: 6, color: sc.data.surplus >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
-                  {sc.data.surplus >= 0 ? '+' : ''}CHF {fmtCHF(sc.data.surplus)}/Mt.
+                <div style={{ fontSize: 12, marginTop: 6, color: (sc.data.surplus - retirementTax1.monthlyTax) >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
+                  {(sc.data.surplus - retirementTax1.monthlyTax) >= 0 ? '+' : ''}CHF {fmtCHF(sc.data.surplus - retirementTax1.monthlyTax)}/Mt. n.St.
                 </div>
                 {sc.data.ageWhenBroke ? (
                   <div style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>Reicht bis Alter {sc.data.ageWhenBroke}</div>
