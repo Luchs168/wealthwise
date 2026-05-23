@@ -156,7 +156,7 @@ export interface WealthWiseState {
   wealthTouched: boolean
 
   // Savings strategy (Screen 3A)
-  savingsStrategy: 'sparkonto' | 'investiert' | 'teilweise'
+  savingsStrategy: 'sparkonto' | 'konservativ' | 'ausgewogen' | 'aggressiv'
   monthlySavingsAmount: number   // monthly CHF to invest (only for 'teilweise')
 
   // Screen 4 decisions (gate the PDF download)
@@ -296,7 +296,7 @@ export const useStore = create<WealthWiseState>()(
       pillar3aTouched: false,
       wealthTouched: false,
 
-      savingsStrategy: 'investiert',
+      savingsStrategy: 'ausgewogen',
       monthlySavingsAmount: 0,
 
       ahvChoice: null,
@@ -368,7 +368,7 @@ export const useStore = create<WealthWiseState>()(
         pkTouched: false,
         pillar3aTouched: false,
         wealthTouched: false,
-        savingsStrategy: 'investiert',
+        savingsStrategy: 'ausgewogen',
         monthlySavingsAmount: 0,
         ahvChoice: null,
         pkChoice: null,

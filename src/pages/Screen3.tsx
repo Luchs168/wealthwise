@@ -389,7 +389,7 @@ function LifeEventCard({ event, onUpdate, onDelete, currentYear, retirementYear,
 
 export default function Screen3() {
   const navigate = useNavigate()
-  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, wealthInvestmentProfile, savingsStrategy, setSavingsStrategy, monthlySavingsAmount, setMonthlySavingsAmount } = useStore()
+  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, savingsStrategy, setSavingsStrategy } = useStore()
   const isPaar = hasPartner
 
   const [subStep, setSubStep] = useState(0)
@@ -411,8 +411,7 @@ export default function Screen3() {
   const p1Income = p1?.income || 0
   const p2Income = p2stored?.income || 0
   const nettoMonatlich = Math.round((p1Income + p2Income) * 0.88 / 12)
-  const SAVINGS_RETURNS: Record<string, number> = { konto: 0.0075, conservative: 0.025, balanced: 0.035, growth: 0.05, aggressive: 0.05 }
-  const savingsRate = SAVINGS_RETURNS[wealthInvestmentProfile] ?? 0.035
+  const STRATEGY_RATES: Record<string, number> = { sparkonto: 0.0075, konservativ: 0.025, ausgewogen: 0.035, aggressiv: 0.05 }
 
   const detailedTotal = useMemo(
     () => CATEGORIES.reduce((sum, cat) => sum + (expenses.detailed[cat.id] ?? cat.bfsMonthly), 0),
@@ -424,11 +423,9 @@ export default function Screen3() {
   const bfsRef = isPaar ? BFS_RENTNER_PAAR : BFS_RENTNER_EINZEL
   const yearsToRetirement = Math.max(1, retirementYear - currentYear)
   const surplus = nettoMonatlich - baseTotal
-  const monthlyToInvest = savingsStrategy === 'teilweise'
-    ? Math.min(Math.max(0, monthlySavingsAmount), Math.max(0, surplus))
-    : Math.max(0, surplus)
-  const effectiveRate = savingsStrategy === 'sparkonto' ? 0.0075 : savingsRate
-  const projectedExtra = monthlyToInvest > 0 && effectiveRate > 0 && yearsToRetirement > 0
+  const monthlyToInvest = Math.max(0, surplus)
+  const effectiveRate = STRATEGY_RATES[savingsStrategy] ?? 0.035
+  const projectedExtra = monthlyToInvest > 0 && yearsToRetirement > 0
     ? Math.round(monthlyToInvest * 12 * ((Math.pow(1 + effectiveRate, yearsToRetirement) - 1) / effectiveRate))
     : 0
 
@@ -786,9 +783,10 @@ export default function Screen3() {
                     </div>
                     <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
                       {([
-                        { id: 'sparkonto' as const, label: 'Bleibt auf dem Sparkonto', hint: '0.75% p.a.' },
-                        { id: 'investiert' as const, label: 'Wird investiert', hint: `${(savingsRate * 100).toFixed(1)}% p.a. (${wealthInvestmentProfile === 'konto' ? 'Konto' : wealthInvestmentProfile === 'conservative' ? 'konservativ' : wealthInvestmentProfile === 'balanced' ? 'ausgewogen' : 'aggressiv'})` },
-                        { id: 'teilweise' as const, label: 'Teilweise investiert', hint: 'Rest auf Sparkonto' },
+                        { id: 'sparkonto' as const,  label: 'Bleibt auf dem Sparkonto',    hint: '0.75% p.a.' },
+                        { id: 'konservativ' as const, label: 'Konservativ investiert',       hint: '25% Aktien · 2.5% p.a.' },
+                        { id: 'ausgewogen' as const,  label: 'Ausgewogen investiert',        hint: '50% Aktien · 3.5% p.a.' },
+                        { id: 'aggressiv' as const,   label: 'Aggressiv investiert',         hint: '80%+ Aktien · 5.0% p.a.' },
                       ]).map(opt => (
                         <button key={opt.id} onClick={() => setSavingsStrategy(opt.id)} style={{
                           textAlign: 'left', padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
@@ -810,18 +808,6 @@ export default function Screen3() {
                         </button>
                       ))}
                     </div>
-
-                    {savingsStrategy === 'teilweise' && (
-                      <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
-                        <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'block', marginBottom: 8 }}>
-                          Monatlich investieren
-                        </label>
-                        <CHFAmountInput value={monthlySavingsAmount} onChange={setMonthlySavingsAmount} />
-                        <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 4 }}>
-                          Max. CHF {fmtCHF(surplus)}/Mt. verfügbar
-                        </div>
-                      </div>
-                    )}
 
                     {projectedExtra > 0 && (
                       <div style={{ padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 12 }}>
