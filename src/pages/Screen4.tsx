@@ -276,10 +276,10 @@ export default function Screen4() {
   , [analysis.ahv.combinedMonthly, displayPkMonthly, canton, taxStatus, kirchensteuer])
 
   const capitalTaxResult = useMemo(() => {
-    if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
-    const amount = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+    if (!p1.hasPK || pkChoice === 'rente' || !p1.pkCapital) return null
+    const amount = pkChoice === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
     return { amount, result: calculateCapitalWithdrawalTax(amount, canton, taxStatus) }
-  }, [p1.hasPK, p1.pkBezugsart, p1.pkCapital, canton, taxStatus])
+  }, [p1.hasPK, pkChoice, p1.pkCapital, canton, taxStatus])
 
   const thirdPillar1 = useMemo(() => {
     if (!p1.has3a) return null
@@ -970,7 +970,7 @@ export default function Screen4() {
         <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
         {/* Life event markers */}
         {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
-          const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
+          const birthYear = new Date().getFullYear() - currentAge1
           const evtAge = evt.year - birthYear
           if (evtAge > 95 || evtAge < ra1) return null
           const cfg = CATEGORY_CONFIG[evt.category]
@@ -1041,7 +1041,7 @@ export default function Screen4() {
     <div style={{ display: 'grid', gap: 8 }}>
       {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
         const cfg = CATEGORY_CONFIG[evt.category]
-        const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
+        const birthYear = new Date().getFullYear() - currentAge1
         const evtAge = evt.year - birthYear
         return (
           <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 10, fontSize: 13 }}>
