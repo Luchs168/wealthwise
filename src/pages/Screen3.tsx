@@ -74,14 +74,14 @@ function LoadingTransition({ onDone }: { onDone: () => void }) {
 }
 
 const CATEGORIES = [
-  { id: 'wohnen', label: 'Wohnen & Energie', icon: '🏠', bfsMonthly: 1476 },
-  { id: 'gesundheit', label: 'Gesundheit & Krankenkasse', icon: '🏥', bfsMonthly: 698 },
-  { id: 'nahrung', label: 'Nahrung & Restaurants', icon: '🍽️', bfsMonthly: 1080 },
-  { id: 'mobilitaet', label: 'Mobilität', icon: '🚗', bfsMonthly: 650 },
-  { id: 'freizeit', label: 'Freizeit & Ferien', icon: '✈️', bfsMonthly: 580 },
-  { id: 'bekleidung', label: 'Bekleidung', icon: '👔', bfsMonthly: 180 },
-  { id: 'kommunikation', label: 'Kommunikation', icon: '📱', bfsMonthly: 200 },
-  { id: 'uebrige', label: 'Übriges', icon: '📦', bfsMonthly: 600 },
+  { id: 'wohnen',        label: 'Wohnen & Energie',          icon: '🏠', bfsMonthlyEinzel: 1076, bfsMonthlyPaar: 3280 },
+  { id: 'gesundheit',    label: 'Gesundheit & Krankenkasse', icon: '🏥', bfsMonthlyEinzel:  615, bfsMonthlyPaar: 1870 },
+  { id: 'nahrung',       label: 'Nahrung & Restaurants',     icon: '🍽️', bfsMonthlyEinzel:  541, bfsMonthlyPaar: 1650 },
+  { id: 'mobilitaet',    label: 'Mobilität',                  icon: '🚗', bfsMonthlyEinzel:  237, bfsMonthlyPaar:  720 },
+  { id: 'freizeit',      label: 'Freizeit & Ferien',          icon: '✈️', bfsMonthlyEinzel:  338, bfsMonthlyPaar: 1030 },
+  { id: 'bekleidung',    label: 'Bekleidung',                 icon: '👔', bfsMonthlyEinzel:   80, bfsMonthlyPaar:  240 },
+  { id: 'kommunikation', label: 'Kommunikation',              icon: '📱', bfsMonthlyEinzel:  100, bfsMonthlyPaar:  310 },
+  { id: 'uebrige',       label: 'Übriges',                    icon: '📦', bfsMonthlyEinzel:  394, bfsMonthlyPaar: 1200 },
 ]
 
 const PIE_COLORS = ['#1a2b4a', '#3b82f6', '#0ea5e9', '#7c3aed', '#059669', '#d97706', '#dc2626', '#64748b']
@@ -391,6 +391,13 @@ export default function Screen3() {
   const navigate = useNavigate()
   const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, savingsStrategy, setSavingsStrategy } = useStore()
   const isPaar = hasPartner
+  const canton = location?.kanton ?? 'ZH'
+  const kkPremium = KK_CANTON_DEFAULTS[canton] ?? 600
+  const gesundheitDefault = isPaar ? 2 * kkPremium + 2 * 83 : kkPremium + 83
+  const activeCats = CATEGORIES.map(cat => ({
+    ...cat,
+    bfsMonthly: isPaar ? cat.bfsMonthlyPaar : cat.bfsMonthlyEinzel,
+  }))
 
   const [subStep, setSubStep] = useState(0)
   const [budgetTab, setBudgetTab] = useState<'schnell' | 'detailliert' | 'import'>('schnell')
@@ -414,8 +421,11 @@ export default function Screen3() {
   const STRATEGY_RATES: Record<string, number> = { sparkonto: 0.0075, konservativ: 0.025, ausgewogen: 0.035, aggressiv: 0.05 }
 
   const detailedTotal = useMemo(
-    () => CATEGORIES.reduce((sum, cat) => sum + (expenses.detailed[cat.id] ?? cat.bfsMonthly), 0),
-    [expenses.detailed],
+    () => activeCats.reduce((sum, cat) => {
+      const d = cat.id === 'gesundheit' ? gesundheitDefault : cat.bfsMonthly
+      return sum + (expenses.detailed[cat.id] ?? d)
+    }, 0),
+    [expenses.detailed, isPaar, location?.kanton],
   )
 
   const baseTotal = budgetTab === 'detailliert' ? detailedTotal : (expenses.customAmount || 0)
@@ -434,9 +444,9 @@ export default function Screen3() {
     [lifeEvents, retirementYear],
   )
 
-  const pieData = CATEGORIES.map(cat => ({
+  const pieData = activeCats.map(cat => ({
     name: cat.label,
-    value: expenses.detailed[cat.id] ?? cat.bfsMonthly,
+    value: expenses.detailed[cat.id] ?? (cat.id === 'gesundheit' ? gesundheitDefault : cat.bfsMonthly),
   }))
 
   function handleAddLifeEvent() {
@@ -577,9 +587,7 @@ export default function Screen3() {
                   <span>Vorausgefüllt mit BFS-Durchschnittswerten. Passen Sie auf Ihren Lebensstil an.</span>
                 </div>
                 <div className="cat-list">
-                  {CATEGORIES.map(cat => {
-                    const canton = location?.kanton ?? 'ZH'
-                    const gesundheitDefault = (KK_CANTON_DEFAULTS[canton] ?? 600) + 83
+                  {activeCats.map(cat => {
                     const catDefault = cat.id === 'gesundheit' ? gesundheitDefault : cat.bfsMonthly
                     const val = expenses.detailed[cat.id] ?? catDefault
                     const pctFill = Math.min(100, (val / (catDefault * 2)) * 100)
@@ -590,7 +598,9 @@ export default function Screen3() {
                           <div className="cat-label">{cat.label}</div>
                           <div className="cat-avg">
                             {cat.id === 'gesundheit'
-                              ? `⌀ ${canton}: CHF ${fmtCHF(gesundheitDefault)}/Mt. (Prämie + Franchise)`
+                              ? isPaar
+                                ? `⌀ ${canton}: 2× CHF ${fmtCHF(kkPremium)}/Mt. (Prämie + Franchise)`
+                                : `⌀ ${canton}: CHF ${fmtCHF(gesundheitDefault)}/Mt. (Prämie + Franchise)`
                               : `⌀ CHF ${fmtCHF(cat.bfsMonthly)}/Mt. (BFS 2022)`}
                           </div>
                           <div className="compare-bar">
@@ -599,7 +609,9 @@ export default function Screen3() {
                           </div>
                           {cat.id === 'gesundheit' && (
                             <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
-                              Inkl. Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 615/Mt.
+                              {isPaar
+                                ? `Inkl. 2× Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 1'870/Mt.`
+                                : `Inkl. Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 615/Mt.`}
                             </div>
                           )}
                         </div>
