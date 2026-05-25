@@ -202,6 +202,26 @@ export default function Screen4() {
   const ra1 = p1.retireAge || p1.retirementAge || 65
   const currentAge1 = p1.dob ? calculateAge(p1.dob) : (p1.birthDate ? calculateAge(p1.birthDate) : 55)
 
+  // Debug-Log: alle Schlüsselwerte auf einen Blick
+  useMemo(() => {
+    if (typeof window === 'undefined') return
+    console.log('[S4 Debug] Datenfluss Schritt 4:', {
+      ahvRente: `CHF ${analysis.ahv.person1?.monthlyRente ?? 0}/Mt.`,
+      pkRente: `CHF ${analysis.pk.person1?.monthlyRente ?? 0}/Mt.`,
+      pkGuthaben: `CHF ${p1.pkCapital ?? 0}`,
+      pkBezugsart: p1.pkBezugsart,
+      dreiaSaldo: `CHF ${p1.balance3a ?? 0}`,
+      freiesVermoegen: `CHF ${freeAssets ?? 0}`,
+      ausgaben: `CHF ${inputData.monthlyExpenses}/Mt.`,
+      pensionierungsalter: ra1,
+      currentAge: currentAge1,
+      monatlicheEinnahmen: `CHF ${analysis.monthlyIncome.total}/Mt.`,
+      neutralAgeWhenBroke: scenarios.neutral.ageWhenBroke,
+      neutralScore: scenarios.neutral.sustainabilityScore,
+      neutralVerdict: scenarios.neutral.verdict,
+    })
+  }, [analysis, scenarios, p1, freeAssets, inputData.monthlyExpenses, ra1, currentAge1])
+
   // Was wäre wenn slider
   const [altRetireAge, setAltRetireAge] = useState(ra1 + 1)
   const altInputData = useMemo(() => ({
@@ -243,9 +263,12 @@ export default function Screen4() {
   const [newEvtAmount, setNewEvtAmount] = useState(0)
   const [newEvtYear, setNewEvtYear] = useState(retirementYear + 2)
 
+  // Use the neutral scenario (2.5% return) as the reference — it's what the chart shows.
+  // The main analysis uses the user's investment profile which can diverge significantly.
+  const neutralAgeWhenBroke = scenarios.neutral.ageWhenBroke
   const displayAgeWhenBroke = hasEnabledEvents
-    ? (ageWhenBrokeWithEvents ?? analysis.ageWhenBroke)
-    : analysis.ageWhenBroke
+    ? (ageWhenBrokeWithEvents ?? neutralAgeWhenBroke)
+    : neutralAgeWhenBroke
 
   // Tax section
   const taxStatus: TaxCivilStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 'verheiratet' : 'ledig'
@@ -622,10 +645,13 @@ export default function Screen4() {
   const altRetirementTax = calculateRetirementTax(altAnalysis.ahv.combinedMonthly, altDisplayPkMonthly, canton, taxStatus, kirchensteuer)
   const altSurplusAfterTax = altAnalysis.surplus - altRetirementTax.monthlyTax
 
-  const verdictLabel = analysis.verdict === 'green' ? 'Gut aufgestellt' : analysis.verdict === 'yellow' ? 'Anpassungen empfohlen' : 'Handlungsbedarf'
-  const verdictColor = analysis.verdict === 'green' ? 'var(--green-500)' : analysis.verdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
-  const verdictBg = analysis.verdict === 'green' ? 'var(--green-50)' : analysis.verdict === 'yellow' ? '#fffbeb' : '#fef2f2'
-  const verdictBorder = analysis.verdict === 'green' ? 'var(--green-200)' : analysis.verdict === 'yellow' ? '#fde68a' : '#fecaca'
+  // Display verdict/score driven by neutral scenario so chart, score, and statement all agree.
+  const displayVerdict = scenarios.neutral.verdict
+  const displayScore = scenarios.neutral.sustainabilityScore
+  const verdictLabel = displayVerdict === 'green' ? 'Gut aufgestellt' : displayVerdict === 'yellow' ? 'Optimierungspotenzial' : 'Handlungsbedarf'
+  const verdictColor = displayVerdict === 'green' ? 'var(--green-500)' : displayVerdict === 'yellow' ? 'var(--amber-500)' : 'var(--red-500)'
+  const verdictBg = displayVerdict === 'green' ? 'var(--green-50)' : displayVerdict === 'yellow' ? '#fffbeb' : '#fef2f2'
+  const verdictBorder = displayVerdict === 'green' ? 'var(--green-200)' : displayVerdict === 'yellow' ? '#fde68a' : '#fecaca'
 
   const coveragePct = monthlyBudget > 0 ? Math.round((analysis.monthlyIncome.total / monthlyBudget) * 100) : 0
 
@@ -769,9 +795,9 @@ export default function Screen4() {
         {/* ── Fixed Summary Header ── */}
         <div style={{ position: 'sticky', top: 0, zIndex: 10, background: verdictBg, border: `1px solid ${verdictBorder}`, borderRadius: 12, padding: '10px 16px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 18 }}>{analysis.verdict === 'green' ? '✅' : analysis.verdict === 'yellow' ? '⚠️' : '🔴'}</span>
+            <span style={{ fontSize: 18 }}>{displayVerdict === 'green' ? '✅' : displayVerdict === 'yellow' ? '⚠️' : '🔴'}</span>
             <span style={{ fontWeight: 700, color: verdictColor, fontSize: 14 }}>{verdictLabel}</span>
-            <span style={{ fontSize: 13, color: 'var(--ink-500)' }}>Score: {analysis.sustainabilityScore}/100</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-500)' }}>Score: {displayScore}/100</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, padding: '2px 10px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
@@ -904,11 +930,17 @@ export default function Screen4() {
   {/* Gap / surplus note */}
   {surplusAfterTax < 0 ? (
     <div style={{ padding: '14px 18px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#92400e', lineHeight: 1.65 }}>
-      Es besteht eine monatliche Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>. Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
+      Es besteht eine monatliche Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>.{' '}
+      {retirementTax1.monthlyTax > 0 && (
+        <span style={{ fontSize: 12, opacity: 0.85 }}>
+          (Lebenshaltung CHF {fmtCHF(monthlyBudget)} + Steuern CHF {fmtCHF(retirementTax1.monthlyTax)} − Einnahmen CHF {fmtCHF(analysis.monthlyIncome.total)})
+        </span>
+      )}
+      {' '}Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
     </div>
   ) : (
     <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#166534', lineHeight: 1.65 }}>
-      Ihre Renten übersteigen Ihren Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>.
+      Ihre Renten übersteigen Ihren Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>{retirementTax1.monthlyTax > 0 ? ` (nach Steuern CHF ${fmtCHF(retirementTax1.monthlyTax)}/Mt.)` : ''}.
     </div>
   )}
 

@@ -584,31 +584,45 @@ export function calculateProAnalysis(data: CashflowInput): ProAnalysisResult {
     }
   }
 
-  const firstRetiredYear = cashflow.find((c) => c.isRetirementYear) || cashflow.find((c) => c.ahvIncome > 0)
-  const monthlyIncomeTotal = firstRetiredYear
-    ? Math.round((firstRetiredYear.ahvIncome + firstRetiredYear.pkRenteIncome) / 12)
-    : Math.round((ahv.combinedYearlyInkl13 + pk.combinedYearly) / 12)
+  // Steady-state pension income: AHV (inkl 13th ÷ 12) + PK Rente (adjusted for bezugsart).
+  // Using the first-retirement-year cashflow row gave 0 when AHV bezug age > retirement age
+  // or when the person retires before AHV eligibility (e.g. age 60 but AHV at 65).
+  function pkKapShare(bez: string | undefined, kap: number | undefined): number {
+    if (bez === 'kapital') return 1
+    if (bez === 'mix') return (Number(kap) || 50) / 100
+    return 0
+  }
+  const share1 = pkKapShare(p1.pkBezugsart as string, p1.pkKapitalanteil as number)
+  const share2 = p2 ? pkKapShare(p2.pkBezugsart as string, p2.pkKapitalanteil as number) : 1
+  const pk1Rente = (pk.person1.monthlyRente || 0) * (1 - share1)
+  const pk2Rente = p2 ? (pk.person2?.monthlyRente || 0) * (1 - share2) : 0
+  const monthlyIncomeTotal = Math.round(ahv.combinedYearlyInkl13 / 12 + pk1Rente + pk2Rente)
 
   const monthlyExpenses = data.monthlyExpenses || 0
   const surplus = monthlyIncomeTotal - monthlyExpenses
 
-  let score = 50
+  // Score based on wealth longevity (primary) + income coverage (secondary).
+  // Thresholds per design spec:
+  //   wealth never depletes or > 90 → 80-100 green  "Gut aufgestellt"
+  //   wealth depletes 80-90         → 50-70  yellow "Optimierungspotenzial"
+  //   wealth depletes < 80          → 20-40  red    "Handlungsbedarf"
   const cov = monthlyExpenses > 0 ? monthlyIncomeTotal / monthlyExpenses : 1
-  if (cov >= 1.2) score += 30
-  else if (cov >= 1.0) score += 20
-  else if (cov >= 0.9) score += 5
-  else if (cov >= 0.8) score -= 10
-  else score -= 30
-
-  if (!ageWhenBroke) score += 20
-  else if (ageWhenBroke > 90) score += 10
-  else if (ageWhenBroke > 85) score += 0
-  else if (ageWhenBroke > 80) score -= 10
-  else score -= 20
-
+  const covBonus = cov >= 1.2 ? 5 : cov >= 1.0 ? 0 : cov >= 0.8 ? -5 : -10
+  let score: number
+  if (!ageWhenBroke) {
+    score = 90 + covBonus            // 80-95
+  } else if (ageWhenBroke > 90) {
+    score = 82 + covBonus            // 72-87
+  } else if (ageWhenBroke >= 80) {
+    const t = (ageWhenBroke - 80) / 10
+    score = Math.round(50 + t * 30 + covBonus)  // 40-80
+  } else {
+    const t = Math.max(0, (ageWhenBroke - 65) / 15)
+    score = Math.round(20 + t * 20 + covBonus)  // 10-40
+  }
   const sustainabilityScore = Math.max(0, Math.min(100, score))
   const verdict: 'green' | 'yellow' | 'red' =
-    sustainabilityScore >= 70 ? 'green' : sustainabilityScore >= 45 ? 'yellow' : 'red'
+    sustainabilityScore >= 75 ? 'green' : sustainabilityScore >= 45 ? 'yellow' : 'red'
 
   return {
     ahv, pk, yearlyCashflow: cashflow, ageWhenBroke,
