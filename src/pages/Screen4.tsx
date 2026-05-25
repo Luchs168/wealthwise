@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, ReferenceLine, Area, AreaChart, BarChart, Bar,
+  ResponsiveContainer, ReferenceLine, Area, AreaChart, BarChart, Bar, ComposedChart,
 } from 'recharts'
 import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
@@ -146,7 +146,7 @@ export default function Screen4() {
   const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
     ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
     setAhvChoice, setPkChoice, setWithdrawalStrategy, addLifeEvent, removeLifeEvent } = state
-  const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
+  const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'fruehpensionierung'|'ahvpk'|'steuern'|'massnahmen'>('ubersicht')
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
   const [careStartAge, setCareStartAge] = useState(82)
@@ -648,6 +648,7 @@ export default function Screen4() {
       optimistisch: Math.max(0, scenarios.optimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
       neutral: Math.max(0, scenarios.neutral.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
       pessimistisch: Math.max(0, scenarios.pessimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
+      shade: Math.max(0, (scenarios.optimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0) - Math.max(0, scenarios.pessimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0)),
     }))
   }, [scenarios, ra1])
 
@@ -765,30 +766,19 @@ export default function Screen4() {
         </div>
 
         {/* ── Fixed Summary Header ── */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 10, background: verdictBg, border: `1px solid ${verdictBorder}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <ScoreRing score={analysis.sustainabilityScore} verdict={analysis.verdict} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: verdictColor }}>{verdictLabel}</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt. (n. St.)
-                </span>
-                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  Reicht bis {(displayAgeWhenBroke ?? 99) >= 99 ? 'Alter 95+' : `Alter ${displayAgeWhenBroke ?? 99}`}
-                </span>
-                <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  Score: {analysis.sustainabilityScore}/100
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                {top3recs.slice(0,3).map((rec, i) => (
-                  <span key={i} style={{ fontSize: 11, padding: '2px 8px', background: rec.priority === 'hoch' ? '#fef2f2' : '#fffbeb', borderRadius: 20, border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : '#fde68a'}`, color: rec.priority === 'hoch' ? '#dc2626' : '#d97706', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {i+1}. {rec.text.substring(0, 40)}…
-                  </span>
-                ))}
-              </div>
-            </div>
+        <div style={{ position: 'sticky', top: 0, zIndex: 10, background: verdictBg, border: `1px solid ${verdictBorder}`, borderRadius: 12, padding: '10px 16px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>{analysis.verdict === 'green' ? '✅' : analysis.verdict === 'yellow' ? '⚠️' : '🔴'}</span>
+            <span style={{ fontWeight: 700, color: verdictColor, fontSize: 14 }}>{verdictLabel}</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-500)' }}>Score: {analysis.sustainabilityScore}/100</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, padding: '2px 10px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
+              {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt.
+            </span>
+            <span style={{ fontSize: 12, padding: '2px 10px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
+              Reicht bis {(displayAgeWhenBroke ?? 99) >= 99 ? 'Alter 95+' : `Alter ${displayAgeWhenBroke ?? 99}`}
+            </span>
           </div>
         </div>
 
@@ -797,14 +787,14 @@ export default function Screen4() {
           {([
             { id: 'ubersicht', label: 'Übersicht' },
             { id: 'szenarien', label: 'Szenarien' },
-            { id: 'ahv', label: 'AHV' },
-            { id: 'pk', label: 'PK & Kapital' },
-            { id: 'steuern', label: 'Steuern & 3a' },
-            { id: 'entscheidungen', label: 'Meine Entscheidungen' },
+            ...(ra1 < 65 ? [{ id: 'fruehpensionierung', label: 'Frühpensionierung' }] : []),
+            { id: 'ahvpk', label: 'AHV & PK' },
+            { id: 'steuern', label: 'Steuern' },
+            { id: 'massnahmen', label: 'Massnahmen' },
           ] as const).map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
               style={{
                 padding: '10px 14px', fontSize: 13, fontWeight: activeTab === tab.id ? 700 : 400,
                 border: 'none', borderBottom: `3px solid ${activeTab === tab.id ? 'var(--navy-600)' : 'transparent'}`,
@@ -813,7 +803,6 @@ export default function Screen4() {
               }}
             >
               {tab.label}
-              {tab.id === 'entscheidungen' && (ahvChoice && pkChoice) && <span style={{ marginLeft: 4, color: '#22c55e' }}>✓</span>}
             </button>
           ))}
         </div>
@@ -822,437 +811,134 @@ export default function Screen4() {
         <div style={{ paddingTop: 8 }}>
 
         {/* ── Tab: Übersicht ── */}
-        {activeTab === 'ubersicht' && (<>
+        {activeTab === 'ubersicht' && (
+<div style={{ padding: '8px 0' }}>
 
-        {/* ── Summary: Vorsorgeanalyse auf einen Blick ── */}
-        <section className="block" style={{ background: verdictBg, border: `1px solid ${verdictBorder}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-            <ScoreRing score={analysis.sustainabilityScore} verdict={analysis.verdict} />
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
-                Nachhaltigkeits-Score
-                <InfoTooltip text="Score 0–100: unter 50 = kritisch, 50–70 = Handlungsbedarf, 70–85 = solide, über 85 = sehr gut" />
-              </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: verdictColor }}>{verdictLabel}</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)', marginTop: 2 }}>
-                Renten: CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. · Budget: CHF {fmtCHF(monthlyBudget)}/Mt.
-              </div>
+  {/* Central statement */}
+  <div style={{ textAlign: 'center', padding: '28px 16px 24px' }}>
+    <div style={{ fontSize: 12, color: 'var(--ink-400)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+      Ihre Vorsorgeanalyse
+    </div>
+    <div style={{
+      fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 800, lineHeight: 1.15, marginBottom: 12,
+      color: (displayAgeWhenBroke ?? 99) >= 87 ? 'var(--navy-800)' : (displayAgeWhenBroke ?? 99) >= 82 ? '#d97706' : '#dc2626',
+    }}>
+      {(displayAgeWhenBroke ?? 99) >= 99
+        ? 'Ihr Vermögen reicht bis Alter 95+'
+        : `Ihr Vermögen reicht voraussichtlich bis Alter ${displayAgeWhenBroke}`
+      }
+    </div>
+    <div style={{ fontSize: 14, color: 'var(--ink-500)', lineHeight: 1.6 }}>
+      Bei einem monatlichen Bedarf von{' '}
+      <strong style={{ color: 'var(--ink-700)' }}>CHF {fmtCHF(monthlyBudget)}</strong>{' '}
+      und Renten von{' '}
+      <strong style={{ color: 'var(--ink-700)' }}>CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt.</strong>
+    </div>
+  </div>
+
+  {/* Wealth trajectory chart with scenario band */}
+  <div style={{ marginBottom: 24 }}>
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={scenarioChartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
+        <XAxis dataKey="age" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
+        <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
+        <Tooltip
+          formatter={(v: number) => [`CHF ${fmtCHF(v)}`, '']}
+          labelFormatter={l => `Alter ${l}`}
+          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--ink-200)' }}
+        />
+        {/* Band: stacked area = pessimistic base (transparent) + shade on top */}
+        <Area type="monotone" dataKey="pessimistisch" stackId="band" fill="transparent" stroke="none" legendType="none" />
+        <Area type="monotone" dataKey="shade" stackId="band" fill="#dbeafe" stroke="none" fillOpacity={0.5} legendType="none" />
+        {/* Main neutral line */}
+        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (2.5%)" />
+        {/* Zero reference line */}
+        <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
+        {/* Depletion age */}
+        {(displayAgeWhenBroke ?? 99) < 99 && (
+          <ReferenceLine x={displayAgeWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
+            label={{ value: `Alter ${displayAgeWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+    <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
+        <div style={{ width: 24, height: 3, background: 'var(--navy-700)', borderRadius: 2 }} />
+        <span>Neutrales Szenario (2.5%)</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
+        <div style={{ width: 20, height: 12, background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 2 }} />
+        <span>Szenarien-Bandbreite</span>
+      </div>
+    </div>
+  </div>
+
+  {/* 3 KPI cards */}
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+    <div style={{ background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 6, fontWeight: 500 }}>Monatliche Einnahmen</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#15803d' }}>
+        CHF {fmtCHF(analysis.monthlyIncome.total)}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 4 }}>AHV + PK-Renten</div>
+    </div>
+    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 6, fontWeight: 500 }}>Monatlicher Bedarf</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#dc2626' }}>
+        CHF {fmtCHF(monthlyBudget)}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 4 }}>Lebenshaltungskosten</div>
+    </div>
+    <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 6, fontWeight: 500 }}>Startvermögen</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--navy-700)' }}>
+        CHF {fmtK(wdInitialWealth)}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 4 }}>bei Pensionierung Alter {ra1}</div>
+    </div>
+  </div>
+
+  {/* Gap / surplus note */}
+  {surplusAfterTax < 0 ? (
+    <div style={{ padding: '14px 18px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#92400e', lineHeight: 1.65 }}>
+      Es besteht eine monatliche Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>. Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
+    </div>
+  ) : (
+    <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#166534', lineHeight: 1.65 }}>
+      Ihre Renten übersteigen Ihren Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>.
+    </div>
+  )}
+
+  {/* CTA */}
+  <div style={{ textAlign: 'center', paddingBottom: 24 }}>
+    <button
+      onClick={() => setActiveTab('szenarien')}
+      style={{
+        padding: '12px 32px', background: 'var(--navy-700)', color: 'white',
+        border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600,
+        cursor: 'pointer', letterSpacing: '0.01em',
+      }}
+    >
+      Details erkunden →
+    </button>
+  </div>
+
+</div>
+)}
+
+        {/* ── Tab: Frühpensionierung ── */}
+        {activeTab === 'fruehpensionierung' && (<>
+
+          {ra1 >= 65 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-500)' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+              <p>Nicht relevant – Ihr Pensionierungsalter ({ra1}) entspricht dem ordentlichen AHV-Alter.</p>
             </div>
-          </div>
-
-          {/* 3 KPI cards */}
-          <div aria-live="polite" aria-atomic="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-            {/* Card 1: Monthly situation (after tax) */}
-            {(() => {
-              const surplus = surplusAfterTax
-              const cardColor = surplus >= 0 ? 'var(--green-600)' : Math.abs(surplus) <= 500 ? '#d97706' : '#dc2626'
-              const cardBg = surplus >= 0 ? '#ecfdf5' : Math.abs(surplus) <= 500 ? '#fffbeb' : '#fef2f2'
-              const cardBorder = surplus >= 0 ? '#bbf7d0' : Math.abs(surplus) <= 500 ? '#fde68a' : '#fecaca'
-              return (
-                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Monatliche Situation</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>
-                    {surplus >= 0 ? '+' : ''}CHF {fmtCHF(surplus)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
-                    {surplus >= 0 ? 'Überschuss nach Steuern' : 'Lücke nach Steuern'}
-                  </div>
-                </div>
-              )
-            })()}
-            {/* Card 2: Wealth longevity */}
-            {(() => {
-              const age = displayAgeWhenBroke ?? 99
-              const cardColor = age >= 90 ? 'var(--green-600)' : age >= 85 ? '#d97706' : '#dc2626'
-              const cardBg = age >= 90 ? '#ecfdf5' : age >= 85 ? '#fffbeb' : '#fef2f2'
-              const cardBorder = age >= 90 ? '#bbf7d0' : age >= 85 ? '#fde68a' : '#fecaca'
-              const lifeExp = p1.sex === 'm' ? 85 : 87
-              return (
-                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Vermögen reicht bis</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>
-                    {age >= 99 ? 'Alter 95+' : `Alter ${age}`}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
-                    Lebenserwartung: ~{lifeExp} Jahre
-                  </div>
-                </div>
-              )
-            })()}
-            {/* Card 3: Action level */}
-            {(() => {
-              const recs = RECS[analysis.verdict] ?? []
-              const highCount = recs.filter(r => r.priority === 'hoch').length
-              const label = analysis.verdict === 'green' ? 'Tief' : analysis.verdict === 'yellow' ? 'Mittel' : 'Hoch'
-              const cardColor = analysis.verdict === 'green' ? 'var(--green-600)' : analysis.verdict === 'yellow' ? '#d97706' : '#dc2626'
-              const cardBg = analysis.verdict === 'green' ? '#ecfdf5' : analysis.verdict === 'yellow' ? '#fffbeb' : '#fef2f2'
-              const cardBorder = analysis.verdict === 'green' ? '#bbf7d0' : analysis.verdict === 'yellow' ? '#fde68a' : '#fecaca'
-              return (
-                <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Handlungsbedarf</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: cardColor }}>{label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 3 }}>
-                    {highCount > 0 ? `${highCount} dringende Massnahme${highCount > 1 ? 'n' : ''}` : `${recs.length} Empfehlungen`}
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-
-          {/* Fix 8: Empathetic text when score < 50 */}
-          {analysis.sustainabilityScore < 50 && (
-            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, fontSize: 13.5, color: '#92400e', lineHeight: 1.7 }}>
-              <strong>Was ein tiefer Score bedeutet:</strong> Ihre Rente allein reicht nicht für Ihre Ausgaben. Das ist bei vielen Menschen so – besonders bei Teilzeitarbeit, tiefem Einkommen oder Einwanderung. <strong>Es bedeutet NICHT, dass Sie etwas falsch gemacht haben.</strong> Es gibt Möglichkeiten – zum Beispiel Ergänzungsleistungen (EL) als gesetzlicher Anspruch. Die konkreten Massnahmen finden Sie unten.
-            </div>
-          )}
-
-          {/* Was bedeutet das? */}
-          {(() => {
-            const surplus = surplusAfterTax
-            const ageOk = displayAgeWhenBroke ?? 99
-            const lifeExp = p1.sex === 'm' ? 85 : 87
-            let summaryText = ''
-            if (analysis.verdict === 'green') {
-              summaryText = `Ihre Vorsorgesituation ist solide: Mit CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. Rente decken Sie ${coveragePct}% Ihres geplanten Budgets. Ihr Vermögen reicht voraussichtlich bis Alter ${ageOk >= 99 ? '95+' : ageOk} – ${ageOk >= lifeExp ? 'deutlich über' : 'bis'} Ihre statistische Lebenserwartung (ca. ${lifeExp} Jahre). Sie haben einen monatlichen Überschuss von CHF ${fmtCHF(Math.abs(surplus))}.`
-            } else if (analysis.verdict === 'yellow') {
-              summaryText = `Ihre Vorsorge ist grundsolide, aber es gibt Optimierungspotenzial. Mit CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. Rente decken Sie ${coveragePct}% Ihres Budgets – ${surplus < 0 ? `es entsteht eine Lücke von CHF ${fmtCHF(Math.abs(surplus))}/Mt.` : `Sie haben einen knappen Überschuss von CHF ${fmtCHF(Math.abs(surplus))}/Mt.`} Ihr Vermögen reicht bis Alter ${ageOk >= 99 ? '95+' : ageOk}. Mit den unten empfohlenen Massnahmen können Sie Ihre Situation deutlich verbessern.`
-            } else {
-              summaryText = `Ihre Vorsorge weist eine bedeutende Lücke auf: Ihren Renten von CHF ${fmtCHF(analysis.monthlyIncome.total)}/Mt. stehen Ausgaben von CHF ${fmtCHF(monthlyBudget)}/Mt. gegenüber – das ergibt eine monatliche Unterdeckung von CHF ${fmtCHF(Math.abs(surplus))}. Ihr Vermögen wird voraussichtlich bis Alter ${ageOk >= 99 ? '95+' : ageOk} reichen. Handeln Sie jetzt: Die unten aufgeführten Massnahmen können Ihre Situation wesentlich verbessern.`
-            }
+          ) : (() => {
+            const compareAges = [ra1, Math.min(ra1 + 1, 64), Math.min(ra1 + 2, 64)].filter((a, i, arr) => a < 65 && arr.indexOf(a) === i)
             return (
-              <div style={{
-                margin: '0 0 16px',
-                padding: '14px 16px',
-                background: 'rgba(255,255,255,0.6)',
-                border: `1px solid ${verdictBorder}`,
-                borderRadius: 10,
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                  Was bedeutet das?
-                </div>
-                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-700)', lineHeight: 1.6 }}>{summaryText}</p>
-              </div>
-            )
-          })()}
 
-          {/* Fix 5: EL-Frühwarnung – als Rechtsanspruch framen, nicht als Almosen */}
-          {wdELCheck.eligible && (
-            <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 12 }}>
-              <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 6, fontSize: 14 }}>
-                Ihr gesetzlicher Anspruch: Ergänzungsleistungen (EL)
-              </div>
-              <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.7 }}>
-                <strong>Wussten Sie?</strong> In der Schweiz bezieht jede 5. Rentnerin Ergänzungsleistungen. EL sind <strong>kein Almosen und keine Sozialhilfe</strong>. Sie sind ein gesetzlicher Anspruch (ELG) – wie die AHV selbst. Auch eingewanderte Personen haben diesen Anspruch wenn sie die Mindestbeitragszeit erfüllen.
-              </div>
-              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 15 }}>
-                  Geschätzte EL: CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat
-                </div>
-                <div style={{ fontSize: 12, color: '#1e40af' }}>
-                  (Das entspricht mehr als einem 13. AHV-Monat pro Jahr)
-                </div>
-              </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: '#1e40af' }}>
-                EL sind dafür da, dass Ihre Rente zusammen mit den EL Ihre Lebenskosten deckt. Der Kanton berechnet Ihren individuellen Bedarf.{' '}
-                <a href="https://www.ahv-iv.ch/de/Sozialversicherungen/Ergaenzungsleistungen-EL" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 600 }}>Mehr erfahren →</a>
-              </div>
-              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ink-500)' }}>
-                Details unter «Entnahmeplanung». Tatsächliche Berechnung durch Ihre AHV-Zweigstelle.
-              </div>
-            </div>
-          )}
-
-          {/* Fix 7: AHV-Kinderrente für Kind in Ausbildung */}
-          {p1.hasChildInTraining && ahvMonthly1 > 0 && (() => {
-            const kinderrente = Math.min(Math.round(ahvMonthly1 * 0.4), 1008)
-            return (
-              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: 12 }}>
-                <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 6, fontSize: 14 }}>
-                  AHV-Kinderrente für Kind in Ausbildung
-                </div>
-                <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.7 }}>
-                  Da Sie ein Kind zwischen 18 und 25 in Ausbildung haben, haben Sie Anspruch auf eine <strong>AHV-Kinderrente</strong>. Diese beträgt 40% Ihrer AHV-Rente und wird zusätzlich ausbezahlt – solange das Kind in Ausbildung ist.
-                </div>
-                <div style={{ marginTop: 8, fontWeight: 700, color: '#15803d', fontSize: 15 }}>
-                  AHV-Kinderrente für Kind in Ausbildung: ca. CHF {fmtCHF(kinderrente)}/Monat
-                </div>
-                <div style={{ marginTop: 6, fontSize: 12, color: '#166534' }}>
-                  Diese Zahlung ist zeitlich begrenzt (bis Kind 25 oder Ende der Ausbildung). Beantragen Sie sie bei Ihrer AHV-Zweigstelle nach der Pensionierung.
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Vorbezug-Warnung für vulnerable Personen */}
-          {(() => {
-            const isVulnerable = !property.has && (freeAssets || 0) < 100000
-            const hasVorbezug = p1.ahvBezugAge < 65
-            if (!isVulnerable || !hasVorbezug) return null
-            const bezugFactor = AHV_BEZUG_FAKTOREN_2025[p1.ahvBezugAge as keyof typeof AHV_BEZUG_FAKTOREN_2025] ?? 1.0
-            const standardMonthly = bezugFactor > 0 ? Math.round(ahvMonthly1 / bezugFactor) : ahvMonthly1
-            const monthlyLoss = standardMonthly - ahvMonthly1
-            const totalLoss20y = monthlyLoss * 12 * 20
-            const vorbezugYears = 65 - p1.ahvBezugAge
-            return (
-              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#fef2f2', border: '2px solid #fecaca', borderRadius: 12 }}>
-                <div style={{ fontWeight: 600, color: '#991b1b', marginBottom: 6, fontSize: 13 }}>
-                  ⚠ Achtung: Vorbezug bei knappem Vermögen
-                </div>
-                <div style={{ fontSize: 12.5, color: '#7f1d1d', lineHeight: 1.65 }}>
-                  Bei Ihrer Vermögenssituation (kein Wohneigentum, Vermögen unter CHF 100'000) bedeutet der AHV-Vorbezug um {vorbezugYears} {vorbezugYears === 1 ? 'Jahr' : 'Jahre'} eine lebenslange Kürzung von CHF {fmtCHF(monthlyLoss)}/Monat ohne finanzielles Polster. Bei einer Lebenserwartung von 87 Jahren verlieren Sie insgesamt ca. CHF {fmtCHF(totalLoss20y)}. Erwägen Sie, ob {vorbezugYears === 1 ? 'ein weiteres Jahr' : `${vorbezugYears} weitere Jahre`} Erwerbstätigkeit diese Lücke nicht deutlich reduzieren könnte.
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Fix 8: Rechte-basierte Empfehlungen für vulnerable Personen */}
-          {(() => {
-            const isVulnerable = Math.abs(Math.min(0, analysis.surplus)) > 1000 && (freeAssets || 0) < 100000
-            if (!isVulnerable) return null
-            const isGeschieden = civilStatus === 'geschieden'
-            return (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Zuerst: Ihre Rechte prüfen
-                </div>
-                {[
-                  { text: 'Prüfen Sie Ihren Anspruch auf Ergänzungsleistungen (EL) – Details weiter unten.', border: '#bae6fd', bg: '#eff6ff' },
-                  ...(isGeschieden ? [{ text: 'Prüfen Sie, ob AHV-Einkommenssplitting und Erziehungsgutschriften korrekt im IK-Auszug verbucht sind.', border: '#bae6fd', bg: '#eff6ff' }] : []),
-                  { text: 'Erwägen Sie eine Weiterarbeit bis 65 statt Vorbezug – vermeidet 6.8% AHV-Kürzung pro Vorbezugsjahr (lebenslang).', border: '#fde68a', bg: '#fffbeb' },
-                ].map((r, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', marginBottom: 6, background: r.bg, borderRadius: 10, border: `1px solid ${r.border}` }}>
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, color: 'var(--ink-800)', lineHeight: 1.5 }}>{r.text}</span>
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
-
-          {/* Top-3 recommendations – prominent */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {(() => {
-                const isVulnerable = Math.abs(Math.min(0, analysis.surplus)) > 1000 && (freeAssets || 0) < 100000
-                return isVulnerable ? 'Weitere Massnahmen' : 'Ihre Top-3 Massnahmen'
-              })()}
-            </div>
-            {(() => {
-              const isSE = p1.employmentStatus === 'selfEmployed'
-              const noPK = !p1.hasPK
-              const pkKeywords = ['PK-Einkauf', 'Pensionskasse', 'Einkäufe in die Pensionskasse']
-              const isLowIncome = (p1.income || 0) < 60000 && (freeAssets || 0) < 50000 && !p1.has3a
-              let recs = (RECS[analysis.verdict] ?? []).filter(r =>
-                !(isSE && noPK && pkKeywords.some(k => r.text.includes(k))) &&
-                !(isLowIncome && (r.text.includes('PK-Einkauf') || r.text.includes('Säule-3a') || r.text.includes('3a-Gelder') || r.text.includes('Kapitalbezug')))
-              )
-              // Fix 6: Tiefes Einkommen / wenig Vermögen → realistische Empfehlungen
-              if (isLowIncome) {
-                const lowIncomeRecs: typeof recs = [
-                  { text: 'Prüfen Sie Ihren EL-Anspruch nach der Pensionierung – das ist Ihr gesetzliches Recht (ELG).', priority: 'hoch' as const, detail: 'Ergänzungsleistungen sind kein Almosen. Jede 5. Rentnerin in der Schweiz bezieht EL. Kontaktieren Sie Ihre Gemeinde oder die kantonale AHV-Zweigstelle.' },
-                  { text: 'Bestellen Sie Ihren IK-Auszug und prüfen Sie ob alle Beitragsjahre korrekt verbucht sind.', priority: 'hoch' as const, detail: 'Fehlende oder falsch verbuchte Beitragsjahre können lebenslang Rente kosten. Der IK-Auszug ist kostenlos unter www.ahv-iv.ch.' },
-                  { text: 'Prüfen Sie ob Erziehungsgutschriften für Ihre Kinder korrekt angerechnet sind.', priority: 'mittel' as const, detail: 'Für jedes Jahr mit Kindern unter 16 werden CHF 44\'100 zum Durchschnittseinkommen addiert – das erhöht Ihre AHV-Rente.' },
-                  { text: 'Bis 65 arbeiten statt Vorbezug: Vermeidet lebenslange AHV-Kürzung von 6.8% pro Jahr.', priority: 'mittel' as const, detail: 'Bei tiefem Einkommen ist die AHV-Rente besonders wichtig. Jeder Vorbezugsjahr kostet 6.8% lebenslang.' },
-                  { text: 'Informieren Sie sich über die Prämienverbilligung nach der Pensionierung (oft höher als heute).', priority: 'mittel' as const, detail: 'Bei tiefem Renteneinkommen steigt der Anspruch auf kantonale Prämienverbilligung (IPV). Erkundigen Sie sich bei Ihrer Wohngemeinde.' },
-                ]
-                recs = [...lowIncomeRecs, ...recs].slice(0, 3)
-              }
-              // Selbständige ohne PK bekommen spezifische Empfehlungen
-              if (isSE && noPK) {
-                const age1val = currentAge1
-                const hasProperty1 = property.has
-                const seRecs: typeof recs = [
-                  ...(age1val < 58 ? [{ text: 'Prüfen Sie den freiwilligen Beitritt zur BVG-Auffangeinrichtung (sinnvoll bis ca. Alter 58).', priority: 'hoch' as const, detail: '' }] : []),
-                  { text: 'Planen Sie die Nachfolge / den Verkauf Ihres Betriebs als Alterskapital.', priority: 'hoch' as const, detail: '' },
-                  { text: 'Erwägen Sie eine Reduktion der Arbeitszeit statt vollständiger Aufgabe (Teilpensionierung).', priority: 'mittel' as const, detail: '' },
-                  ...(hasProperty1 ? [{ text: 'Prüfen Sie die Umkehrhypothek als Liquiditätsquelle im Alter.', priority: 'mittel' as const, detail: '' }] : []),
-                  { text: 'AHV-Aufschub prüfen: 1 Jahr länger arbeiten = 5.2% höhere Rente lebenslang.', priority: 'mittel' as const, detail: '' },
-                ]
-                recs = [...seRecs, ...recs].slice(0, 3)
-              }
-              return recs.slice(0, 3).map((rec, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  padding: '12px 14px', marginBottom: 8,
-                  background: 'rgba(255,255,255,0.7)', borderRadius: 10,
-                  border: `1px solid ${rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'}`,
-                }}>
-                  <span style={{
-                    flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
-                    background: rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : 'var(--green-600)',
-                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
-                  }}>{i + 1}</span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: i === 0 ? 500 : 400 }}>{rec.text}</span>
-                    <div style={{ fontSize: 11, color: 'var(--ink-400)', fontStyle: 'italic', marginTop: 4 }}>ℹ️ Orientierungshilfe – keine persönliche Empfehlung.</div>
-                  </div>
-                </div>
-              ))
-            })()}
-          </div>
-
-          {/* Fix 10: IPV hint for low retirement income */}
-          {(() => {
-            const isPaar = hasPartner
-            const annualIncome = analysis.monthlyIncome.total * 12
-            const threshold = isPaar ? 80000 : 50000
-            if (annualIncome >= threshold) return null
-            return (
-              <div style={{ marginBottom: 16, padding: '14px 16px', background: '#f0f9ff', border: '1px solid #7dd3fc', borderRadius: 12 }}>
-                <div style={{ fontWeight: 700, color: '#0369a1', marginBottom: 6, fontSize: 14 }}>
-                  Prämienverbilligung (IPV) nach der Pensionierung
-                </div>
-                <div style={{ fontSize: 13, color: '#075985', lineHeight: 1.7 }}>
-                  Bei einem Renteneinkommen unter {isPaar ? 'CHF 80\'000' : 'CHF 50\'000'}/Jahr (Ihr geschätztes Einkommen: CHF {fmtCHF(annualIncome)}/Jahr) haben Sie nach der Pensionierung in den meisten Kantonen <strong>Anspruch auf deutlich höhere Prämienverbilligung</strong> als heute. In vielen Fällen übernimmt der Kanton 50–100% der Krankenkassenprämie.
-                </div>
-                <div style={{ marginTop: 8, fontSize: 12, color: '#0369a1' }}>
-                  Beantragen Sie die IPV bei Ihrer Wohngemeinde nach der Pensionierung – sie wird nicht automatisch ausbezahlt.
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Phasenplan gestaffelte Pensionierung */}
-          {hasPartner && p2 && (() => {
-            const ra2 = p2.retireAge || p2.retirementAge || 65
-            const name1 = person1.name || 'Person 1'
-            const name2 = person2.name || 'Person 2'
-            const ahvMonthly2 = analysis.ahv.person2?.monthlyRente ?? 0
-            const pkMonthly1 = p1.hasPK ? Math.round((p1.pkCapital || 0) * ((p1.pkRate || 5.4) / 100) / 12) : 0
-            const pkMonthly2 = p2.hasPK ? Math.round((p2.pkCapital || 0) * ((p2.pkRate || 5.4) / 100) / 12) : 0
-
-            if (ra1 === ra2) {
-              // Same retire age — show simple joint phase
-              return (
-                <section className="block" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', marginBottom: 0 }}>
-                  <div className="block-head">
-                    <h2 className="block-title" style={{ color: '#15803d' }}>
-                      <span className="block-num" style={{ background: '#16a34a', color: '#fff' }}>P</span>
-                      Phasenplan Ihres Haushalts
-                    </h2>
-                  </div>
-                  <div style={{ padding: '12px 14px', background: 'white', borderRadius: 10, fontSize: 13 }}>
-                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 6 }}>Beide pensioniert gleichzeitig (Alter {ra1})</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
-                      <div>AHV (plafoniert): <strong>CHF {fmtCHF(ahvMonthly1 + ahvMonthly2 - analysis.ahv.plafonReduction)}/Mt.</strong></div>
-                      <div>PK-Renten: <strong>CHF {fmtCHF(pkMonthly1 + pkMonthly2)}/Mt.</strong></div>
-                      <div>Haushaltseinkommen: <strong>CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt.</strong></div>
-                      <div>Haushaltsausgaben: <strong>CHF {fmtCHF(monthlyBudget)}/Mt.</strong></div>
-                      <div style={{ color: surplusAfterTax >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                        Differenz (n. St.): {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt.
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )
-            }
-
-            // Staggered retirement
-            const firstRetires = ra1 < ra2 ? { name: name1, ra: ra1, pkMonthly: pkMonthly1, ahvMonthly: ahvMonthly1, income: 0 } : { name: name2, ra: ra2, pkMonthly: pkMonthly2, ahvMonthly: ahvMonthly2, income: 0 }
-            const stillWorking = ra1 < ra2 ? { name: name2, ra: ra2, income: p2.income || 0 } : { name: name1, ra: ra1, income: p1.income || 0 }
-            const gapYears = Math.abs(ra1 - ra2)
-            const currentYear = new Date().getFullYear()
-            const birthYear1 = person1.dob ? (parseInt(person1.dob.split('.').pop() || '0') || parseInt(person1.dob.split('-')[0])) : 0
-            const retireYear1 = birthYear1 > 0 ? birthYear1 + ra1 : currentYear + (ra1 - currentAge1)
-            const retireYear2Start = retireYear1 + gapYears
-
-            // AHV in Phase 1: only first person draws (if bezugAge <= ra1), otherwise no AHV yet
-            const phase1Ahv = ra1 <= ((p1 as any).ahvBezugAge ?? 65) && ra1 < ra2 ? ahvMonthly1 : (ra2 <= ((p2 as any)?.ahvBezugAge ?? 65) && ra2 < ra1 ? ahvMonthly2 : 0)
-            const phase1Income = firstRetires.pkMonthly + phase1Ahv + stillWorking.income
-            const phase1Surplus = phase1Income - monthlyBudget
-
-            // AHV Phase 2 befreiung: if stillWorking has income * 0.053 >= 1060
-            const stilWorkingAhvBeitrag = stillWorking.income * 0.053
-            const ahvBefreit = stilWorkingAhvBeitrag >= 1060
-
-            // Phase 2: both retired
-            const plafoniert = ahvMonthly1 + ahvMonthly2 - analysis.ahv.plafonReduction
-            const phase2Income = plafoniert + pkMonthly1 + pkMonthly2
-            const phase2Surplus = phase2Income - monthlyBudget
-
-            return (
-              <section className="block" style={{ border: '2px solid #bae6fd', background: '#f0f9ff', marginBottom: 0 }}>
-                <div className="block-head">
-                  <h2 className="block-title" style={{ color: '#0369a1' }}>
-                    <span className="block-num" style={{ background: '#0ea5e9', color: '#fff' }}>P</span>
-                    Phasenplan Ihres Haushalts
-                  </h2>
-                  <span className="block-hint">Gestaffelte Pensionierung</span>
-                </div>
-
-                <div style={{ display: 'grid', gap: 12 }}>
-                  {/* Phase 1 */}
-                  <div style={{ padding: '14px 16px', background: 'white', border: '1px solid #bae6fd', borderRadius: 10 }}>
-                    <div style={{ fontWeight: 700, color: '#0369a1', fontSize: 13.5, marginBottom: 10 }}>
-                      Phase 1: {firstRetires.name} pensioniert · {stillWorking.name} arbeitet noch ({gapYears} {gapYears === 1 ? 'Jahr' : 'Jahre'})
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 8 }}>
-                      Ca. {retireYear1}–{retireYear2Start}
-                    </div>
-                    <div style={{ display: 'grid', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
-                      <div>PK-Rente {firstRetires.name}: <strong>CHF {fmtCHF(firstRetires.pkMonthly)}/Mt.</strong></div>
-                      <div>Lohn {stillWorking.name}: <strong>CHF {fmtCHF(stillWorking.income)}/Mt.</strong></div>
-                      <div>AHV {firstRetires.name}: <strong>{phase1Ahv > 0 ? `CHF ${fmtCHF(phase1Ahv)}/Mt.` : 'noch kein Bezug'}</strong></div>
-                      <div style={{ fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 4, marginTop: 4 }}>
-                        Haushaltseinkommen: CHF {fmtCHF(phase1Income)}/Mt.
-                      </div>
-                      <div>Haushaltsausgaben: CHF {fmtCHF(monthlyBudget)}/Mt.</div>
-                      <div style={{ color: phase1Surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                        Differenz: {phase1Surplus >= 0 ? '+' : ''}CHF {fmtCHF(phase1Surplus)}/Mt.
-                      </div>
-                    </div>
-                    <div style={{ marginTop: 8, padding: '6px 10px', background: '#f0f9ff', borderRadius: 7, fontSize: 11.5, color: '#0369a1' }}>
-                      AHV-Plafonierung: <strong>noch nicht aktiv</strong> – erst wenn beide AHV beziehen
-                    </div>
-                    {ahvBefreit && (
-                      <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534', lineHeight: 1.55 }}>
-                        <strong>Gute Nachricht:</strong> Da {stillWorking.name} erwerbstätig ist und AHV-Beiträge von ca. CHF {fmtCHF(Math.round(stilWorkingAhvBeitrag))} zahlt (über dem Minimum CHF 1'060), ist {firstRetires.name} als nichterwerbstätige/r Ehepartner/in von den AHV-Nichterwerbstätigen-Beiträgen befreit.
-                      </div>
-                    )}
-                    {!ahvBefreit && stillWorking.income > 0 && (
-                      <div style={{ marginTop: 6, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
-                        AHV-Nichterwerbstätigen-Beiträge für {firstRetires.name}: ca. CHF {fmtCHF(Math.round(((firstRetires.pkMonthly * 12 + (firstRetires.ahvMonthly * 12)) / 2) * 0.05))}/Jahr (Mindestbeitrag CHF 530/Jahr)
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Phase 2 */}
-                  <div style={{ padding: '14px 16px', background: 'white', border: '1px solid #bbf7d0', borderRadius: 10 }}>
-                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: 13.5, marginBottom: 10 }}>
-                      Phase 2: Beide pensioniert (ab {retireYear2Start})
-                    </div>
-                    <div style={{ display: 'grid', gap: 4, fontSize: 12.5, color: 'var(--ink-600)' }}>
-                      <div>AHV {name1}: <strong>CHF {fmtCHF(ahvMonthly1)}/Mt.</strong></div>
-                      <div>AHV {name2}: <strong>CHF {fmtCHF(ahvMonthly2)}/Mt.</strong></div>
-                      {analysis.ahv.plafonReduction > 0 && (
-                        <div style={{ color: '#d97706' }}>Plafonierung aktiv: −CHF {fmtCHF(analysis.ahv.plafonReduction)}/Mt. (max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)})</div>
-                      )}
-                      <div>PK-Renten: <strong>CHF {fmtCHF(pkMonthly1 + pkMonthly2)}/Mt.</strong></div>
-                      <div style={{ fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 4, marginTop: 4 }}>
-                        Haushaltseinkommen: CHF {fmtCHF(phase2Income)}/Mt.
-                      </div>
-                      <div>Haushaltsausgaben: CHF {fmtCHF(monthlyBudget)}/Mt.</div>
-                      <div style={{ color: phase2Surplus >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                        Differenz: {phase2Surplus >= 0 ? '+' : ''}CHF {fmtCHF(phase2Surplus)}/Mt.
-                      </div>
-                    </div>
-                    <div style={{ marginTop: 8, padding: '6px 10px', background: '#f0fdf4', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
-                      AHV-Plafonierung: <strong>aktiv</strong> – max. CHF {fmtCHF(AHV_2026.PLAFOND_MONTHLY)}/Mt. für beide zusammen
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )
-          })()}
-
-        </section>
-
-        {/* Hypothek-Tragbarkeit nach Pensionierung */}
-
-        {/* Frühpensionierungs-Überbrückungsanalyse */}
-        {ra1 < 65 && (() => {
-          const compareAges = [ra1, Math.min(ra1 + 1, 64), Math.min(ra1 + 2, 64)].filter((a, i, arr) => a < 65 && arr.indexOf(a) === i)
-          return (
             <section className="block" style={{ border: '2px solid #fde68a', background: '#fffbeb' }}>
               <div className="block-head">
                 <h2 className="block-title" style={{ color: '#92400e' }}>
@@ -1991,333 +1677,10 @@ export default function Screen4() {
                 )}
               </div>
             </section>
-          )
-        })()}
+            )
+          })()}
 
-        {/* Income pillars */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">A</span>Renteneinnahmen im Überblick</h2>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-            {[
-              {
-                label: 'AHV (1. Säule)', icon: '🏛️',
-                monthly: Math.round(analysis.ahv.combinedYearlyInkl13 / 12),
-                sub: `inkl. 13. AHV-Rente · CHF ${fmtCHF(analysis.ahv.combinedYearlyInkl13)}/Jahr`,
-              },
-              {
-                label: 'Pensionskasse (2. Säule)', icon: '🏦',
-                monthly: displayPkMonthly,
-                sub: `CHF ${fmtCHF(displayPkMonthly * 12)}/Jahr`,
-              },
-              {
-                label: 'Total Renten', icon: '💰',
-                monthly: analysis.monthlyIncome.total,
-                sub: `CHF ${fmtCHF(analysis.monthlyIncome.total * 12)}/Jahr`,
-                highlight: true,
-              },
-            ].map((card) => (
-              <div key={card.label} style={{
-                padding: '16px 18px',
-                background: card.highlight ? 'var(--navy-800)' : 'var(--navy-50)',
-                border: `1px solid ${card.highlight ? 'var(--navy-700)' : 'var(--navy-100)'}`,
-                borderRadius: 12,
-              }}>
-                <div style={{ fontSize: 13, color: card.highlight ? 'rgba(255,255,255,.6)' : 'var(--ink-500)', marginBottom: 2 }}>
-                  {card.icon} {card.label}
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: card.highlight ? 'white' : 'var(--navy-800)' }}>
-                  CHF {fmtCHF(card.monthly)}/Mt.
-                </div>
-                <div style={{ fontSize: 11, color: card.highlight ? 'rgba(255,255,255,.5)' : 'var(--ink-400)', marginTop: 2 }}>
-                  {card.sub}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px',
-            background: surplusAfterTax >= 0 ? 'var(--green-50)' : '#fef2f2',
-            border: `1px solid ${surplusAfterTax >= 0 ? 'var(--green-200)' : '#fecaca'}`,
-            borderRadius: 12,
-          }}>
-            <div style={{ fontSize: 22 }}>{surplusAfterTax >= 0 ? '✓' : '⚠'}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{
-                fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
-                color: surplusAfterTax >= 0 ? 'var(--green-600)' : 'var(--red-500)', marginBottom: 2,
-              }}>
-                {surplusAfterTax >= 0 ? 'Überschuss nach Steuern' : 'Lücke nach Steuern'}: {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(Math.abs(surplusAfterTax))}/Monat
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
-                Renten CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. − Steuern ~CHF {fmtCHF(retirementTax1.monthlyTax)}/Mt. − Budget CHF {fmtCHF(monthlyBudget)}/Mt.
-                {' = '}{surplusAfterTax >= 0 ? 'Überschuss' : 'Lücke'} CHF {fmtCHF(Math.abs(surplusAfterTax))}/Mt.
-              </div>
-              {surplusAfterTax < 0 && wdInitialWealth > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink-600)', background: 'rgba(255,255,255,0.5)', borderRadius: 6, padding: '6px 10px' }}>
-                  Diese Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}/Mt.</strong> wird aus Ihrem Vermögen von <strong>CHF {fmtCHF(wdInitialWealth)}</strong> finanziert. Bei neutralen Annahmen reicht Ihr Vermögen bis <strong>Alter {displayAgeWhenBroke ?? 95}+</strong>.
-                </div>
-              )}
-              {surplusAfterTax >= 0 && wdInitialWealth > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12.5, color: '#166534', background: 'rgba(255,255,255,0.5)', borderRadius: 6, padding: '6px 10px' }}>
-                  Zusätzlich steht ein Vermögen von <strong>CHF {fmtCHF(wdInitialWealth)}</strong> für unerwartete Ausgaben oder Erbschaft zur Verfügung.
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Wealth breakdown section */}
-        {wdInitialWealth > 0 && (
-          <section className="block">
-            <div className="block-head">
-              <h2 className="block-title"><span className="block-num">V</span>Vermögen bei Pensionierung (Alter {ra1})</h2>
-              <span className="block-hint">Projected values at retirement</span>
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              {[
-                { label: '🏦 Sparkonto / Bargeld (proj.)', value: wealthBreakdown.sparkontoProj, show: (sparkonto || 0) > 0 },
-                { label: '📈 Wertschriften (proj.)', value: wealthBreakdown.wertProj, show: (wertschriften || 0) > 0 },
-                { label: '🔐 Säule 3a (proj.)', value: wealthBreakdown.p3a, show: wealthBreakdown.p3a > 0 },
-                { label: '🏢 PK-Kapital (netto)', value: wealthBreakdown.pkCap, show: wealthBreakdown.pkCap > 0 },
-                { label: '📋 Freizügigkeit (proj.)', value: wealthBreakdown.fzCap, show: wealthBreakdown.fzCap > 0 },
-                { label: '🏠 Immobilien-Eigenkapital', value: wealthBreakdown.propEquity, show: wealthBreakdown.propEquity > 0 },
-                { label: '💰 Kumulierte Sparrate (gesch.)', value: wealthBreakdown.accSavings, show: wealthBreakdown.accSavings > 0 },
-              ].filter(r => r.show).map((row, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 13 }}>
-                  <span style={{ color: 'var(--ink-600)' }}>{row.label}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--navy-800)' }}>CHF {fmtCHF(row.value)}</span>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--navy-800)', borderRadius: 10, fontSize: 14 }}>
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>💼 Gesamtvermögen bei Pension</span>
-                <span style={{ fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)', fontSize: 18 }}>CHF {fmtCHF(wdInitialWealth)}</span>
-              </div>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-400)' }}>
-              Gesamtvermögen basiert auf der Cashflow-Projektion inkl. angesammelter Sparrate. Einzelwerte sind Schätzwerte.
-            </div>
-          </section>
-        )}
-
-        {/* Geplante Grossausgaben */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">G</span>Geplante Grossausgaben</h2>
-            <span className="block-hint">Wirken sich auf Vermögensverlauf und «Reicht bis» aus</span>
-          </div>
-
-          {/* Quick-select presets */}
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-500)', marginBottom: 8 }}>Schnellauswahl:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {[
-                { icon: '🚗', label: 'Autokauf', amount: 40000 },
-                { icon: '✈️', label: 'Weltreise', amount: 30000 },
-                { icon: '🏠', label: 'Renovation', amount: 50000 },
-                { icon: '🎓', label: 'Ausbildung Kinder', amount: 20000 },
-                { icon: '🎁', label: 'Schenkung', amount: 50000 },
-              ].map(preset => (
-                <button key={preset.label} onClick={() => addQuickEvent(`${preset.icon} ${preset.label}`, preset.amount)} style={{
-                  padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--ink-200)', background: 'white',
-                  cursor: 'pointer', fontSize: 12.5, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <span>{preset.icon}</span>
-                  <span>{preset.label}</span>
-                  <span style={{ color: 'var(--ink-400)', fontSize: 11 }}>CHF {fmtCHF(preset.amount)}</span>
-                </button>
-              ))}
-              <button onClick={() => setShowAddGrossausgabe(v => !v)} style={{
-                padding: '7px 12px', borderRadius: 8, border: '1.5px dashed var(--ink-300)', background: 'var(--ink-50)',
-                cursor: 'pointer', fontSize: 12.5, color: 'var(--ink-600)',
-              }}>
-                + Individuell
-              </button>
-            </div>
-          </div>
-
-          {/* Custom event form */}
-          {showAddGrossausgabe && (
-            <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Neue Grossausgabe</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Bezeichnung</label>
-                  <input className="input" type="text" placeholder="z.B. Neues Auto" value={newEvtLabel}
-                    onChange={e => setNewEvtLabel(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Betrag (CHF)</label>
-                  <input className="input" type="number" min={0} step={1000} value={newEvtAmount || ''}
-                    onChange={e => setNewEvtAmount(Number(e.target.value))} placeholder="50000" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Jahr</label>
-                  <input className="input" type="number" min={new Date().getFullYear()} max={2090}
-                    value={newEvtYear} onChange={e => setNewEvtYear(Number(e.target.value))} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => {
-                  if (newEvtAmount > 0) {
-                    addLifeEvent({ id: Math.random().toString(36).slice(2, 10), category: 'sonstiges', year: newEvtYear, amount: newEvtAmount, art: 'ausgabe', duration: 1, enabled: true, details: { customLabel: newEvtLabel || 'Grossausgabe' } })
-                    setNewEvtLabel(''); setNewEvtAmount(0); setShowAddGrossausgabe(false)
-                  }
-                }} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--navy-700)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  Hinzufügen
-                </button>
-                <button onClick={() => setShowAddGrossausgabe(false)} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--ink-200)', cursor: 'pointer', fontSize: 13, color: 'var(--ink-600)' }}>
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Existing life events list */}
-          {lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0 ? (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
-                const cfg = CATEGORY_CONFIG[evt.category]
-                const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
-                const evtAge = evt.year - birthYear
-                return (
-                  <div key={evt.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 10 }}>
-                    <span style={{ fontSize: 20, flexShrink: 0 }}>{cfg.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)' }}>{evt.details.customLabel || cfg.label}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--ink-500)' }}>{evt.year} (Alter {evtAge}) · {evt.art === 'einnahme' ? '+' : '−'}CHF {fmtCHF(evt.art === 'laufend' ? evt.amount * Math.max(1, evt.duration) : evt.amount)}</div>
-                    </div>
-                    <button onClick={() => removeLifeEvent(evt.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-400)', fontSize: 16, padding: '2px 6px', borderRadius: 6 }}>×</button>
-                  </div>
-                )
-              })}
-              {hasEnabledEvents && (
-                <div style={{ padding: '10px 14px', background: eventsImpact.netImpact < 0 ? '#fffbeb' : '#ecfdf5', border: `1px solid ${eventsImpact.netImpact < 0 ? '#fde68a' : '#bbf7d0'}`, borderRadius: 8, fontSize: 12.5 }}>
-                  <strong>Gesamtauswirkung:</strong> {eventsImpact.netImpact < 0 ? '−' : '+'}CHF {fmtCHF(Math.abs(eventsImpact.netImpact))} auf das Vermögen ·{' '}
-                  «Reicht bis» ändert sich um {displayAgeWhenBroke !== null && analysis.ageWhenBroke !== null ? `${displayAgeWhenBroke - (analysis.ageWhenBroke ?? displayAgeWhenBroke)} Jahre` : '—'}.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ padding: '14px 16px', background: 'var(--ink-50)', border: '1px solid var(--ink-100)', borderRadius: 10, fontSize: 13, color: 'var(--ink-500)', textAlign: 'center' }}>
-              Keine Grossausgaben geplant. Nutzen Sie die Schnellauswahl oben, um Ausgaben hinzuzufügen.
-            </div>
-          )}
-        </section>
-
-        {/* Wealth chart */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">B</span>Vermögensverlauf bis Alter 95</h2>
-            <span className="block-hint">
-              {hasEnabledEvents
-                ? `1.5% Inflation · 2.5% Rendite · ${lifeEvents.filter(e => e.enabled && e.amount > 0).length} Lebensereignis(se) eingerechnet`
-                : 'Neutrale Annahmen: 1.5% Inflation, 2.5% Rendite'}
-            </span>
-          </div>
-
-          {hasEnabledEvents && (
-            <div style={{
-              display: 'flex', gap: 12, marginBottom: 14, padding: '10px 14px',
-              background: eventsImpact.netImpact < 0 ? '#fffbeb' : '#ecfdf5',
-              border: `1px solid ${eventsImpact.netImpact < 0 ? '#fde68a' : '#bbf7d0'}`,
-              borderRadius: 8, flexWrap: 'wrap',
-            }}>
-              <div style={{ fontSize: 12.5, color: 'var(--ink-700)', flex: 1, minWidth: 200 }}>
-                <strong>Lebensereignisse eingerechnet:</strong>{' '}
-                CHF {fmtCHF(eventsImpact.totalOutflow)} Sonderausgaben
-                {eventsImpact.totalInflow > 0 && ` · CHF ${fmtCHF(eventsImpact.totalInflow)} Zuflüsse`}
-                {eventsImpact.beforeRetirement > 0 && ` · CHF ${fmtCHF(eventsImpact.beforeRetirement)} vor Pensionierung`}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <svg width="20" height="3"><line x1={0} y1={1.5} x2={20} y2={1.5} stroke="#1a2b4a" strokeWidth={2.5}/></svg>
-                  Mit Ereignissen
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <svg width="20" height="3"><line x1={0} y1={1.5} x2={20} y2={1.5} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3"/></svg>
-                  Ohne Ereignisse
-                </span>
-              </div>
-            </div>
-          )}
-
-          {chartData.length > 0 ? (
-            <div role="img" aria-label="Flächendiagramm: Vermögensentwicklung im Ruhestand. Zeigt das Gesamtvermögen von der Pensionierung bis zum prognostizierten Aufbrauch-Alter, inklusive monatlicher Renteneinnahmen und Ausgaben.">
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="wealthGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a2b4a" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#1a2b4a" stopOpacity={0.01} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
-                <XAxis dataKey="age" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
-                <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} width={60} />
-                <Tooltip
-                  formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name === 'vermoegen' ? 'Vermögen' : name === 'einnahmen' ? 'Renteneinnahmen/Mt.' : 'Ausgaben/Mt.']}
-                  labelFormatter={(l) => `Alter ${l}`}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--ink-200)' }}
-                />
-                {!hasEnabledEvents && analysis.ageWhenBroke && (
-                  <ReferenceLine x={analysis.ageWhenBroke} stroke="#ef4444" strokeDasharray="4 4"
-                    label={{ value: 'Vermögen aufgebraucht', fill: '#ef4444', fontSize: 10, position: 'top' }} />
-                )}
-                {hasEnabledEvents && ageWhenBrokeWithEvents && (
-                  <ReferenceLine x={ageWhenBrokeWithEvents} stroke="#ef4444" strokeDasharray="4 4"
-                    label={{ value: 'Mit Ereignissen', fill: '#ef4444', fontSize: 9, position: 'top' }} />
-                )}
-                {/* Life event markers */}
-                {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
-                  const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
-                  const evtAge = evt.year - birthYear
-                  if (evtAge > 95 || evtAge < ra1) return null
-                  const cfg = CATEGORY_CONFIG[evt.category]
-                  const color = evt.art === 'einnahme' ? '#16a34a' : '#f59e0b'
-                  const totalAmt = evt.art === 'laufend' ? evt.amount * Math.max(1, evt.duration) : evt.amount
-                  return (
-                    <ReferenceLine key={evt.id} x={evtAge} stroke={color} strokeDasharray="3 3" strokeWidth={1.5}
-                      label={{ value: `${cfg.icon} ${fmtK(totalAmt)}`, fill: color, fontSize: 10, position: 'insideTopRight' }} />
-                  )
-                })}
-                <Area type="monotone" dataKey="vermoegen" stroke="#1a2b4a" strokeWidth={2.5}
-                  fill="url(#wealthGrad)" name={hasEnabledEvents ? 'Mit Ereignissen' : 'vermoegen'} />
-                {hasEnabledEvents && (
-                  <Line type="monotone" dataKey="vermoegenBase" stroke="#94a3b8" strokeWidth={1.5}
-                    strokeDasharray="5 5" dot={false} name="Ohne Ereignisse" />
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-            </div>
-          ) : (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-400)', fontSize: 14 }}>
-              Bitte geben Sie Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
-            </div>
-          )}
-        </section>
-
-        {/* EL Check for Übersicht */}
-        {wdELCheck.eligible && (
-          <div style={{ marginBottom: 16, padding: '14px 16px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: 12 }}>
-            <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 6, fontSize: 14 }}>Ihr gesetzlicher Anspruch: Ergänzungsleistungen (EL)</div>
-            <div style={{ fontSize: 13, color: '#1e3a5f', lineHeight: 1.7 }}>
-              EL sind <strong>kein Almosen</strong> – sie sind ein gesetzlicher Anspruch (ELG). Geschätzte EL: <strong>CHF {fmtCHF(wdELCheck.estimatedMonthlyEL)}/Monat</strong>. Details im Tab «Szenarien».
-            </div>
-          </div>
-        )}
-
-        {/* Langlebigkeitsrisiko hint */}
-        {wdRealistDepletionAge !== null && wdRealistDepletionAge < 88 && (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, fontSize: 13, color: '#92400e' }}>
-            <strong>Langlebigkeitsrisiko:</strong> Im realistischen Szenario reicht Ihr Vermögen bis Alter {wdRealistDepletionAge}. Detaillierte Szenarien im Tab «Szenarien».
-          </div>
-        )}
-
-        </>)} {/* end Übersicht tab */}
+        </>)} {/* end Frühpensionierung tab */}
 
         {/* ── Tab: Szenarien ── */}
         {activeTab === 'szenarien' && (<>
@@ -3027,8 +2390,8 @@ export default function Screen4() {
 
         </>)} {/* end Szenarien tab */}
 
-        {/* ── Tab: AHV ── */}
-        {activeTab === 'ahv' && (<>
+        {/* ── Tab: AHV & PK ── */}
+        {activeTab === 'ahvpk' && (<>
 
         {/* AHV Detail */}
         <section className="block">
@@ -3274,7 +2637,7 @@ export default function Screen4() {
         </>)} {/* end AHV tab */}
 
         {/* ── Tab: PK & Kapital ── */}
-        {activeTab === 'pk' && (<>
+        {activeTab === 'ahvpk' && (<>
 
         {/* PK Projektion */}
         <section className="block">
@@ -3905,79 +3268,6 @@ export default function Screen4() {
         {/* ── Tab: Steuern & 3a ── */}
         {activeTab === 'steuern' && (<>
 
-        {/* Recommendations */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">H</span>Handlungsempfehlungen</h2>
-            <span className="block-hint">Nach Priorität geordnet</span>
-          </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {RECS[analysis.verdict].map((rec, i) => {
-              const priorityColor = rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : '#16a34a'
-              const priorityBg = rec.priority === 'hoch' ? '#fef2f2' : rec.priority === 'mittel' ? '#fffbeb' : '#ecfdf5'
-              const priorityBorder = rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'
-              const isExpanded = expandedRecs.has(i)
-              return (
-                <div key={i} style={{
-                  padding: '14px 16px', background: 'var(--surface)',
-                  border: '1px solid var(--ink-200)', borderRadius: 10,
-                }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <div style={{
-                      flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
-                      background: 'var(--navy-800)', color: 'white',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700,
-                    }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: 13.5, color: 'var(--ink-700)', lineHeight: 1.55 }}>{rec.text}</span>
-                    </div>
-                    <span style={{
-                      flexShrink: 0, fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                      padding: '3px 8px', borderRadius: 20,
-                      background: priorityBg, border: `1px solid ${priorityBorder}`, color: priorityColor,
-                      textTransform: 'uppercase', letterSpacing: '.04em',
-                    }}>
-                      {rec.priority}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => toggleRec(i)}
-                    style={{
-                      marginTop: 8, marginLeft: 34, background: 'none', border: 'none',
-                      cursor: 'pointer', fontSize: 12, color: 'var(--navy-600)',
-                      padding: 0, display: 'flex', alignItems: 'center', gap: 4,
-                    }}
-                  >
-                    <svg
-                      width="12" height="12" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2"
-                      style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}
-                    >
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                    {isExpanded ? 'Weniger anzeigen' : 'Mehr erfahren'}
-                  </button>
-                  {isExpanded && (
-                    <div style={{
-                      marginTop: 10, marginLeft: 34, padding: '12px 14px',
-                      background: 'var(--navy-50)', border: '1px solid var(--navy-100)',
-                      borderRadius: 8, fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.65,
-                    }}>
-                      {rec.detail}
-                    </div>
-                  )}
-                  <div style={{ marginTop: 6, marginLeft: 34, fontSize: 11, color: 'var(--ink-400)', fontStyle: 'italic' }}>
-                    ℹ️ Orientierungshilfe – keine persönliche Empfehlung. Bitte konsultieren Sie eine Fachperson.
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
         {/* Steuern & Optimierung */}
         <section className="block" style={{ background: '#fafafa', border: '1px solid var(--ink-200)' }}>
           <div
@@ -4535,8 +3825,88 @@ export default function Screen4() {
 
         </>)} {/* end Steuern & 3a tab */}
 
-        {/* ── Tab: Meine Entscheidungen ── */}
-        {activeTab === 'entscheidungen' && (<>
+        {/* ── Tab: Massnahmen ── */}
+        {activeTab === 'massnahmen' && (<>
+
+<section className="block">
+  <div className="block-head">
+    <h2 className="block-title"><span className="block-num">1</span>Ihre Top-3 Massnahmen</h2>
+    <span className="block-hint">Nach Priorität geordnet</span>
+  </div>
+  <div style={{ display: 'grid', gap: 10, marginBottom: 0 }}>
+    {top3recs.map((rec, i) => {
+      const isExpanded = expandedRecs.has(i + 100)
+      const priorityColor = rec.priority === 'hoch' ? '#dc2626' : rec.priority === 'mittel' ? '#d97706' : '#16a34a'
+      const priorityBg = rec.priority === 'hoch' ? '#fef2f2' : rec.priority === 'mittel' ? '#fffbeb' : '#ecfdf5'
+      const priorityBorder = rec.priority === 'hoch' ? '#fecaca' : rec.priority === 'mittel' ? '#fde68a' : '#bbf7d0'
+      return (
+        <div key={i} style={{ padding: '14px 16px', background: priorityBg, border: `1px solid ${priorityBorder}`, borderRadius: 10 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span style={{
+              flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
+              background: priorityColor, color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+            }}>{i + 1}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, color: 'var(--ink-800)', lineHeight: 1.5, fontWeight: 600 }}>{rec.text}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(0,0,0,0.06)', color: priorityColor, fontWeight: 600 }}>
+                  {rec.priority === 'hoch' ? 'Hohe Priorität' : rec.priority === 'mittel' ? 'Mittlere Priorität' : 'Niedrige Priorität'}
+                </span>
+                {rec.detail && (
+                  <button onClick={() => toggleRec(i + 100)} style={{ fontSize: 12, color: 'var(--ink-500)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>
+                    {isExpanded ? 'Weniger ▲' : 'Details ▼'}
+                  </button>
+                )}
+              </div>
+              {isExpanded && rec.detail && (
+                <div style={{ marginTop: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.8)', borderRadius: 8, fontSize: 13, color: 'var(--ink-700)', lineHeight: 1.6 }}>
+                  {rec.detail}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    })}
+  </div>
+</section>
+
+<section className="block">
+  <div className="block-head">
+    <h2 className="block-title"><span className="block-num">2</span>Alle Empfehlungen</h2>
+    <span className="block-hint">Nach Priorität geordnet</span>
+  </div>
+  <div style={{ display: 'grid', gap: 10 }}>
+    {RECS[analysis.verdict].map((rec, i) => {
+      const isExp = expandedRecs.has(i)
+      return (
+        <div key={i} style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--ink-200)', borderRadius: 10 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
+              background: 'var(--navy-800)', color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+            }}>{i + 1}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, color: 'var(--ink-800)', lineHeight: 1.5 }}>{rec.text}</div>
+              {rec.detail && (
+                <button onClick={() => toggleRec(i)} style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-400)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+                  {isExp ? '▲ Weniger' : '▼ Details'}
+                </button>
+              )}
+              {isExp && rec.detail && (
+                <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+                  {rec.detail}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    })}
+  </div>
+</section>
 
         {/* H5: Pflegekostenrisiko */}
         <section className="block">
@@ -4770,7 +4140,7 @@ export default function Screen4() {
           )}
         </div>
 
-        </>)} {/* end Meine Entscheidungen tab */}
+        </>)} {/* end Massnahmen tab */}
 
         </div> {/* end tab content */}
 
