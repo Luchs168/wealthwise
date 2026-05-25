@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import TopBar from '../components/TopBar'
 import ProgressBar from '../components/ProgressBar'
@@ -467,6 +467,30 @@ export default function Screen2() {
   const autoYears1 = useMemo(() => calcAutoYears(person1.retireAge || 65, p1.immigrationYear, person1.dob), [person1.retireAge, p1.immigrationYear, person1.dob])
   const autoYears2 = useMemo(() => calcAutoYears(person2.retireAge || 65, p2.immigrationYear, person2.dob), [person2.retireAge, p2.immigrationYear, person2.dob])
 
+  // AHV-Bezugsbeginn: derived default = clamp(retireAge, 63, 70)
+  // Auto-sync ahvBezugAge when retireAge changes, unless user has manually chosen a different value
+  const prevRetireAge1 = useRef(person1.retireAge || 65)
+  const prevRetireAge2 = useRef(person2.retireAge || 65)
+  useEffect(() => {
+    const syncBezugAge = (id: 1 | 2, retireAge: number, ahvBezugAge: number, prevRa: number) => {
+      const derived = Math.max(63, Math.min(70, retireAge))
+      const prevDerived = Math.max(63, Math.min(70, prevRa))
+      // Sync if still at hardcoded default (65) or was tracking previous derived value
+      if (ahvBezugAge === 65 || ahvBezugAge === prevDerived) {
+        updatePerson(id, { ahvBezugAge: derived })
+      }
+    }
+    const ra1 = person1.retireAge || 65
+    syncBezugAge(1, ra1, p1.ahvBezugAge ?? 65, prevRetireAge1.current)
+    prevRetireAge1.current = ra1
+    if (isPaar) {
+      const ra2 = person2.retireAge || 65
+      syncBezugAge(2, ra2, p2.ahvBezugAge ?? 65, prevRetireAge2.current)
+      prevRetireAge2.current = ra2
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [person1.retireAge, person2.retireAge])
+
   // Effective MDJ: user override takes priority, else current income (capped at AHV max inside calcBaseRente)
   const effectiveMdj1 = p1.ahvAvgIncome ?? p1.income
   const effectiveMdj2 = p2.ahvAvgIncome ?? p2.income
@@ -728,18 +752,28 @@ export default function Screen2() {
               {AHV_BEZUG_LABELS[activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)]}
             </div>
             {(() => {
-              const age = activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)
-              if (age < 65) return (
-                <div style={{ marginTop: 8, fontSize: 12.5, color: '#92400e', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
-                  ⚠ Der Vorbezug reduziert Ihre AHV-Rente dauerhaft und lebenslang. Alle 5 Varianten finden Sie in der Analyse (Schritt 4).
-                </div>
+              const bezugAge = activeTab === 1 ? (p1.ahvBezugAge ?? 65) : (p2.ahvBezugAge ?? 65)
+              const retAge = activeTab === 1 ? (person1.retireAge || 65) : (person2.retireAge || 65)
+              const gapYears = bezugAge - retAge
+              return (
+                <>
+                  {gapYears > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, color: '#1e40af', padding: '10px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, lineHeight: 1.55 }}>
+                      ℹ Zwischen Pensionierung ({retAge}) und AHV-Bezug ({bezugAge}) entsteht eine Einkommenslücke von <strong>{gapYears} Jahr{gapYears !== 1 ? 'en' : ''}</strong>, die aus dem Vermögen oder der PK-Rente finanziert werden muss. Dies ist in der Analyse (Schritt 4) bereits berücksichtigt.
+                    </div>
+                  )}
+                  {bezugAge < 65 && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, color: '#92400e', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                      ⚠ Der Vorbezug reduziert Ihre AHV-Rente dauerhaft und lebenslang. Alle 5 Varianten finden Sie in der Analyse (Schritt 4).
+                    </div>
+                  )}
+                  {bezugAge > 65 && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, color: '#14532d', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                      ✓ Der Aufschub erhöht Ihre AHV-Rente dauerhaft. Je länger die Lebenserwartung, desto vorteilhafter.
+                    </div>
+                  )}
+                </>
               )
-              if (age > 65) return (
-                <div style={{ marginTop: 8, fontSize: 12.5, color: '#14532d', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-                  ✓ Der Aufschub erhöht Ihre AHV-Rente dauerhaft. Je länger die Lebenserwartung, desto vorteilhafter.
-                </div>
-              )
-              return null
             })()}
           </div>
 
