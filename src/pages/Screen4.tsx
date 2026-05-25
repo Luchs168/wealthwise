@@ -145,7 +145,7 @@ export default function Screen4() {
   const state = useStore()
   const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
     ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
-    setAhvChoice, setPkChoice, setWithdrawalStrategy } = state
+    setAhvChoice, setPkChoice, setWithdrawalStrategy, addLifeEvent, removeLifeEvent } = state
   const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
   const [showCashflowTable, setShowCashflowTable] = useState(false)
   const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set())
@@ -237,6 +237,15 @@ export default function Screen4() {
     return broke ? broke.age : null
   }, [adjustedCashflow, scenarios])
   const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
+
+  const [showAddGrossausgabe, setShowAddGrossausgabe] = useState(false)
+  const [newEvtLabel, setNewEvtLabel] = useState('')
+  const [newEvtAmount, setNewEvtAmount] = useState(0)
+  const [newEvtYear, setNewEvtYear] = useState(retirementYear + 2)
+
+  const displayAgeWhenBroke = hasEnabledEvents
+    ? (ageWhenBrokeWithEvents ?? analysis.ageWhenBroke)
+    : analysis.ageWhenBroke
 
   // Tax section
   const taxStatus: TaxCivilStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 'verheiratet' : 'ledig'
@@ -642,6 +651,29 @@ export default function Screen4() {
     }))
   }, [scenarios, ra1])
 
+  const wealthBreakdown = useMemo(() => {
+    const yearsToRet = Math.max(0, ra1 - currentAge1)
+    const sparkontoProj = Math.round((sparkonto || 0) * Math.pow(1.0075, yearsToRet))
+    const wertRate = CONSTANTS.RETURNS_WEALTH[wealthInvestmentProfile] ?? 0.035
+    const wertProj = Math.round((wertschriften || 0) * Math.pow(1 + wertRate, yearsToRet))
+    const p3a = projected3aAtRetirement
+    const pkCap = p1.hasPK && p1.pkBezugsart !== 'rente' && (p1.pkCapital || 0) > 0
+      ? (p1.pkBezugsart === 'mix' ? Math.round((p1.pkCapital || 0) / 2) : (p1.pkCapital || 0))
+      : 0
+    const fzCap = projectedFzAtRetirement
+    const propEquity = property.has ? Math.max(0, (property.value || 0) - (property.mortgage || 0)) : 0
+    const grossMonthly = ((p1.income || 0) + ((p2 as any)?.income || 0)) / 12
+    const netMonthly = Math.round(grossMonthly * 0.72)
+    const monthlySurplus = Math.max(0, netMonthly - monthlyBudget)
+    const sRates: Record<string, number> = { sparkonto: 0.0075, konservativ: 0.025, ausgewogen: 0.035, aggressiv: 0.05 }
+    const sRate = sRates[savingsStrategy] ?? 0.035
+    const accSavings = monthlySurplus > 0 && yearsToRet > 0
+      ? Math.round(monthlySurplus * 12 * ((Math.pow(1 + sRate, yearsToRet) - 1) / sRate))
+      : 0
+    return { sparkontoProj, wertProj, p3a, pkCap, fzCap, propEquity, accSavings, total: wdInitialWealth }
+  }, [ra1, currentAge1, sparkonto, wertschriften, wealthInvestmentProfile, projected3aAtRetirement,
+      projectedFzAtRetirement, p1, p2, property, monthlyBudget, savingsStrategy, wdInitialWealth])
+
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
 
@@ -697,6 +729,19 @@ export default function Screen4() {
     })
   }
 
+  function addQuickEvent(label: string, amount: number) {
+    addLifeEvent({
+      id: Math.random().toString(36).slice(2, 10),
+      category: 'sonstiges',
+      year: retirementYear + 2,
+      amount,
+      art: 'ausgabe',
+      duration: 1,
+      enabled: true,
+      details: { customLabel: label },
+    })
+  }
+
   return (
     <div className="app">
       <TopBar screenLabel="Vorsorgeplanung" />
@@ -730,7 +775,7 @@ export default function Screen4() {
                   {surplusAfterTax >= 0 ? '+' : ''}CHF {fmtCHF(surplusAfterTax)}/Mt. (n. St.)
                 </span>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
-                  Reicht bis {(hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)) >= 99 ? 'Alter 95+' : `Alter ${hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)}`}
+                  Reicht bis {(displayAgeWhenBroke ?? 99) >= 99 ? 'Alter 95+' : `Alter ${displayAgeWhenBroke ?? 99}`}
                 </span>
                 <span style={{ fontSize: 12, padding: '2px 8px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, border: `1px solid ${verdictBorder}` }}>
                   Score: {analysis.sustainabilityScore}/100
@@ -817,7 +862,7 @@ export default function Screen4() {
             })()}
             {/* Card 2: Wealth longevity */}
             {(() => {
-              const age = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)
+              const age = displayAgeWhenBroke ?? 99
               const cardColor = age >= 90 ? 'var(--green-600)' : age >= 85 ? '#d97706' : '#dc2626'
               const cardBg = age >= 90 ? '#ecfdf5' : age >= 85 ? '#fffbeb' : '#fef2f2'
               const cardBorder = age >= 90 ? '#bbf7d0' : age >= 85 ? '#fde68a' : '#fecaca'
@@ -864,7 +909,7 @@ export default function Screen4() {
           {/* Was bedeutet das? */}
           {(() => {
             const surplus = surplusAfterTax
-            const ageOk = hasEnabledEvents ? (ageWhenBrokeWithEvents ?? 99) : (scenarios.neutral.ageWhenBroke ?? 99)
+            const ageOk = displayAgeWhenBroke ?? 99
             const lifeExp = p1.sex === 'm' ? 85 : 87
             let summaryText = ''
             if (analysis.verdict === 'green') {
@@ -2011,8 +2056,156 @@ export default function Screen4() {
                 Renten CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt. − Steuern ~CHF {fmtCHF(retirementTax1.monthlyTax)}/Mt. − Budget CHF {fmtCHF(monthlyBudget)}/Mt.
                 {' = '}{surplusAfterTax >= 0 ? 'Überschuss' : 'Lücke'} CHF {fmtCHF(Math.abs(surplusAfterTax))}/Mt.
               </div>
+              {surplusAfterTax < 0 && wdInitialWealth > 0 && (
+                <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink-600)', background: 'rgba(255,255,255,0.5)', borderRadius: 6, padding: '6px 10px' }}>
+                  Diese Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}/Mt.</strong> wird aus Ihrem Vermögen von <strong>CHF {fmtCHF(wdInitialWealth)}</strong> finanziert. Bei neutralen Annahmen reicht Ihr Vermögen bis <strong>Alter {displayAgeWhenBroke ?? 95}+</strong>.
+                </div>
+              )}
+              {surplusAfterTax >= 0 && wdInitialWealth > 0 && (
+                <div style={{ marginTop: 6, fontSize: 12.5, color: '#166534', background: 'rgba(255,255,255,0.5)', borderRadius: 6, padding: '6px 10px' }}>
+                  Zusätzlich steht ein Vermögen von <strong>CHF {fmtCHF(wdInitialWealth)}</strong> für unerwartete Ausgaben oder Erbschaft zur Verfügung.
+                </div>
+              )}
             </div>
           </div>
+        </section>
+
+        {/* Wealth breakdown section */}
+        {wdInitialWealth > 0 && (
+          <section className="block">
+            <div className="block-head">
+              <h2 className="block-title"><span className="block-num">V</span>Vermögen bei Pensionierung (Alter {ra1})</h2>
+              <span className="block-hint">Projected values at retirement</span>
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {[
+                { label: '🏦 Sparkonto / Bargeld (proj.)', value: wealthBreakdown.sparkontoProj, show: (sparkonto || 0) > 0 },
+                { label: '📈 Wertschriften (proj.)', value: wealthBreakdown.wertProj, show: (wertschriften || 0) > 0 },
+                { label: '🔐 Säule 3a (proj.)', value: wealthBreakdown.p3a, show: wealthBreakdown.p3a > 0 },
+                { label: '🏢 PK-Kapital (netto)', value: wealthBreakdown.pkCap, show: wealthBreakdown.pkCap > 0 },
+                { label: '📋 Freizügigkeit (proj.)', value: wealthBreakdown.fzCap, show: wealthBreakdown.fzCap > 0 },
+                { label: '🏠 Immobilien-Eigenkapital', value: wealthBreakdown.propEquity, show: wealthBreakdown.propEquity > 0 },
+                { label: '💰 Kumulierte Sparrate (gesch.)', value: wealthBreakdown.accSavings, show: wealthBreakdown.accSavings > 0 },
+              ].filter(r => r.show).map((row, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--ink-50)', borderRadius: 8, fontSize: 13 }}>
+                  <span style={{ color: 'var(--ink-600)' }}>{row.label}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--navy-800)' }}>CHF {fmtCHF(row.value)}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--navy-800)', borderRadius: 10, fontSize: 14 }}>
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>💼 Gesamtvermögen bei Pension</span>
+                <span style={{ fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)', fontSize: 18 }}>CHF {fmtCHF(wdInitialWealth)}</span>
+              </div>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--ink-400)' }}>
+              Gesamtvermögen basiert auf der Cashflow-Projektion inkl. angesammelter Sparrate. Einzelwerte sind Schätzwerte.
+            </div>
+          </section>
+        )}
+
+        {/* Geplante Grossausgaben */}
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-title"><span className="block-num">G</span>Geplante Grossausgaben</h2>
+            <span className="block-hint">Wirken sich auf Vermögensverlauf und «Reicht bis» aus</span>
+          </div>
+
+          {/* Quick-select presets */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-500)', marginBottom: 8 }}>Schnellauswahl:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { icon: '🚗', label: 'Autokauf', amount: 40000 },
+                { icon: '✈️', label: 'Weltreise', amount: 30000 },
+                { icon: '🏠', label: 'Renovation', amount: 50000 },
+                { icon: '🎓', label: 'Ausbildung Kinder', amount: 20000 },
+                { icon: '🎁', label: 'Schenkung', amount: 50000 },
+              ].map(preset => (
+                <button key={preset.label} onClick={() => addQuickEvent(`${preset.icon} ${preset.label}`, preset.amount)} style={{
+                  padding: '7px 12px', borderRadius: 8, border: '1.5px solid var(--ink-200)', background: 'white',
+                  cursor: 'pointer', fontSize: 12.5, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span>{preset.icon}</span>
+                  <span>{preset.label}</span>
+                  <span style={{ color: 'var(--ink-400)', fontSize: 11 }}>CHF {fmtCHF(preset.amount)}</span>
+                </button>
+              ))}
+              <button onClick={() => setShowAddGrossausgabe(v => !v)} style={{
+                padding: '7px 12px', borderRadius: 8, border: '1.5px dashed var(--ink-300)', background: 'var(--ink-50)',
+                cursor: 'pointer', fontSize: 12.5, color: 'var(--ink-600)',
+              }}>
+                + Individuell
+              </button>
+            </div>
+          </div>
+
+          {/* Custom event form */}
+          {showAddGrossausgabe && (
+            <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 10 }}>Neue Grossausgabe</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Bezeichnung</label>
+                  <input className="input" type="text" placeholder="z.B. Neues Auto" value={newEvtLabel}
+                    onChange={e => setNewEvtLabel(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Betrag (CHF)</label>
+                  <input className="input" type="number" min={0} step={1000} value={newEvtAmount || ''}
+                    onChange={e => setNewEvtAmount(Number(e.target.value))} placeholder="50000" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Jahr</label>
+                  <input className="input" type="number" min={new Date().getFullYear()} max={2090}
+                    value={newEvtYear} onChange={e => setNewEvtYear(Number(e.target.value))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => {
+                  if (newEvtAmount > 0) {
+                    addLifeEvent({ id: Math.random().toString(36).slice(2, 10), category: 'sonstiges', year: newEvtYear, amount: newEvtAmount, art: 'ausgabe', duration: 1, enabled: true, details: { customLabel: newEvtLabel || 'Grossausgabe' } })
+                    setNewEvtLabel(''); setNewEvtAmount(0); setShowAddGrossausgabe(false)
+                  }
+                }} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--navy-700)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  Hinzufügen
+                </button>
+                <button onClick={() => setShowAddGrossausgabe(false)} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--ink-200)', cursor: 'pointer', fontSize: 13, color: 'var(--ink-600)' }}>
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Existing life events list */}
+          {lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0 ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
+                const cfg = CATEGORY_CONFIG[evt.category]
+                const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
+                const evtAge = evt.year - birthYear
+                return (
+                  <div key={evt.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 10 }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{cfg.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)' }}>{evt.details.customLabel || cfg.label}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--ink-500)' }}>{evt.year} (Alter {evtAge}) · {evt.art === 'einnahme' ? '+' : '−'}CHF {fmtCHF(evt.art === 'laufend' ? evt.amount * Math.max(1, evt.duration) : evt.amount)}</div>
+                    </div>
+                    <button onClick={() => removeLifeEvent(evt.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-400)', fontSize: 16, padding: '2px 6px', borderRadius: 6 }}>×</button>
+                  </div>
+                )
+              })}
+              {hasEnabledEvents && (
+                <div style={{ padding: '10px 14px', background: eventsImpact.netImpact < 0 ? '#fffbeb' : '#ecfdf5', border: `1px solid ${eventsImpact.netImpact < 0 ? '#fde68a' : '#bbf7d0'}`, borderRadius: 8, fontSize: 12.5 }}>
+                  <strong>Gesamtauswirkung:</strong> {eventsImpact.netImpact < 0 ? '−' : '+'}CHF {fmtCHF(Math.abs(eventsImpact.netImpact))} auf das Vermögen ·{' '}
+                  «Reicht bis» ändert sich um {displayAgeWhenBroke !== null && analysis.ageWhenBroke !== null ? `${displayAgeWhenBroke - (analysis.ageWhenBroke ?? displayAgeWhenBroke)} Jahre` : '—'}.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ padding: '14px 16px', background: 'var(--ink-50)', border: '1px solid var(--ink-100)', borderRadius: 10, fontSize: 13, color: 'var(--ink-500)', textAlign: 'center' }}>
+              Keine Grossausgaben geplant. Nutzen Sie die Schnellauswahl oben, um Ausgaben hinzuzufügen.
+            </div>
+          )}
         </section>
 
         {/* Wealth chart */}
@@ -2082,12 +2275,13 @@ export default function Screen4() {
                 {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
                   const birthYear = p1.dob ? new Date(p1.dob).getFullYear() : new Date().getFullYear() - currentAge1
                   const evtAge = evt.year - birthYear
-                  if (evtAge < ra1 || evtAge > 95) return null
+                  if (evtAge > 95 || evtAge < ra1) return null
                   const cfg = CATEGORY_CONFIG[evt.category]
                   const color = evt.art === 'einnahme' ? '#16a34a' : '#f59e0b'
+                  const totalAmt = evt.art === 'laufend' ? evt.amount * Math.max(1, evt.duration) : evt.amount
                   return (
                     <ReferenceLine key={evt.id} x={evtAge} stroke={color} strokeDasharray="3 3" strokeWidth={1.5}
-                      label={{ value: cfg.icon, fill: color, fontSize: 13, position: 'insideTopRight' }} />
+                      label={{ value: `${cfg.icon} ${fmtK(totalAmt)}`, fill: color, fontSize: 10, position: 'insideTopRight' }} />
                   )
                 })}
                 <Area type="monotone" dataKey="vermoegen" stroke="#1a2b4a" strokeWidth={2.5}
