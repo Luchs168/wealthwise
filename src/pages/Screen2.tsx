@@ -1528,7 +1528,20 @@ export default function Screen2() {
           <div className="toggle-row">
             <Switch
               on={cur.hasPK}
-              onToggle={() => updatePerson(activeTab, { hasPK: !cur.hasPK })}
+              onToggle={() => {
+                const newHasPK = !cur.hasPK
+                if (newHasPK && cur.pkCurrentCapital === 0) {
+                  const income = cur.income || 0
+                  const age = (activeTab === 1 ? pkProj1 : pkProj2).currentAge
+                  const mult = age >= 60 ? 3.0 : age >= 55 ? 2.5 : age >= 50 ? 2.0 : 1.5
+                  const estimate = income > 0 ? Math.round(income * mult / 10000) * 10000 : 0
+                  if (estimate > 0) {
+                    updatePKAndProject(activeTab, { hasPK: true, pkCurrentCapital: estimate })
+                    return
+                  }
+                }
+                updatePerson(activeTab, { hasPK: newHasPK })
+              }}
               label="Ich bin in einer Pensionskasse versichert"
             />
           </div>

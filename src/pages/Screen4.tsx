@@ -929,7 +929,7 @@ export default function Screen4() {
 
   {/* Gap / surplus note */}
   {surplusAfterTax < 0 ? (
-    <div style={{ padding: '14px 18px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#92400e', lineHeight: 1.65 }}>
+    <div style={{ padding: '14px 18px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, marginBottom: 16, fontSize: 14, color: '#92400e', lineHeight: 1.65 }}>
       Es besteht eine monatliche Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>.{' '}
       {retirementTax1.monthlyTax > 0 && (
         <span style={{ fontSize: 12, opacity: 0.85 }}>
@@ -939,10 +939,43 @@ export default function Screen4() {
       {' '}Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
     </div>
   ) : (
-    <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 24, fontSize: 14, color: '#166534', lineHeight: 1.65 }}>
+    <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 16, fontSize: 14, color: '#166534', lineHeight: 1.65 }}>
       Ihre Renten übersteigen Ihren Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>{retirementTax1.monthlyTax > 0 ? ` (nach Steuern CHF ${fmtCHF(retirementTax1.monthlyTax)}/Mt.)` : ''}.
     </div>
   )}
+
+  {/* Einnahmen vs. Bedarf breakdown */}
+  <div style={{ marginBottom: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ padding: '14px 16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', marginBottom: 10 }}>Monatliche Einnahmen</div>
+        {[
+          { label: hasPartner ? 'AHV-Renten (Haushalt)' : 'AHV-Rente', value: Math.round(analysis.ahv.combinedYearlyInkl13 / 12) },
+          { label: hasPartner ? 'PK-Renten (Haushalt)' : 'PK-Rente', value: displayPkMonthly },
+          { label: 'Total', value: wdMonthlyIncome, bold: true },
+        ].map((row, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
+            <span style={{ color: '#166534' }}>{row.label}</span>
+            <span>CHF {fmtCHF(row.value)}</span>
+          </div>
+        ))}
+        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 6 }}>inkl. 13. AHV-Monatsbeitrag (auf 12 Mt. verteilt)</div>
+      </div>
+      <div style={{ padding: '14px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#dc2626', marginBottom: 10 }}>Monatlicher Bedarf</div>
+        {[
+          { label: 'Lebenshaltung', value: monthlyBudget },
+          { label: 'Steuern (geschätzt)', value: retirementTax1?.monthlyTax ?? 0 },
+          { label: 'Total', value: monthlyBudget + (retirementTax1?.monthlyTax ?? 0), bold: true },
+        ].map((row, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
+            <span style={{ color: '#7f1d1d' }}>{row.label}</span>
+            <span>CHF {fmtCHF(row.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
 
   {/* CTA */}
   <div style={{ textAlign: 'center', paddingBottom: 24 }}>
@@ -1098,47 +1131,6 @@ export default function Screen4() {
           .
         </div>
       )}
-    </div>
-  )}
-</section>
-
-{/* Income/expenses breakdown */}
-<section className="block">
-  <div className="block-head">
-    <h2 className="block-title"><span className="block-num">E</span>Einnahmen vs. Bedarf</h2>
-  </div>
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-    <div style={{ padding: '14px 16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', marginBottom: 10 }}>Monatliche Einnahmen</div>
-      {[
-        { label: hasPartner ? 'AHV-Renten (Haushalt)' : 'AHV-Rente', value: analysis.ahv.combinedMonthly },
-        { label: hasPartner ? 'PK-Renten (Haushalt)' : 'PK-Rente', value: displayPkMonthly },
-        { label: 'Total', value: wdMonthlyIncome, bold: true },
-      ].map((row, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
-          <span style={{ color: '#166534' }}>{row.label}</span>
-          <span>CHF {fmtCHF(row.value)}</span>
-        </div>
-      ))}
-    </div>
-    <div style={{ padding: '14px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#dc2626', marginBottom: 10 }}>Monatlicher Bedarf</div>
-      {[
-        { label: 'Lebenshaltung', value: monthlyBudget },
-        { label: 'Steuern (geschätzt)', value: retirementTax1?.monthlyTax ?? 0 },
-        { label: 'Total', value: monthlyBudget + (retirementTax1?.monthlyTax ?? 0), bold: true },
-      ].map((row, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4, fontWeight: row.bold ? 700 : 400 }}>
-          <span style={{ color: '#7f1d1d' }}>{row.label}</span>
-          <span>CHF {fmtCHF(row.value)}</span>
-        </div>
-      ))}
-    </div>
-  </div>
-  {surplusAfterTax < 0 && (
-    <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-      Monatliche Entnahme aus Vermögen: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong> ·
-      Vermögen von CHF {fmtCHF(wdInitialWealth)} reicht ca. <strong>{wdInitialWealth > 0 && Math.abs(surplusAfterTax) > 0 ? Math.round(wdInitialWealth / (Math.abs(surplusAfterTax) * 12)) : '—'} Jahre</strong> ohne Rendite
     </div>
   )}
 </section>
