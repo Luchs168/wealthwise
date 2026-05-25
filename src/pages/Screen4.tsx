@@ -1963,229 +1963,56 @@ export default function Screen4() {
                 </div>
               )}
 
-              {/* Sub G: Optimaler Bezugsplan */}
-              {withdrawalPlan.hasAnything && (
-                <div style={{ marginBottom: 10 }}>
-                  <button
-                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubG ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    onClick={() => setTaxSubG(!taxSubG)}
-                  >
-                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>G · Optimaler Bezugsplan – Gestaffelt statt auf einmal</span>
-                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {withdrawalPlan.savings > 0 && <span style={{ color: 'var(--green-600)', fontWeight: 600 }}>CHF {fmtCHF(withdrawalPlan.savings)} Steuerersparnis</span>}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubG ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
-                    </span>
-                  </button>
-                  {taxSubG && (
-                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
-                      {/* Summary cards */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                        <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
-                          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Alle im gleichen Jahr (Worst case)</div>
-                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(withdrawalPlan.worst.totalTax)}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Steuer auf CHF {fmtCHF(withdrawalPlan.worst.totalGross)}</div>
-                        </div>
-                        <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-                          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 3 }}>Optimal gestaffelt</div>
-                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#16a34a' }}>CHF {fmtCHF(withdrawalPlan.optimal.totalTax)}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>Netto: CHF {fmtCHF(withdrawalPlan.optimal.totalNet)}</div>
-                        </div>
-                      </div>
-                      {withdrawalPlan.savings > 0 && (
-                        <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534', marginBottom: 14, fontWeight: 600 }}>
-                          Steuerersparnis durch Staffelung: CHF {fmtCHF(withdrawalPlan.savings)}
-                        </div>
-                      )}
-                      {/* Timeline table */}
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                          <thead>
-                            <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
-                              {['Jahr', 'Bezug', 'Brutto', 'Steuer', 'Netto'].map(h => (
-                                <th key={h} style={{ padding: '7px 10px', textAlign: h === 'Jahr' || h === 'Bezug' ? 'left' : 'right', fontWeight: 600 }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {withdrawalPlan.optimal.entries.map((entry, i) => (
-                              <tr key={i} style={{ background: i % 2 === 0 ? 'white' : 'var(--navy-50)', borderBottom: '1px solid var(--ink-100)' }}>
-                                <td style={{ padding: '5px 10px', color: 'var(--navy-800)', fontWeight: 600 }}>{entry.calendarYear}</td>
-                                <td style={{ padding: '5px 10px', color: 'var(--ink-700)' }}>{entry.label}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'right' }}>CHF {fmtCHF(entry.amount)}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'right', color: '#dc2626' }}>CHF {fmtCHF(entry.tax)}</td>
-                                <td style={{ padding: '5px 10px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>CHF {fmtCHF(entry.netAmount)}</td>
-                              </tr>
-                            ))}
-                            <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
-                              <td colSpan={2} style={{ padding: '6px 10px', fontWeight: 700 }}>Total</td>
-                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalGross)}</td>
-                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalTax)}</td>
-                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700 }}>CHF {fmtCHF(withdrawalPlan.optimal.totalNet)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
-                        <strong>Hinweis:</strong> Frühzeitige Bezüge (3a, FZ<InfoTooltip text="Freizügigkeitsguthaben: PK-Guthaben aus früheren Arbeitsverhältnissen auf einem separaten Freizügigkeitskonto (z.B. nach Jobwechsel). Kann frühestens 5 Jahre vor Pensionierung bezogen werden." />) ab {new Date().getFullYear() + Math.max(1, ra1 - currentAge1) - (withdrawalPlan.optimal.entries.length - (withdrawalPlan.optimal.entries.some(e => e.label.includes('PK')) ? 1 : 0))} möglich. PK-Kapital wird im Pensionierungsjahr bezogen. Steuern basieren auf Sätzchen-Methode und ESTV-Richtwerten für Kanton {CANTON_NAMES[canton] || canton}.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Sub H: Eigenmietwert */}
-              {eigenmietwertResult && (
-                <div style={{ marginBottom: 10 }}>
-                  <button
-                    style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubH ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    onClick={() => setTaxSubH(!taxSubH)}
-                  >
-                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>H · Eigenmietwert – Steuereffekt Wohneigentum</span>
-                    <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {eigenmietwertResult.additionalTax > 0
-                        ? <span style={{ color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr Mehrsteuer</span>
-                        : <span style={{ color: 'var(--green-600)' }}>Abzüge übersteigen Eigenmietwert</span>}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubH ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
-                    </span>
-                  </button>
-                  {taxSubH && (
-                    <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
-                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Eigenmietwert (fiktiver Mietertrag)</span>
-                        <span style={{ textAlign: 'right', color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.eigenmietwert)}/Jahr</span>
-                        <span style={{ color: 'var(--ink-600)' }}>− Schuldzinsabzug (Hypothekarzinsen)</span>
-                        <span style={{ textAlign: 'right', color: 'var(--green-600)' }}>−CHF {fmtCHF(eigenmietwertResult.schuldzinsen)}/Jahr</span>
-                        <span style={{ color: 'var(--ink-600)' }}>− Unterhaltskosten (Pauschale 20%)</span>
-                        <span style={{ textAlign: 'right', color: 'var(--green-600)' }}>−CHF {fmtCHF(eigenmietwertResult.unterhaltskosten)}/Jahr</span>
-                        <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Netto-Mehreinkommen (steuerpflichtig)</span>
-                        <span style={{ textAlign: 'right', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6, color: eigenmietwertResult.netAdditionalIncome > 0 ? '#dc2626' : 'var(--green-600)' }}>
-                          CHF {fmtCHF(eigenmietwertResult.netAdditionalIncome)}/Jahr
-                        </span>
-                        <span style={{ color: 'var(--navy-800)', fontWeight: 600 }}>Geschätzte Mehrsteuer/Jahr</span>
-                        <span style={{ textAlign: 'right', fontWeight: 700, color: eigenmietwertResult.additionalTax > 0 ? '#dc2626' : 'var(--green-600)' }}>
-                          CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr
-                        </span>
-                      </div>
-                      <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12.5, color: '#7c2d12' }}>
-                        <strong>Was ist der Eigenmietwert?</strong> Als Wohneigentümer versteuern Sie einen fiktiven Mietertrag (ca. 3–4.5% des Steuerwerts je nach Kanton), erhalten aber kein Geld. Im Gegenzug können Sie Hypothekarzinsen und Unterhaltskosten abziehen.
-                        {eigenmietwertResult.schuldzinsen === 0 && eigenmietwertResult.eigenmietwert > 0 && (
-                          <span> Bei schuldenfreiem Eigentum entfällt der Schuldzinsabzug – die steuerliche Belastung ist entsprechend höher. Eine vollständige Amortisation der Hypothek kann deshalb steuerlich nachteilig sein.</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Disclaimer + cantonal link */}
-              <div style={{ marginTop: 12, padding: '12px 16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12, color: 'var(--ink-500)' }}>
-                <strong>Steuerhinweis:</strong> Alle Berechnungen basieren auf DBG 2026-Tarifen und ESTV-Richtwerten. Sie dienen der Orientierung und ersetzen keine individuelle Steuerberatung.
-                {location?.kanton && CANTONAL_TAX_URLS[location.kanton] && (
-                  <>
-                    {' '}
-                    <a href={CANTONAL_TAX_URLS[location.kanton]} target="_blank" rel="noopener noreferrer"
-                      style={{ color: 'var(--navy-600)', textDecoration: 'underline' }}>
-                      Steuerrechner Kanton {CANTON_NAMES[location.kanton] || location.kanton} →
-                    </a>
-                  </>
-                )}
+      {/* Sub G: Eigenmietwert */}
+      {eigenmietwertResult && (
+        <div style={{ marginBottom: 10 }}>
+          <button style={{ width: '100%', background: 'none', border: '1px solid var(--ink-200)', borderRadius: taxSubG ? '10px 10px 0 0' : 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => setTaxSubG(!taxSubG)}>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)' }}>G · Eigenmietwert – Steuereffekt Wohneigentum</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {eigenmietwertResult.additionalTax > 0
+                ? <span style={{ color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr Mehrsteuer</span>
+                : <span style={{ color: '#16a34a' }}>Abzüge übersteigen Eigenmietwert</span>}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: taxSubG ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}><polyline points="9 18 15 12 9 6"/></svg>
+            </span>
+          </button>
+          {taxSubG && (
+            <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
+                <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Eigenmietwert (fiktiver Mietertrag)</span>
+                <span style={{ textAlign: 'right', color: '#dc2626' }}>+CHF {fmtCHF(eigenmietwertResult.eigenmietwert)}/Jahr</span>
+                <span style={{ color: 'var(--ink-600)' }}>− Schuldzinsabzug (Hypothekarzinsen)</span>
+                <span style={{ textAlign: 'right', color: '#16a34a' }}>−CHF {fmtCHF(eigenmietwertResult.schuldzinsen)}/Jahr</span>
+                <span style={{ color: 'var(--ink-600)' }}>− Unterhaltskosten (Pauschale 20%)</span>
+                <span style={{ textAlign: 'right', color: '#16a34a' }}>−CHF {fmtCHF(eigenmietwertResult.unterhaltskosten)}/Jahr</span>
+                <span style={{ color: 'var(--navy-800)', fontWeight: 600, borderTop: '1px solid var(--ink-100)', paddingTop: 6 }}>Netto-Mehreinkommen</span>
+                <span style={{ textAlign: 'right', fontWeight: 700, borderTop: '1px solid var(--ink-100)', paddingTop: 6, color: eigenmietwertResult.netAdditionalIncome > 0 ? '#dc2626' : '#16a34a' }}>
+                  CHF {fmtCHF(eigenmietwertResult.netAdditionalIncome)}/Jahr
+                </span>
+                <span style={{ color: 'var(--navy-800)', fontWeight: 600 }}>Geschätzte Mehrsteuer/Jahr</span>
+                <span style={{ textAlign: 'right', fontWeight: 700, color: eigenmietwertResult.additionalTax > 0 ? '#dc2626' : '#16a34a' }}>
+                  CHF {fmtCHF(eigenmietwertResult.additionalTax)}/Jahr
+                </span>
               </div>
-            </>
-          )}
-        </section>
-
-        {/* Income vs Expenses chart */}
-        <section className="block">
-          <div className="block-head">
-            <h2 className="block-title"><span className="block-num">H</span>Einnahmen vs. Ausgaben im Alter</h2>
-            <span className="block-hint">Monatliche Werte · Nominale CHF</span>
-          </div>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartData.filter((_, i) => i % 2 === 0)} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
-                <XAxis dataKey="age" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} label={{ value: 'Alter', position: 'insideBottomRight', offset: -4, fontSize: 11 }} />
-                <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} width={56} />
-                <Tooltip
-                  formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name === 'einnahmen' ? 'Renteneinnahmen/Mt.' : 'Ausgaben/Mt.']}
-                  labelFormatter={(l) => `Alter ${l}`}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--ink-200)' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="einnahmen" name="Renteneinnahmen" fill="#1a2b4a" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="ausgaben" name="Ausgaben (inflationsbereinigt)" fill="#94a3b8" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-400)', fontSize: 14 }}>
-              Bitte geben Sie Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
+              <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12, color: '#7c2d12' }}>
+                Als Wohneigentümer versteuern Sie einen fiktiven Mietertrag (ca. 3–4.5% des Steuerwerts), können aber Hypothekarzinsen und Unterhaltskosten abziehen.
+              </div>
             </div>
           )}
-          <div style={{ fontSize: 11.5, color: 'var(--ink-400)', marginTop: 10, fontStyle: 'italic' }}>
-            Annahmen: Inflation 1.5%/Jahr · Anlagerendite 2.5%/Jahr · Lebenserwartung bis Alter 95
-          </div>
-        </section>
+        </div>
+      )}
 
-        {/* Cashflow table (collapsible) */}
-        <section className="block">
-          <div
-            className="block-head"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setShowCashflowTable(!showCashflowTable)}
-          >
-            <h2 className="block-title"><span className="block-num">I</span>Jahres-Cashflow (Tabelle)</h2>
-            <span className="block-hint">{showCashflowTable ? '▲ Einklappen' : '▼ Ausklappen'}</span>
-          </div>
-          {showCashflowTable && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: 'var(--navy-800)', color: 'white' }}>
-                    {['Alter', 'AHV/Jahr', 'PK/Jahr', 'Ausgaben/Jahr', hasEnabledEvents ? 'Ereignisse' : null, 'Vermögen'].filter(Boolean).map((h) => (
-                      <th key={h!} style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {chartData.map((row, i) => {
-                    const baseRow = analysis.yearlyCashflow.find(r => r.age === row.age)!
-                    return (
-                      <tr key={row.age} style={{
-                        background: row.eventAmount !== 0 ? '#fffbeb' : i % 2 === 0 ? 'white' : 'var(--navy-50)',
-                        borderBottom: '1px solid var(--ink-100)',
-                      }}>
-                        <td style={{ padding: '6px 12px', fontWeight: baseRow?.isRetirementYear ? 700 : 400, color: 'var(--navy-800)' }}>
-                          {row.age}{baseRow?.isRetirementYear ? ' ★' : ''}
-                        </td>
-                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                          {baseRow?.ahvIncome > 0 ? `CHF ${fmtCHF(baseRow.ahvIncome)}` : '—'}
-                        </td>
-                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                          {baseRow?.pkRenteIncome > 0 ? `CHF ${fmtCHF(baseRow.pkRenteIncome)}` : '—'}
-                        </td>
-                        <td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--ink-700)' }}>
-                          CHF {fmtCHF(baseRow?.livingExpenses || 0)}
-                        </td>
-                        {hasEnabledEvents && (
-                          <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: row.eventAmount !== 0 ? 700 : 400, color: row.eventAmount > 0 ? '#16a34a' : row.eventAmount < 0 ? '#dc2626' : 'var(--ink-400)' }}>
-                            {row.eventAmount !== 0
-                              ? `${row.eventAmount > 0 ? '+' : ''}CHF ${fmtCHF(row.eventAmount)}`
-                              : '—'}
-                          </td>
-                        )}
-                        <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 600, color: row.vermoegen <= 0 ? '#ef4444' : 'var(--navy-800)' }}>
-                          CHF {fmtCHF(row.vermoegen)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+      {/* Disclaimer */}
+      <div style={{ marginTop: 12, padding: '12px 16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 8, fontSize: 12, color: 'var(--ink-500)' }}>
+        <strong>Annahmen &amp; Hinweise:</strong> Berechnung basiert auf DBG 2026-Tarifen, ESTV-Richtwerten und vereinfachten kantonalen Sätzen. Effektivsteuersatz Kanton {CANTON_NAMES[canton] || canton}: {(retirementTax1.effectiveRate * 100).toFixed(1)}%. Grenzsteuersatz heute: {((incomeTax1?.marginalRate ?? 0) * 100).toFixed(1)}%. <strong>Vereinfachte Berechnung. Für verbindliche Steuerplanung konsultieren Sie eine Fachperson.</strong>
+        {location?.kanton && CANTONAL_TAX_URLS[location.kanton] && (
+          <> <a href={CANTONAL_TAX_URLS[location.kanton]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy-600)', textDecoration: 'underline' }}>Steuerrechner Kanton {CANTON_NAMES[location.kanton] || location.kanton} →</a></>
+        )}
+      </div>
+    </>
+  )}
+</section>
 
-        </>)} {/* end Steuern & 3a tab */}
+        </>)} {/* end Steuern tab */}
 
         {/* ── Tab: Entscheidungen ── */}
         {activeTab === 'entscheidungen' && (<>
