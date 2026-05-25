@@ -97,14 +97,14 @@ export async function exportPDF(data: PdfData): Promise<void> {
   }
 
   function section(title: string, subtitle?: string) {
+    const barH = 11
     doc.setFillColor(...NAVY)
-    doc.rect(ML, y, CW, 1, 'F')
-    y += 4
-    doc.setTextColor(...NAVY)
-    doc.setFontSize(15)
+    doc.rect(ML, y, CW, barH, 'F')
+    doc.setTextColor(...WHITE)
+    doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
-    doc.text(title, ML, y)
-    y += 7
+    doc.text(title, ML + 4, y + 7.5)
+    y += barH + 5
     if (subtitle) {
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
