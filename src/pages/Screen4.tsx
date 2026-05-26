@@ -258,10 +258,14 @@ export default function Screen4() {
   }, [adjustedCashflow, scenarios])
   const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
 
-  const [showAddGrossausgabe, setShowAddGrossausgabe] = useState(false)
+  const [showEventForm, setShowEventForm] = useState(false)
+  const [newEvtType, setNewEvtType] = useState<'einmalig' | 'wiederkehrend' | 'einkommensaenderung'>('einmalig')
   const [newEvtLabel, setNewEvtLabel] = useState('')
-  const [newEvtAmount, setNewEvtAmount] = useState(0)
-  const [newEvtYear, setNewEvtYear] = useState(retirementYear + 2)
+  const [newEvtAmount, setNewEvtAmount] = useState(10000)
+  const [newEvtFromAge, setNewEvtFromAge] = useState(Math.max(currentAge1 + 1, ra1 + 1))
+  const [newEvtToAge, setNewEvtToAge] = useState(ra1 + 5)
+  const [newEvtIntervalYears, setNewEvtIntervalYears] = useState(1)
+  const [newEvtPensum, setNewEvtPensum] = useState(80)
 
   // Use the neutral scenario (2.5% return) as the reference — it's what the chart shows.
   // The main analysis uses the user's investment profile which can diverge significantly.
@@ -813,17 +817,56 @@ export default function Screen4() {
     })
   }
 
-  function addQuickEvent(label: string, amount: number) {
+  const birthYear = new Date().getFullYear() - currentAge1
+
+  function addQuickEvent(preset: {
+    label: string; amount: number; category: import('../types/lifeEvents').LifeEventCategory;
+    eventType: import('../types/lifeEvents').LifeEventType;
+    fromAge: number; toAge?: number; duration?: number;
+    intervalYears?: number; pensum?: number; art?: import('../types/lifeEvents').LifeEventArt;
+  }) {
+    const art = preset.art ?? (preset.eventType === 'einmalig' ? 'ausgabe' : 'laufend')
     addLifeEvent({
       id: Math.random().toString(36).slice(2, 10),
-      category: 'sonstiges',
-      year: retirementYear + 2,
-      amount,
-      art: 'ausgabe',
-      duration: 1,
+      category: preset.category,
+      year: birthYear + preset.fromAge,
+      amount: preset.amount,
+      art,
+      duration: preset.duration ?? (preset.toAge ? preset.toAge - preset.fromAge : 1),
       enabled: true,
-      details: { customLabel: label },
+      details: { customLabel: preset.label },
+      eventType: preset.eventType,
+      fromAge: preset.fromAge,
+      toAge: preset.toAge,
+      intervalYears: preset.intervalYears,
+      pensum: preset.pensum,
     })
+  }
+
+  function addManualEvent() {
+    const art = newEvtType === 'einmalig' ? 'ausgabe' : 'laufend'
+    const duration = newEvtType === 'einmalig' ? 1 : Math.max(1, newEvtToAge - newEvtFromAge)
+    const amount = newEvtType === 'einkommensaenderung'
+      ? Math.round((p1.income || p1.grossIncome || 80000) * (1 - newEvtPensum / 100))
+      : newEvtAmount
+    addLifeEvent({
+      id: Math.random().toString(36).slice(2, 10),
+      category: newEvtType === 'einkommensaenderung' ? 'teilzeit' : 'sonstiges',
+      year: birthYear + newEvtFromAge,
+      amount,
+      art,
+      duration,
+      enabled: true,
+      details: { customLabel: newEvtLabel || (newEvtType === 'einkommensaenderung' ? `Teilzeit ${newEvtPensum}%` : 'Eigenes Ereignis') },
+      eventType: newEvtType,
+      fromAge: newEvtFromAge,
+      toAge: newEvtType === 'einmalig' ? undefined : newEvtToAge,
+      intervalYears: newEvtType === 'wiederkehrend' && newEvtIntervalYears > 1 ? newEvtIntervalYears : undefined,
+      pensum: newEvtType === 'einkommensaenderung' ? newEvtPensum : undefined,
+    })
+    setShowEventForm(false)
+    setNewEvtLabel('')
+    setNewEvtAmount(10000)
   }
 
   return (
@@ -1223,62 +1266,271 @@ export default function Screen4() {
   </div>
 </section>
 
-{/* Life events quick-select */}
+{/* Geplante Lebensereignisse */}
 <section className="block">
   <div className="block-head">
-    <h2 className="block-title"><span className="block-num">G</span>Geplante Grossausgaben</h2>
-    <span className="block-hint">Einmalausgaben im Ruhestand planen</span>
+    <h2 className="block-title"><span className="block-num">G</span>Geplante Lebensereignisse</h2>
+    <span className="block-hint">Ausgaben, Einkommensänderungen und Einnahmen im Lebensverlauf planen</span>
   </div>
-  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-    {[
-      { label: '🚗 Auto', amount: 40000 },
-      { label: '✈️ Weltreise', amount: 30000 },
-      { label: '🏠 Renovation', amount: 50000 },
-      { label: '🎓 Ausbildung', amount: 20000 },
-      { label: '🎁 Schenkung', amount: 50000 },
-    ].map(q => (
-      <button
-        key={q.label}
-        onClick={() => addQuickEvent(q.label, q.amount)}
-        style={{
-          padding: '8px 14px', fontSize: 13, background: 'var(--ink-50)',
-          border: '1px solid var(--ink-200)', borderRadius: 20, cursor: 'pointer',
-          color: 'var(--ink-700)', whiteSpace: 'nowrap',
-        }}
-      >
-        {q.label} <span style={{ color: 'var(--ink-400)', fontSize: 11 }}>CHF {fmtK(q.amount)}</span>
-      </button>
-    ))}
+
+  {/* Quick presets */}
+  <div style={{ marginBottom: 12 }}>
+    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Schnellauswahl</div>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {[
+        { label: '🚗 Auto', sublabel: 'CHF 40k', preset: { label: '🚗 Auto', amount: 40000, category: 'auto' as const, eventType: 'einmalig' as const, fromAge: ra1 + 2, art: 'ausgabe' as const, duration: 1 } },
+        { label: '✈️ Weltreise', sublabel: 'CHF 30k', preset: { label: '✈️ Weltreise', amount: 30000, category: 'reise' as const, eventType: 'einmalig' as const, fromAge: ra1 + 5, art: 'ausgabe' as const, duration: 1 } },
+        { label: '🏠 Renovation', sublabel: 'CHF 50k', preset: { label: '🏠 Renovation', amount: 50000, category: 'renovation' as const, eventType: 'einmalig' as const, fromAge: ra1 + 3, art: 'ausgabe' as const, duration: 1 } },
+        { label: '🎓 Ausbildung Kind', sublabel: 'CHF 20k/J · 4J', preset: { label: '🎓 Ausbildung Kind', amount: 20000, category: 'ausbildung' as const, eventType: 'wiederkehrend' as const, fromAge: Math.max(currentAge1 + 1, 40), toAge: Math.max(currentAge1 + 5, 44), duration: 4, art: 'laufend' as const } },
+        { label: '🎁 Schenkung', sublabel: 'CHF 50k', preset: { label: '🎁 Schenkung', amount: 50000, category: 'wohnung_kinder' as const, eventType: 'einmalig' as const, fromAge: ra1 + 2, art: 'ausgabe' as const, duration: 1 } },
+        { label: '⏰ Teilzeit 80%', sublabel: `CHF ${fmtK(Math.round((p1.income || p1.grossIncome || 80000) * 0.20))}/J`, preset: { label: '⏰ Teilzeit 80%', amount: Math.round((p1.income || p1.grossIncome || 80000) * 0.20), category: 'teilzeit' as const, eventType: 'einkommensaenderung' as const, fromAge: Math.min(58, Math.max(currentAge1 + 1, ra1 - 7)), toAge: ra1, duration: Math.max(1, ra1 - Math.min(58, Math.max(currentAge1 + 1, ra1 - 7))), art: 'laufend' as const, pensum: 80 } },
+        { label: '⏰ Teilzeit 60%', sublabel: `CHF ${fmtK(Math.round((p1.income || p1.grossIncome || 80000) * 0.40))}/J`, preset: { label: '⏰ Teilzeit 60%', amount: Math.round((p1.income || p1.grossIncome || 80000) * 0.40), category: 'teilzeit' as const, eventType: 'einkommensaenderung' as const, fromAge: Math.min(58, Math.max(currentAge1 + 1, ra1 - 7)), toAge: ra1, duration: Math.max(1, ra1 - Math.min(58, Math.max(currentAge1 + 1, ra1 - 7))), art: 'laufend' as const, pensum: 60 } },
+      ].map(q => (
+        <button
+          key={q.label}
+          onClick={() => addQuickEvent(q.preset)}
+          style={{
+            padding: '7px 13px', fontSize: 12, background: 'var(--ink-50)',
+            border: '1px solid var(--ink-200)', borderRadius: 20, cursor: 'pointer',
+            color: 'var(--ink-700)', whiteSpace: 'nowrap', lineHeight: 1.4,
+          }}
+        >
+          {q.label}<br />
+          <span style={{ color: 'var(--ink-400)', fontSize: 10 }}>{q.sublabel}</span>
+        </button>
+      ))}
+    </div>
   </div>
+
+  {/* Manual add form toggle */}
+  <div style={{ marginBottom: 16 }}>
+    <button
+      onClick={() => setShowEventForm(v => !v)}
+      style={{ padding: '8px 16px', fontSize: 13, background: showEventForm ? 'var(--navy-800)' : 'white', color: showEventForm ? 'white' : 'var(--navy-800)', border: '1px solid var(--navy-800)', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
+    >
+      {showEventForm ? '✕ Abbrechen' : '+ Ereignis manuell erfassen'}
+    </button>
+  </div>
+
+  {/* Manual form */}
+  {showEventForm && (
+    <div style={{ background: 'var(--ink-50)', border: '1px solid var(--ink-200)', borderRadius: 12, padding: '16px', marginBottom: 16 }}>
+      {/* Type selector */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        {([
+          { key: 'einmalig', label: 'Einmalige Ausgabe' },
+          { key: 'wiederkehrend', label: 'Wiederkehrend' },
+          { key: 'einkommensaenderung', label: 'Einkommensänderung' },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => {
+              setNewEvtType(t.key)
+              if (t.key === 'einkommensaenderung') {
+                setNewEvtFromAge(Math.min(58, Math.max(currentAge1 + 1, ra1 - 7)))
+                setNewEvtToAge(ra1)
+              } else {
+                setNewEvtFromAge(Math.max(currentAge1 + 1, ra1 + 1))
+                setNewEvtToAge(ra1 + 5)
+              }
+            }}
+            style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8, cursor: 'pointer', fontWeight: 600, border: '1px solid', background: newEvtType === t.key ? 'var(--navy-800)' : 'white', color: newEvtType === t.key ? 'white' : 'var(--navy-700)', borderColor: newEvtType === t.key ? 'var(--navy-800)' : 'var(--ink-300)' }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        {/* Label */}
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Bezeichnung (optional)</label>
+          <input
+            type="text" value={newEvtLabel}
+            onChange={e => setNewEvtLabel(e.target.value)}
+            placeholder={newEvtType === 'einkommensaenderung' ? `Teilzeit ${newEvtPensum}%` : 'Eigene Bezeichnung'}
+            style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {/* Einmalig: Betrag + Alter */}
+        {newEvtType === 'einmalig' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Betrag (CHF)</label>
+              <input
+                type="number" value={newEvtAmount} min={0} step={1000}
+                onChange={e => setNewEvtAmount(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Im Alter (Jahre)</label>
+              <input
+                type="number" value={newEvtFromAge} min={currentAge1 + 1} max={95}
+                onChange={e => setNewEvtFromAge(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Wiederkehrend: Betrag + Interval + Von/Bis */}
+        {newEvtType === 'wiederkehrend' && (<>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Betrag pro Jahr (CHF)</label>
+              <input
+                type="number" value={newEvtAmount} min={0} step={1000}
+                onChange={e => setNewEvtAmount(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Häufigkeit</label>
+              <select
+                value={newEvtIntervalYears}
+                onChange={e => setNewEvtIntervalYears(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box', background: 'white' }}
+              >
+                <option value={1}>Jährlich</option>
+                <option value={2}>Alle 2 Jahre</option>
+                <option value={3}>Alle 3 Jahre</option>
+                <option value={5}>Alle 5 Jahre</option>
+                <option value={8}>Alle 8 Jahre</option>
+                <option value={10}>Alle 10 Jahre</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Von Alter</label>
+              <input
+                type="number" value={newEvtFromAge} min={currentAge1 + 1} max={94}
+                onChange={e => setNewEvtFromAge(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Bis Alter</label>
+              <input
+                type="number" value={newEvtToAge} min={newEvtFromAge + 1} max={95}
+                onChange={e => setNewEvtToAge(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-500)', padding: '8px 12px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
+            Gesamtbetrag: CHF {fmtCHF(newEvtAmount * Math.ceil(Math.max(0, newEvtToAge - newEvtFromAge) / newEvtIntervalYears))} über {Math.max(0, newEvtToAge - newEvtFromAge)} Jahre
+          </div>
+        </>)}
+
+        {/* Einkommensänderung: Pensum Slider + Von/Bis */}
+        {newEvtType === 'einkommensaenderung' && (<>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)' }}>Beschäftigungsgrad</label>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy-800)' }}>{newEvtPensum}%</span>
+            </div>
+            <input
+              type="range" min={10} max={90} step={10}
+              value={newEvtPensum}
+              onChange={e => setNewEvtPensum(Number(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
+              <span>10%</span><span>50%</span><span>90%</span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Ab Alter</label>
+              <input
+                type="number" value={newEvtFromAge} min={currentAge1 + 1} max={ra1 - 1}
+                onChange={e => setNewEvtFromAge(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Bis Alter</label>
+              <input
+                type="number" value={newEvtToAge} min={newEvtFromAge + 1} max={ra1}
+                onChange={e => setNewEvtToAge(Number(e.target.value))}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+          {(() => {
+            const incomeReduction = Math.round((p1.income || p1.grossIncome || 80000) * (1 - newEvtPensum / 100))
+            const years = Math.max(0, newEvtToAge - newEvtFromAge)
+            const totalImpact = incomeReduction * years
+            return (
+              <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#92400e', lineHeight: 1.7 }}>
+                <strong>Vorschau:</strong><br />
+                Einkommensreduktion: CHF {fmtCHF(incomeReduction)}/Jahr · {years} Jahre<br />
+                Gesamtauswirkung auf Vermögen: ca. CHF {fmtCHF(totalImpact)} (ohne Zinsen)
+              </div>
+            )
+          })()}
+        </>)}
+
+        <button
+          onClick={addManualEvent}
+          disabled={newEvtType !== 'einkommensaenderung' && newEvtAmount <= 0}
+          style={{ padding: '10px 20px', fontSize: 13, fontWeight: 700, background: 'var(--navy-800)', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', opacity: (newEvtType !== 'einkommensaenderung' && newEvtAmount <= 0) ? 0.5 : 1 }}
+        >
+          Ereignis hinzufügen
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* Event list */}
   {lifeEvents.filter(e => e.enabled && e.amount > 0).length === 0 ? (
     <div style={{ textAlign: 'center', padding: '20px', color: 'var(--ink-400)', fontSize: 13 }}>
-      Keine Grossausgaben geplant. Wählen Sie oben eine Schnelloption.
+      Keine Lebensereignisse geplant. Wählen Sie oben eine Schnelloption oder erfassen Sie ein Ereignis manuell.
     </div>
   ) : (
     <div style={{ display: 'grid', gap: 8 }}>
       {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
         const cfg = CATEGORY_CONFIG[evt.category]
-        const birthYear = new Date().getFullYear() - currentAge1
-        const evtAge = evt.year - birthYear
+        const evtFromAge = evt.fromAge ?? (evt.year - birthYear)
+        const evtToAge = evt.toAge
+        const isIncome = evt.eventType === 'einkommensaenderung'
+        const isRecurring = evt.eventType === 'wiederkehrend' || evt.art === 'laufend'
+        const label = evt.details?.customLabel || cfg.label
+        const icon = cfg.icon
+
+        let descLine = ''
+        if (isIncome) {
+          descLine = `Alter ${evtFromAge}–${evtToAge ?? ra1} · CHF ${fmtCHF(evt.amount)}/J Einkommensreduktion`
+        } else if (isRecurring) {
+          const interval = evt.intervalYears && evt.intervalYears > 1 ? ` · alle ${evt.intervalYears} J.` : '/J'
+          descLine = `Alter ${evtFromAge}–${evtToAge ?? (evtFromAge + evt.duration)} · CHF ${fmtCHF(evt.amount)}${interval}`
+        } else {
+          descLine = `Alter ${evtFromAge} · CHF ${fmtCHF(evt.amount)} einmalig`
+        }
+
         return (
-          <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--ink-50)', borderRadius: 10, fontSize: 13 }}>
-            <span>{cfg.icon} {evt.details?.customLabel || cfg.label} · Alter {evtAge}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--navy-800)' }}>CHF {fmtCHF(evt.amount)}</span>
-              <button onClick={() => removeLifeEvent(evt.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-400)', fontSize: 16, lineHeight: 1 }}>×</button>
+          <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isIncome ? '#fef9ff' : 'var(--ink-50)', border: `1px solid ${isIncome ? '#e9d5ff' : 'var(--ink-200)'}`, borderRadius: 10, fontSize: 13 }}>
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--ink-800)' }}>{icon} {label}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>{descLine}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              {isIncome && <span style={{ fontSize: 10, padding: '2px 8px', background: '#e9d5ff', color: '#7c3aed', borderRadius: 10, fontWeight: 600 }}>Einkomm.</span>}
+              {isRecurring && !isIncome && <span style={{ fontSize: 10, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', borderRadius: 10, fontWeight: 600 }}>Laufend</span>}
+              <button onClick={() => removeLifeEvent(evt.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-400)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
             </div>
           </div>
         )
       })}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--navy-800)', borderRadius: 10, fontSize: 13 }}>
-        <span style={{ color: 'rgba(255,255,255,0.7)' }}>Total Sonderausgaben</span>
-        <span style={{ fontWeight: 700, color: 'white' }}>CHF {fmtCHF(lifeEvents.filter(e => e.enabled && e.amount > 0).reduce((s, e) => s + e.amount, 0))}</span>
-      </div>
+
       {hasEnabledEvents && (
         <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-          Mit diesen Ausgaben reicht Ihr Vermögen bis <strong>Alter {(displayAgeWhenBroke ?? 99) >= 99 ? '95+' : displayAgeWhenBroke}</strong>
+          Mit diesen Ereignissen reicht Ihr Vermögen bis <strong>Alter {(displayAgeWhenBroke ?? 99) >= 99 ? '95+' : displayAgeWhenBroke}</strong>
           {ageWhenBrokeWithEvents && analysis.ageWhenBroke && ageWhenBrokeWithEvents !== analysis.ageWhenBroke
-            ? ` (ohne Ausgaben: Alter ${analysis.ageWhenBroke >= 99 ? '95+' : analysis.ageWhenBroke})`
+            ? ` (ohne Ereignisse: Alter ${analysis.ageWhenBroke >= 99 ? '95+' : analysis.ageWhenBroke})`
             : ''}
           .
         </div>

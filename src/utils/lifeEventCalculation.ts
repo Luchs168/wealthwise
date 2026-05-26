@@ -17,7 +17,9 @@ export function expandEventsToYears(events: LifeEvent[]): YearlyEventImpact[] {
     const cfg = CATEGORY_CONFIG[evt.category]
 
     if (evt.art === 'laufend' && evt.duration > 0) {
+      const interval = (evt.intervalYears && evt.intervalYears > 1) ? evt.intervalYears : 1
       for (let y = 0; y < evt.duration; y++) {
+        if (y % interval !== 0) continue
         result.push({
           year: evt.year + y,
           amount: sign * evt.amount,

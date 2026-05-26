@@ -20,6 +20,8 @@ export interface LifeEventDetails {
   customLabel?: string
 }
 
+export type LifeEventType = 'einmalig' | 'wiederkehrend' | 'einkommensaenderung'
+
 export interface LifeEvent {
   id: string
   category: LifeEventCategory
@@ -29,6 +31,11 @@ export interface LifeEvent {
   duration: number
   enabled: boolean
   details: LifeEventDetails
+  eventType?: LifeEventType
+  fromAge?: number
+  toAge?: number
+  intervalYears?: number
+  pensum?: number
 }
 
 export interface CategoryConfig {
