@@ -635,9 +635,9 @@ export function calculateScenarios(data: CashflowInput) {
   // Strip wealthInvestmentProfile so fixed investmentReturn values take effect
   const base = { ...data, wealthInvestmentProfile: undefined }
   return {
-    optimistic:  calculateProAnalysis({ ...base, inflationRate: 0.01,  investmentReturn: 0.04  }),
-    neutral:     calculateProAnalysis({ ...base, inflationRate: 0.015, investmentReturn: 0.025 }),
-    pessimistic: calculateProAnalysis({ ...base, inflationRate: 0.02,  investmentReturn: 0.01  }),
+    optimistic:  calculateProAnalysis({ ...base, inflationRate: 0.01,  investmentReturn: 0.05  }),
+    neutral:     calculateProAnalysis({ ...base, inflationRate: 0.015, investmentReturn: 0.035 }),
+    pessimistic: calculateProAnalysis({ ...base, inflationRate: 0.025, investmentReturn: 0.01  }),
   }
 }
 
