@@ -207,6 +207,11 @@ export interface CashflowRow {
   wealthEndOfYear: number
   isRetirementYear: boolean
   isCapitalWithdrawalYear: boolean
+  // Wealth breakdown for stacked bar chart display
+  wealthLiquid: number       // sparkonto / cash component
+  wealthWertschriften: number // equity / wertschriften component
+  wealthGebunden: number     // 3a balance (tracked separately, 0 after retirement)
+  wealthImmobilien: number   // property net equity (not in wealthEndOfYear)
 }
 
 export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
@@ -338,6 +343,11 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
   // 3a tracked separately and added at retirement as lump sum; initial wealth = free assets only
   let wealth = (data.freeAssets || 0)
+
+  // Breakdown trackers for stacked bar chart
+  let gebunden3aTrack = (p1raw.pillar3aBalance || 0) + (p2raw ? (p2raw.pillar3aBalance || 0) : 0)
+  const yearly3aCombinedTrack = (p1raw.yearly3a || 0) + (p2raw ? (p2raw.yearly3a || 0) : 0)
+  const rate3aTrack = CONSTANTS.RETURNS_3A[p1raw.form3a || 'sparkonto'] ?? 0.0075
   const baseExpensesYear = (data.monthlyExpenses || 0) * 12
   const cashflow: CashflowRow[] = []
   const currentYear = new Date().getFullYear()
@@ -523,6 +533,21 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth -= estimatedTax
     }
 
+    // Wealth breakdown for stacked bar chart
+    if (age < ra1) {
+      gebunden3aTrack = Math.round(gebunden3aTrack * (1 + rate3aTrack) + yearly3aCombinedTrack)
+    } else {
+      gebunden3aTrack = 0 // withdrawn as lump sum at retirement
+    }
+    const wealthTotal = Math.max(0, wealth)
+    const wLiquid = Math.round(wealthTotal * sparkontoFraction)
+    const wWertschriften = wealthTotal - wLiquid
+    const wImmobilien = data.hasProperty && data.propertyValue
+      ? Math.max(0, data.propertyValue - (useDynamicMortgage
+          ? Math.max(0, propMortgage - yearsFromNow * propAmortYearly)
+          : (data.mortgage || 0)))
+      : 0
+
     cashflow.push({
       year, age,
       employmentIncome: Math.round(employmentIncome),
@@ -541,6 +566,10 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealthEndOfYear: Math.round(wealth),
       isRetirementYear: isRetirementYearP1 || isRetirementYearP2,
       isCapitalWithdrawalYear: pkKapitalWithdrawal > 0 || businessProceeds > 0,
+      wealthLiquid: wLiquid,
+      wealthWertschriften: wWertschriften,
+      wealthGebunden: gebunden3aTrack,
+      wealthImmobilien: wImmobilien,
     })
   }
 

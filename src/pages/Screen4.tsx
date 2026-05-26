@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -687,18 +687,42 @@ export default function Screen4() {
 
   const coveragePct = monthlyBudget > 0 ? Math.round((effectiveMonthlyIncome / monthlyBudget) * 100) : 0
 
+  const currentYear = useMemo(() => new Date().getFullYear(), [])
+
+  // Helper: filter cashflow to 5-year intervals and build stacked bar data
+  const buildStackedBarData = useCallback((rows: typeof scenarios.neutral.yearlyCashflow, adjRows?: typeof rows | null) => {
+    return rows
+      .filter(r => r.age >= ra1 && r.age <= 95 && (r.age - ra1) % 5 === 0)
+      .map((r, i) => {
+        const adjR = adjRows ? adjRows.find(a => a.age === r.age) : null
+        const total = Math.max(0, adjR ? adjR.wealthEndOfYear : r.wealthEndOfYear)
+        const sf = (r.wealthLiquid + r.wealthWertschriften) > 0
+          ? r.wealthLiquid / (r.wealthLiquid + r.wealthWertschriften)
+          : 0.3
+        return {
+          age: r.age,
+          year: currentYear + (r.age - currentAge1),
+          liquid: Math.round(total * sf),
+          wertschriften: total - Math.round(total * sf),
+          gebunden: r.wealthGebunden,
+          immobilien: r.wealthImmobilien,
+        }
+      })
+  }, [ra1, currentAge1, currentYear])
+
   const chartData = useMemo(() => {
     const base = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1)
     const adj = adjustedCashflow ? adjustedCashflow.filter(r => r.age >= ra1) : null
-    return base.map((r, i) => ({
-      age: r.age,
-      vermoegen: Math.max(0, adj ? (adj[i]?.wealthEndOfYear ?? r.wealthEndOfYear) : r.wealthEndOfYear),
-      vermoegenBase: adjustedCashflow ? Math.max(0, r.wealthEndOfYear) : undefined,
-      eventAmount: adj ? (adj[i]?.eventAmount ?? 0) : 0,
-      einnahmen: Math.round((r.ahvIncome + r.pkRenteIncome) / 12),
-      ausgaben: Math.round(r.livingExpenses / 12),
-    }))
-  }, [scenarios, adjustedCashflow, ra1])
+    return buildStackedBarData(base, adj)
+  }, [scenarios, adjustedCashflow, ra1, buildStackedBarData])
+
+  const scenarioNeutralData = useMemo(() =>
+    buildStackedBarData(scenarios.neutral.yearlyCashflow),
+    [scenarios, buildStackedBarData])
+
+  const scenarioPessData = useMemo(() =>
+    buildStackedBarData(scenarios.pessimistic.yearlyCashflow),
+    [scenarios, buildStackedBarData])
 
   const scenarioChartData = useMemo(() => {
     const ages = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1).map(r => r.age)
@@ -707,7 +731,6 @@ export default function Screen4() {
       optimistisch: Math.max(0, scenarios.optimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
       neutral: Math.max(0, scenarios.neutral.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
       pessimistisch: Math.max(0, scenarios.pessimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0),
-      shade: Math.max(0, (scenarios.optimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0) - Math.max(0, scenarios.pessimistic.yearlyCashflow.find(r => r.age === age)?.wealthEndOfYear || 0)),
     }))
   }, [scenarios, ra1])
 
@@ -897,41 +920,60 @@ export default function Screen4() {
     </div>
   </div>
 
-  {/* Wealth trajectory chart with scenario band */}
+  {/* Wealth trajectory – stacked bar chart (neutral scenario) */}
   <div style={{ marginBottom: 24 }}>
+    {(() => {
+      const neutralAge = scenarios.neutral.ageWhenBroke
+      const verdictStr = neutralAge == null || neutralAge >= 99
+        ? <span style={{ color: '#15803d', fontWeight: 700 }}>Vermögen reicht.</span>
+        : <span style={{ color: '#dc2626', fontWeight: 700 }}>Vermögen reicht bis Alter {neutralAge}</span>
+      return (
+        <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 6 }}>{verdictStr}</div>
+      )
+    })()}
     <ResponsiveContainer width="100%" height={220}>
-      <ComposedChart data={scenarioChartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
-        <XAxis dataKey="age" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
-        <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
+      <BarChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 28 }} barCategoryGap="20%">
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
+        <XAxis dataKey="age" height={42}
+          tick={(props: any) => {
+            const { x, y, payload } = props
+            const yr = currentYear + (payload.value - currentAge1)
+            return (
+              <g transform={`translate(${x},${y})`}>
+                <text x={0} y={0} dy={12} textAnchor="middle" fontSize={9} fill="var(--ink-400)">{yr}</text>
+                <text x={0} y={0} dy={24} textAnchor="middle" fontSize={9} fill="#b91c1c">{payload.value}</text>
+              </g>
+            )
+          }}
+        />
+        <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} width={40} />
         <Tooltip
-          formatter={(v: number) => [`CHF ${fmtCHF(v)}`, '']}
-          labelFormatter={l => `Alter ${l}`}
+          formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name]}
+          labelFormatter={(l: number) => `Alter ${l} (${currentYear + (l - currentAge1)})`}
           contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--ink-200)' }}
         />
-        {/* Band: stacked area = pessimistic base (transparent) + shade on top */}
-        <Area type="monotone" dataKey="pessimistisch" stackId="band" fill="transparent" stroke="none" legendType="none" />
-        <Area type="monotone" dataKey="shade" stackId="band" fill="#dbeafe" stroke="none" fillOpacity={0.5} legendType="none" />
-        {/* Main neutral line */}
-        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (3.5%)" />
-        {/* Zero reference line */}
-        <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
-        {/* Depletion age */}
+        <Bar dataKey="gebunden" name="Gebund. Vorsorge (3a)" stackId="w" fill="#7c3aed" radius={[0,0,0,0]} />
+        <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" radius={[0,0,0,0]} />
+        <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" radius={[0,0,0,0]} />
+        <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
         {(displayAgeWhenBroke ?? 99) < 99 && (
           <ReferenceLine x={displayAgeWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
             label={{ value: `Alter ${displayAgeWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
         )}
-      </ComposedChart>
+      </BarChart>
     </ResponsiveContainer>
-    <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
-        <div style={{ width: 24, height: 3, background: 'var(--navy-700)', borderRadius: 2 }} />
-        <span>Neutrales Szenario (3.5%)</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
-        <div style={{ width: 20, height: 12, background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 2 }} />
-        <span>Szenarien-Bandbreite</span>
-      </div>
+    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+      {[
+        { color: '#7c3aed', label: 'Gebundenes Vorsorgevermögen (3a)' },
+        { color: '#1e3a8a', label: 'Wertschriften' },
+        { color: '#93c5fd', border: '#60a5fa', label: 'Liquidität' },
+        { color: '#2563eb', label: 'Immobilien' },
+      ].map(({ color, border, label }) => (
+        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ink-500)' }}>
+          <div style={{ width: 12, height: 12, background: color, border: border ? `1px solid ${border}` : undefined, borderRadius: 2, flexShrink: 0 }} />
+          <span>{label}</span>
+        </div>
+      ))}
     </div>
   </div>
 
@@ -1043,44 +1085,121 @@ export default function Screen4() {
         Ihr Vermögen reicht je nach Szenario bis Alter {minAge >= 99 ? '95+' : minAge}–{maxAge >= 99 ? '95+' : maxAge}
       </div>
       <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
-        Optimistisch (4% Rendite) bis Neutral (3.5%) bis Pessimistisch (1%)
+        Optimistisch (5% Rendite) bis Neutral (3.5%) bis Pessimistisch (1%)
       </div>
     </div>
   )
 })()}
 
-{/* Scenario chart – 3 lines */}
+{/* Scenario chart – two stacked bar charts */}
 <section className="block">
   <div className="block-head">
-    <h2 className="block-title"><span className="block-num">S</span>Vermögensverlauf – 3 Szenarien</h2>
-    <span className="block-hint">Neutrale Hauptlinie · Bandbreite optimistisch/pessimistisch</span>
+    <h2 className="block-title"><span className="block-num">S</span>Vermögensverlauf – Szenarien im Vergleich</h2>
+    <span className="block-hint">Neutrales Szenario (oben) · Pessimistisches Szenario (unten)</span>
   </div>
-  {scenarioChartData.length > 0 ? (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={scenarioChartData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" />
-        <XAxis dataKey="age" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
-        <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
-        <Tooltip formatter={(v: number) => [`CHF ${fmtCHF(v)}`, '']} labelFormatter={l => `Alter ${l}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-        <Line type="monotone" dataKey="optimistisch" stroke="#16a34a" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="Optimistisch (4%)" />
-        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (3.5%)" />
-        <Line type="monotone" dataKey="pessimistisch" stroke="#d97706" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="Pessimistisch (1%)" />
-        <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
-        {/* Life event markers */}
-        {lifeEvents.filter(e => e.enabled && e.amount > 0).map(evt => {
-          const birthYear = new Date().getFullYear() - currentAge1
-          const evtAge = evt.year - birthYear
-          if (evtAge > 95 || evtAge < ra1) return null
-          const cfg = CATEGORY_CONFIG[evt.category]
-          return (
-            <ReferenceLine key={evt.id} x={evtAge} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1.5}
-              label={{ value: `${cfg.icon} ${fmtK(evt.amount)}`, fill: '#d97706', fontSize: 10, position: 'insideTopRight' }} />
-          )
-        })}
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  ) : (
+
+  {/* Shared legend */}
+  <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+    {[
+      { color: '#7c3aed', label: 'Gebundenes Vorsorgevermögen (3a)' },
+      { color: '#1e3a8a', label: 'Wertschriften' },
+      { color: '#93c5fd', border: '#60a5fa', label: 'Liquidität' },
+      { color: '#2563eb', label: 'Immobilien' },
+    ].map(({ color, border, label }) => (
+      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ink-500)' }}>
+        <div style={{ width: 11, height: 11, background: color, border: border ? `1px solid ${border}` : undefined, borderRadius: 2, flexShrink: 0 }} />
+        <span>{label}</span>
+      </div>
+    ))}
+  </div>
+
+  {scenarioNeutralData.length > 0 ? (<>
+
+  {/* Chart 1: Neutral */}
+  {(() => {
+    const neutAge = scenarios.neutral.ageWhenBroke
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingRight: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-800)' }}>Neutrales Szenario (3.5% Rendite, 1.5% Inflation)</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: neutAge == null || neutAge >= 99 ? '#15803d' : '#dc2626' }}>
+            {neutAge == null || neutAge >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${neutAge}`}
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={190}>
+          <BarChart data={scenarioNeutralData} margin={{ top: 4, right: 8, left: -10, bottom: 28 }} barCategoryGap="20%">
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
+            <XAxis dataKey="age" height={42}
+              tick={(props: any) => {
+                const { x, y, payload } = props
+                const yr = currentYear + (payload.value - currentAge1)
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text x={0} y={0} dy={12} textAnchor="middle" fontSize={9} fill="var(--ink-400)">{yr}</text>
+                    <text x={0} y={0} dy={24} textAnchor="middle" fontSize={9} fill="#b91c1c">{payload.value}</text>
+                  </g>
+                )
+              }}
+            />
+            <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} width={40} />
+            <Tooltip formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name]} labelFormatter={(l: number) => `Alter ${l}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+            <Bar dataKey="gebunden" name="Gebund. Vorsorge" stackId="w" fill="#7c3aed" />
+            <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" />
+            <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" />
+            <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
+            {(scenarios.neutral.ageWhenBroke ?? 99) < 99 && (
+              <ReferenceLine x={scenarios.neutral.ageWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
+                label={{ value: `Alter ${scenarios.neutral.ageWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  })()}
+
+  {/* Chart 2: Pessimistic */}
+  {(() => {
+    const pessAge = scenarios.pessimistic.ageWhenBroke
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingRight: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-800)' }}>Pessimistisches Szenario (1% Rendite, 2.5% Inflation)</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: pessAge == null || pessAge >= 99 ? '#15803d' : '#dc2626' }}>
+            {pessAge == null || pessAge >= 99 ? 'Vermögen reicht.' : `Vermögen reicht nicht! (bis ${pessAge})`}
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={190}>
+          <BarChart data={scenarioPessData} margin={{ top: 4, right: 8, left: -10, bottom: 28 }} barCategoryGap="20%">
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
+            <XAxis dataKey="age" height={42}
+              tick={(props: any) => {
+                const { x, y, payload } = props
+                const yr = currentYear + (payload.value - currentAge1)
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text x={0} y={0} dy={12} textAnchor="middle" fontSize={9} fill="var(--ink-400)">{yr}</text>
+                    <text x={0} y={0} dy={24} textAnchor="middle" fontSize={9} fill="#b91c1c">{payload.value}</text>
+                  </g>
+                )
+              }}
+            />
+            <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} width={40} />
+            <Tooltip formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name]} labelFormatter={(l: number) => `Alter ${l}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+            <Bar dataKey="gebunden" name="Gebund. Vorsorge" stackId="w" fill="#7c3aed" />
+            <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" />
+            <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" />
+            <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
+            {(scenarios.pessimistic.ageWhenBroke ?? 99) < 99 && (
+              <ReferenceLine x={scenarios.pessimistic.ageWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
+                label={{ value: `Alter ${scenarios.pessimistic.ageWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  })()}
+
+  </>) : (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-400)', fontSize: 14 }}>
       Bitte geben Sie Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
     </div>
@@ -1089,9 +1208,9 @@ export default function Screen4() {
   {/* 3 KPI cards */}
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 20 }}>
     {[
-      { label: 'Optimistisch', age: scenarios.optimistic.ageWhenBroke, bg: '#ecfdf5', border: '#bbf7d0', color: '#15803d', hint: '4% Rendite, 1% Inflation' },
+      { label: 'Optimistisch', age: scenarios.optimistic.ageWhenBroke, bg: '#ecfdf5', border: '#bbf7d0', color: '#15803d', hint: '5% Rendite, 1% Inflation' },
       { label: 'Neutral', age: scenarios.neutral.ageWhenBroke, bg: '#f0f9ff', border: '#bae6fd', color: 'var(--navy-700)', hint: '3.5% Rendite, 1.5% Inflation' },
-      { label: 'Pessimistisch', age: scenarios.pessimistic.ageWhenBroke, bg: '#fffbeb', border: '#fde68a', color: '#d97706', hint: '1% Rendite, 2% Inflation' },
+      { label: 'Pessimistisch', age: scenarios.pessimistic.ageWhenBroke, bg: '#fffbeb', border: '#fde68a', color: '#d97706', hint: '1% Rendite, 2.5% Inflation' },
     ].map((s, i) => (
       <div key={i} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>{s.label}</div>

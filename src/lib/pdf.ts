@@ -156,19 +156,6 @@ export async function exportPDF(data: PdfData): Promise<void> {
     doc.text(subLines, x + w / 2, yy + 27, { align: 'center' })
   }
 
-  function dashedLine(x1: number, y1: number, x2: number, y2: number, dash = 1.5, gap = 1.5) {
-    const dx = x2 - x1, dy = y2 - y1
-    const len = Math.sqrt(dx * dx + dy * dy)
-    if (len === 0) return
-    const ux = dx / len, uy = dy / len
-    let pos = 0
-    while (pos < len) {
-      const end = Math.min(pos + dash, len)
-      doc.line(x1 + pos * ux, y1 + pos * uy, x1 + end * ux, y1 + end * uy)
-      pos += dash + gap
-    }
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // SEITE 1: DECKBLATT + ZUSAMMENFASSUNG + EINNAHMEN/AUSGABEN
   // ═══════════════════════════════════════════════════════════════════════════
@@ -375,126 +362,151 @@ export async function exportPDF(data: PdfData): Promise<void> {
   addPage(2)
   section('Vermögensverlauf', `Vermögensentwicklung bis Alter 95 · Risikoprofil: ${riskLabel}`)
 
-  // ─── Line chart ─────────────────────────────────────────────────────────────
+  // ─── Stacked bar chart helper ────────────────────────────────────────────────
 
-  if (data.scenarios) {
+  const VIOLET     = [124, 58, 237]  as [number, number, number]
+  const DKBLUE     = [30,  58, 138]  as [number, number, number]
+  const LTBLUE     = [147, 197, 253] as [number, number, number]
+  const MDBLUE     = [37,  99,  235] as [number, number, number]
+
+  function drawStackedBarChart(
+    rows: Array<{ age: number; wealthLiquid: number; wealthWertschriften: number; wealthGebunden: number; wealthImmobilien: number; wealthEndOfYear: number }>,
+    chartLabel: string,
+    verdictText: string,
+    verdictIsGood: boolean,
+    chartTopY: number,
+  ): number {
+    // Filter to 5-year intervals
     const ra = data.retirementAge1
-    const ageMin = ra
-    const ageMax = 95
+    const pts = rows.filter(r => r.age >= ra && r.age <= 95 && (r.age - ra) % 5 === 0)
+    if (pts.length === 0) return chartTopY
 
-    const neutralRows = data.scenarios.neutral.yearlyCashflow.filter(r => r.age >= ageMin && r.age <= ageMax)
-    const optRows     = data.scenarios.optimistic.yearlyCashflow.filter(r => r.age >= ageMin && r.age <= ageMax)
-    const pessRows    = data.scenarios.pessimistic.yearlyCashflow.filter(r => r.age >= ageMin && r.age <= ageMax)
+    // Compute per-point totals (wealthEndOfYear + gebunden + immobilien)
+    const totals = pts.map(r =>
+      Math.max(0, r.wealthEndOfYear) + r.wealthGebunden + r.wealthImmobilien)
+    const maxTotal = Math.max(...totals, 1)
+    const tickSz = maxTotal > 2_000_000 ? 500_000 : maxTotal > 1_000_000 ? 250_000 : maxTotal > 500_000 ? 100_000 : 50_000
+    const yMax = Math.max(tickSz, Math.ceil(maxTotal / tickSz) * tickSz)
 
-    const allW = [...neutralRows, ...optRows, ...pessRows].map(r => Math.max(0, r.wealthEndOfYear))
-    const maxW = allW.length > 0 ? Math.max(...allW) : 1_000_000
-    const tickSize = maxW > 2_000_000 ? 500_000 : maxW > 1_000_000 ? 250_000 : maxW > 500_000 ? 100_000 : 50_000
-    const yAxisMax = Math.max(tickSize, Math.ceil(maxW / tickSize) * tickSize)
-    const numTicks = Math.min(5, Math.round(yAxisMax / tickSize))
-
-    const leftPad = 22
-    const bottomPad = 10
-    const chartH = 62
-    const plotX = ML + leftPad
-    const plotY = y
-    const plotW = CW - leftPad
+    const leftPad = 20
+    const bottomPad = 12
+    const chartH = 50  // mm total (visual area + x labels)
     const plotH = chartH - bottomPad
+    const plotX = ML + leftPad
+    const plotY = chartTopY
+    const plotW = CW - leftPad
+    const numBars = pts.length
+    const slotW = plotW / numBars
+    const barW = Math.min(slotW * 0.65, 14)
 
-    // Chart background
-    doc.setFillColor(...INK1)
+    // Chart label + verdict
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...NAVY)
+    doc.text(chartLabel, plotX, plotY - 1)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...(verdictIsGood ? GREEN : RED))
+    doc.text(verdictText, W - MR, plotY - 1, { align: 'right' })
+
+    // Plot background
+    doc.setFillColor(250, 251, 253)
     doc.rect(plotX, plotY, plotW, plotH, 'F')
     doc.setDrawColor(...BORDER)
-    doc.setLineWidth(0.3)
+    doc.setLineWidth(0.25)
     doc.rect(plotX, plotY, plotW, plotH, 'S')
 
-    // Y axis grid lines and labels
+    // Y axis grid + labels
+    const numTicks = 4
     for (let i = 0; i <= numTicks; i++) {
-      const val = (yAxisMax / numTicks) * i
-      const gy = plotY + plotH - (val / yAxisMax) * plotH
+      const val = (yMax / numTicks) * i
+      const gy = plotY + plotH - (val / yMax) * plotH
       if (i > 0) {
-        doc.setDrawColor(200, 210, 225)
-        doc.setLineWidth(0.2)
+        doc.setDrawColor(215, 222, 232)
+        doc.setLineWidth(0.15)
         doc.line(plotX, gy, plotX + plotW, gy)
       }
-      const labelV = val >= 1_000_000
-        ? `${Math.round(val / 100_000) / 10}M`
-        : val >= 1_000 ? `${Math.round(val / 1_000)}k` : `${val}`
+      const lv = val >= 1_000_000 ? `${Math.round(val / 100_000) / 10}M` : val >= 1_000 ? `${Math.round(val / 1_000)}k` : `${val}`
       doc.setTextColor(...INK5)
-      doc.setFontSize(6.5)
+      doc.setFontSize(6)
       doc.setFont('helvetica', 'normal')
-      doc.text(labelV, plotX - 1, gy + 2.2, { align: 'right' })
+      doc.text(lv, plotX - 1, gy + 2, { align: 'right' })
     }
 
-    // X axis labels (every 5 years)
-    for (let age = ageMin; age <= ageMax; age += 5) {
-      const gx = plotX + ((age - ageMin) / (ageMax - ageMin)) * plotW
-      doc.setDrawColor(...BORDER)
-      doc.setLineWidth(0.2)
-      doc.line(gx, plotY + plotH, gx, plotY + plotH + 2)
+    // Draw bars
+    pts.forEach((r, i) => {
+      const barX = plotX + i * slotW + (slotW - barW) / 2
+      const wFree = Math.max(0, r.wealthEndOfYear)
+      const sfRaw = r.wealthLiquid + r.wealthWertschriften
+      const sf = sfRaw > 0 ? r.wealthLiquid / sfRaw : 0.3
+      const liq  = Math.round(wFree * sf)
+      const wert = wFree - liq
+      const geb  = r.wealthGebunden
+      const immob = r.wealthImmobilien
+      const total = liq + wert + geb + immob
+
+      if (total === 0) return
+
+      // Stack from bottom: liquid → wertschriften → gebunden → immobilien
+      let stackY = plotY + plotH
+      const segments = [
+        { val: liq,   color: LTBLUE },
+        { val: wert,  color: DKBLUE },
+        { val: geb,   color: VIOLET },
+        { val: immob, color: MDBLUE },
+      ]
+      for (const seg of segments) {
+        if (seg.val <= 0) continue
+        const h = (seg.val / yMax) * plotH
+        stackY -= h
+        doc.setFillColor(...seg.color)
+        doc.rect(barX, stackY, barW, h, 'F')
+      }
+
+      // X axis label: age (+ year below)
+      const barCenterX = barX + barW / 2
       doc.setTextColor(...INK5)
-      doc.setFontSize(6.5)
+      doc.setFontSize(6)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${age}`, gx, plotY + plotH + 6.5, { align: 'center' })
-    }
-
-    const toChartX = (age: number) => plotX + ((age - ageMin) / (ageMax - ageMin)) * plotW
-    const toChartY = (wealth: number) => plotY + plotH - (Math.max(0, wealth) / yAxisMax) * plotH
-
-    // Neutral — solid navy
-    doc.setDrawColor(...NAVY)
-    doc.setLineWidth(0.7)
-    for (let i = 1; i < neutralRows.length; i++) {
-      doc.line(
-        toChartX(neutralRows[i - 1].age), toChartY(neutralRows[i - 1].wealthEndOfYear),
-        toChartX(neutralRows[i].age),     toChartY(neutralRows[i].wealthEndOfYear),
-      )
-    }
-
-    // Optimistic — dashed green
-    doc.setDrawColor(...GREEN)
-    doc.setLineWidth(0.6)
-    for (let i = 1; i < optRows.length; i++) {
-      dashedLine(
-        toChartX(optRows[i - 1].age), toChartY(optRows[i - 1].wealthEndOfYear),
-        toChartX(optRows[i].age),     toChartY(optRows[i].wealthEndOfYear),
-        1.6, 1.2,
-      )
-    }
-
-    // Pessimistic — dashed red
-    doc.setDrawColor(...RED)
-    doc.setLineWidth(0.6)
-    for (let i = 1; i < pessRows.length; i++) {
-      dashedLine(
-        toChartX(pessRows[i - 1].age), toChartY(pessRows[i - 1].wealthEndOfYear),
-        toChartX(pessRows[i].age),     toChartY(pessRows[i].wealthEndOfYear),
-        1.6, 1.2,
-      )
-    }
-
-    // Legend
-    const legY = plotY + plotH + 3
-    doc.setLineWidth(0.7)
-    doc.setDrawColor(...NAVY)
-    doc.line(ML, legY + 1.5, ML + 10, legY + 1.5)
-    doc.setTextColor(...INK)
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Neutral (3.5% / 1.5%)', ML + 12, legY + 3)
-
-    doc.setDrawColor(...GREEN)
-    doc.setLineWidth(0.6)
-    dashedLine(ML + 52, legY + 1.5, ML + 62, legY + 1.5, 1.6, 1.2)
-    doc.setTextColor(...INK)
-    doc.text('Optimistisch (5% / 1%)', ML + 64, legY + 3)
-
-    doc.setDrawColor(...RED)
-    dashedLine(ML + 108, legY + 1.5, ML + 118, legY + 1.5, 1.6, 1.2)
-    doc.setTextColor(...INK)
-    doc.text('Pessimistisch (1% / 2.5%)', ML + 120, legY + 3)
+      doc.text(`${r.age}`, barCenterX, plotY + plotH + 5, { align: 'center' })
+    })
 
     doc.setLineWidth(0.2)
-    y += chartH + 6
+    return chartTopY + chartH + 6
+  }
+
+  // ─── Stacked bar charts (Neutral + Pessimistic) ───────────────────────────────
+
+  if (data.scenarios) {
+    const neutralBreak = data.scenarios.neutral.ageWhenBroke
+    const pessBreak    = data.scenarios.pessimistic.ageWhenBroke
+
+    const neutLabel    = 'Neutrales Szenario (3.5% Rendite · 1.5% Inflation)'
+    const neutVerdict  = neutralBreak == null || neutralBreak >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${neutralBreak}`
+    const pessLabel    = 'Pessimistisches Szenario (1% Rendite · 2.5% Inflation)'
+    const pessVerdict  = pessBreak == null || pessBreak >= 99 ? 'Vermögen reicht.' : `Reicht nicht! (bis ${pessBreak})`
+
+    y += 4
+    y = drawStackedBarChart(data.scenarios.neutral.yearlyCashflow,    neutLabel, neutVerdict, neutralBreak == null || neutralBreak >= 99, y)
+    y = drawStackedBarChart(data.scenarios.pessimistic.yearlyCashflow, pessLabel, pessVerdict, pessBreak == null || pessBreak >= 99, y)
+
+    // Legend
+    const legendItems = [
+      { color: VIOLET,  label: 'Geb. Vorsorge (3a)' },
+      { color: DKBLUE,  label: 'Wertschriften' },
+      { color: LTBLUE,  label: 'Liquidität' },
+      { color: MDBLUE,  label: 'Immobilien' },
+    ]
+    let legX = ML + 20
+    legendItems.forEach(({ color, label }) => {
+      doc.setFillColor(...color)
+      doc.rect(legX, y, 5, 4, 'F')
+      doc.setTextColor(...INK)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.text(label, legX + 7, y + 3.5)
+      legX += 42
+    })
+    y += 10
   } else {
     doc.setTextColor(...INK5)
     doc.setFontSize(9)
