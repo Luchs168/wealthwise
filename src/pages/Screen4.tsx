@@ -145,6 +145,7 @@ export default function Screen4() {
   const state = useStore()
   const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
     ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
+    pkEinkaufProJahr, pkEinkaufJahre, setPkEinkaufProJahr, setPkEinkaufJahre,
     setAhvChoice, setPkChoice, setWithdrawalStrategy, addLifeEvent, removeLifeEvent } = state
   const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
   const [showCashflowTable, setShowCashflowTable] = useState(false)
@@ -168,18 +169,30 @@ export default function Screen4() {
   // canton declared early — used in both inputData and tax section
   const canton = location?.kanton ?? 'ZH'
 
+  // PK-Einkauf: pre-compute total before inputData so projection includes boosted PK capital
+  const [pkEinkaufManualRate, setPkEinkaufManualRate] = useState(false)
+  const [pkEinkaufManualRateValue, setPkEinkaufManualRateValue] = useState(30)
+
   const inputData = useMemo(() => {
     // Monthly mortgage cost = annual interest + 1% maintenance, divided by 12
     const mortgageMonthly = property.has && property.mortgage > 0
       ? Math.round((property.mortgage * ((property.hypothekZinssatz ?? 1.5) / 100) + (property.value || 0) * 0.01) / 12)
       : 0
+    // PK-Einkauf: boost PK capital and reduce free assets
+    const _retireAge = p1.retireAge || (p1 as Record<string, unknown>).retirementAge as number || 65
+    const _currentAge = p1.dob ? calculateAge(p1.dob) : ((p1 as Record<string, unknown>).birthDate ? calculateAge((p1 as Record<string, unknown>).birthDate as string) : 55)
+    const _yearsToRet = Math.max(0, _retireAge - _currentAge)
+    const _effJahre = Math.min(pkEinkaufJahre, _yearsToRet)
+    const totalEinkauf = (p1.hasPK && pkEinkaufProJahr > 0) ? pkEinkaufProJahr * _effJahre : 0
     return {
-      person1: p1,
+      person1: totalEinkauf > 0
+        ? { ...p1, pkCapital: (p1.pkCapital || 0) + totalEinkauf }
+        : p1,
       person2: p2,
       civilStatus,
       canton: canton || 'ZH',
       kirchensteuer,
-      freeAssets: freeAssets || 0,
+      freeAssets: Math.max(0, (freeAssets || 0) - totalEinkauf),
       sparkonto: sparkonto || 0,
       wertschriften: wertschriften || 0,
       monthlyExpenses: monthlyBudget,
@@ -194,7 +207,7 @@ export default function Screen4() {
       wealthInvestmentProfile,
       savingsStrategy,
     }
-  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy])
+  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy, pkEinkaufProJahr, pkEinkaufJahre])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])
@@ -324,6 +337,23 @@ export default function Screen4() {
   const pkSavingsData = useMemo(() =>
     calculatePkPurchaseSavings([10000, 25000, 50000, 100000], incomeTax1?.marginalRate ?? 0.25)
   , [incomeTax1?.marginalRate])
+
+  // PK-Einkauf simulation values (for Steuern tab section A2)
+  const pkEinkaufMarginalRate = pkEinkaufManualRate ? pkEinkaufManualRateValue / 100 : (incomeTax1?.marginalRate ?? 0.25)
+  const pkEinkaufEffJahre = useMemo(() => {
+    const yearsToRet = Math.max(0, ra1 - currentAge1)
+    return Math.min(pkEinkaufJahre, yearsToRet)
+  }, [pkEinkaufJahre, ra1, currentAge1])
+  const pkEinkaufTotal = p1.hasPK && pkEinkaufProJahr > 0 ? pkEinkaufProJahr * pkEinkaufEffJahre : 0
+  const pkEinkaufAnnualTaxSaving = Math.round(pkEinkaufProJahr * pkEinkaufMarginalRate)
+  const pkEinkaufTotalTaxSaving = Math.round(pkEinkaufTotal * pkEinkaufMarginalRate)
+  const pkEinkaufRenteMonatBefore = p1.hasPK ? Math.round((p1.pkCapital || 0) * (p1.pkRate / 100) / 12) : 0
+  const pkEinkaufRenteMonatAfter = p1.hasPK ? Math.round(((p1.pkCapital || 0) + pkEinkaufTotal) * (p1.pkRate / 100) / 12) : 0
+  const pkEinkaufSperrfristWarning = useMemo(() => {
+    if (!pkEinkaufProJahr || !pkEinkaufTotal) return false
+    const yearsToRet = Math.max(0, ra1 - currentAge1)
+    return pkChoice !== 'rente' && (yearsToRet <= 3 || (yearsToRet - pkEinkaufEffJahre) < 3)
+  }, [pkEinkaufProJahr, pkEinkaufTotal, ra1, currentAge1, pkChoice, pkEinkaufEffJahre])
 
   const rvkResult = useMemo(() => {
     if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
@@ -2135,6 +2165,143 @@ export default function Screen4() {
         )
       })()}
     </>
+  )}
+</section>
+)}
+
+{/* A2: PK-Einkauf Steueroptimierung */}
+{p1.hasPK && (
+<section className="block">
+  <div className="block-head">
+    <h2 className="block-title"><span className="block-num">A2</span>PK-Einkauf: Steueroptimierung vor der Pensionierung</h2>
+    {pkEinkaufTotalTaxSaving > 0 && (
+      <span className="block-hint" style={{ color: 'var(--green-600)', fontWeight: 600 }}>CHF {fmtCHF(pkEinkaufTotalTaxSaving)} Steuerersparnis</span>
+    )}
+  </div>
+
+  <p style={{ fontSize: 12.5, color: 'var(--ink-500)', marginBottom: 16, lineHeight: 1.5 }}>
+    Freiwillige Einkäufe in die Pensionskasse sind vollumfänglich vom steuerbaren Einkommen abziehbar.
+    Der Einkauf erhöht das PK-Kapital und damit Ihre spätere Rente.
+  </p>
+
+  {/* Inputs */}
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+    <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 6 }}>Einkauf pro Jahr (CHF)</div>
+      <input
+        type="number"
+        min={0} max={200000} step={1000}
+        value={pkEinkaufProJahr || ''}
+        placeholder="0"
+        onChange={e => setPkEinkaufProJahr(Math.max(0, Number(e.target.value)))}
+        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 15, fontWeight: 600, background: 'white' }}
+      />
+      {p1.pkMaxGuthaben > 0 && (
+        <div style={{ fontSize: 10.5, color: 'var(--ink-400)', marginTop: 4 }}>
+          Max. Einkaufspotenzial laut Vorsorgeausweis: CHF {fmtCHF(p1.pkMaxGuthaben)}
+        </div>
+      )}
+    </div>
+    <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 6 }}>Anzahl Jahre ({pkEinkaufJahre})</div>
+      <input
+        type="range"
+        min={1} max={Math.min(10, Math.max(1, ra1 - currentAge1))}
+        step={1}
+        value={pkEinkaufJahre}
+        onChange={e => setPkEinkaufJahre(Number(e.target.value))}
+        style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
+        <span>1 Jahr</span><span>{Math.min(10, Math.max(1, ra1 - currentAge1))} Jahre</span>
+      </div>
+    </div>
+  </div>
+
+  {/* Grenzsteuersatz */}
+  <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ fontSize: 11, color: 'var(--ink-500)', flex: 1 }}>Grenzsteuersatz</div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+        <input type="checkbox" checked={pkEinkaufManualRate} onChange={e => setPkEinkaufManualRate(e.target.checked)} />
+        Manuell eingeben
+      </label>
+    </div>
+    {pkEinkaufManualRate ? (
+      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="number" min={5} max={50} step={1}
+          value={pkEinkaufManualRateValue}
+          onChange={e => setPkEinkaufManualRateValue(Math.max(5, Math.min(50, Number(e.target.value))))}
+          style={{ width: 70, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, fontWeight: 600 }}
+        />
+        <span style={{ fontSize: 12 }}>%</span>
+      </div>
+    ) : (
+      <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: 'var(--navy-700)' }}>
+        {Math.round((incomeTax1?.marginalRate ?? 0.25) * 100)}%
+        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-400)', marginLeft: 6 }}>
+          (automatisch aus Einkommenssteuer {canton})
+        </span>
+      </div>
+    )}
+  </div>
+
+  {/* Sperrfrist Warning */}
+  {pkEinkaufSperrfristWarning && (
+    <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#92400e' }}>
+      <strong>⚠️ 3-Jahres-Sperrfrist:</strong> Bei einem Kapitalbezug aus der PK darf in den letzten 3 Jahren vor dem Bezug kein steuerbegünstigter Einkauf getätigt werden (Art. 79b BVG). Die Steuerersparnis würde rückwirkend aufgehoben.
+      {pkChoice !== 'rente'
+        ? ' Erwägen Sie, entweder den Einkauf früher abzuschliessen oder die Bezugsform auf Rente umzustellen.'
+        : ''}
+    </div>
+  )}
+
+  {/* Comparison cards */}
+  {pkEinkaufProJahr > 0 && (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+      <div style={{ padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10 }}>
+        <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 8, fontWeight: 600 }}>Ohne Einkauf</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 2 }}>PK-Kapital bei Pensionierung</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-800)' }}>CHF {fmtCHF(p1.pkCapital || 0)}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 8, marginBottom: 2 }}>Monatliche PK-Rente (est.)</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#dc2626' }}>CHF {fmtCHF(pkEinkaufRenteMonatBefore)}/Mt.</div>
+      </div>
+      <div style={{ padding: '16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+        <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 8, fontWeight: 600 }}>Mit Einkauf ({pkEinkaufEffJahre}× CHF {fmtCHF(pkEinkaufProJahr)})</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 2 }}>PK-Kapital bei Pensionierung</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-800)' }}>CHF {fmtCHF((p1.pkCapital || 0) + pkEinkaufTotal)}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 8, marginBottom: 2 }}>Monatliche PK-Rente (est.)</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--green-600)' }}>CHF {fmtCHF(pkEinkaufRenteMonatAfter)}/Mt.</div>
+      </div>
+    </div>
+  )}
+
+  {/* Summary row */}
+  {pkEinkaufProJahr > 0 && pkEinkaufTotal > 0 && (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+      <div style={{ padding: '12px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 10.5, color: 'var(--ink-500)', marginBottom: 4 }}>Gesamteinkauf</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--navy-700)' }}>CHF {fmtCHF(pkEinkaufTotal)}</div>
+        <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>{pkEinkaufEffJahre} Jahr{pkEinkaufEffJahre !== 1 ? 'e' : ''} × CHF {fmtCHF(pkEinkaufProJahr)}</div>
+      </div>
+      <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 10.5, color: 'var(--ink-500)', marginBottom: 4 }}>Steuerersparnis p.a.</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--green-600)' }}>CHF {fmtCHF(pkEinkaufAnnualTaxSaving)}</div>
+        <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>{Math.round(pkEinkaufMarginalRate * 100)}% Grenzsteuersatz</div>
+      </div>
+      <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 10.5, color: 'var(--ink-500)', marginBottom: 4 }}>Total Steuerersparnis</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--green-600)' }}>CHF {fmtCHF(pkEinkaufTotalTaxSaving)}</div>
+        <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>über {pkEinkaufEffJahre} Jahr{pkEinkaufEffJahre !== 1 ? 'e' : ''}</div>
+      </div>
+    </div>
+  )}
+
+  {!pkEinkaufProJahr && (
+    <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--ink-400)', textAlign: 'center' }}>
+      Geben Sie einen Jahresbetrag ein, um die Steuerersparnis zu berechnen.
+    </div>
   )}
 </section>
 )}

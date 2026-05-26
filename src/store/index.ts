@@ -165,6 +165,12 @@ export interface WealthWiseState {
   pkMixPercent: number   // 0-100, only relevant when pkChoice === 'mix'
   withdrawalStrategy: 'verzehr90' | 'verzehr95' | 'kapitalerhalt' | null
 
+  // PK-Einkauf simulation (Steuern tab)
+  pkEinkaufProJahr: number
+  pkEinkaufJahre: number
+  setPkEinkaufProJahr: (v: number) => void
+  setPkEinkaufJahre: (v: number) => void
+
   // Actions
   setGoal: (g: string) => void
   setCivilStatus: (s: CivilStatus) => void
@@ -304,7 +310,10 @@ export const useStore = create<WealthWiseState>()(
       pkMixPercent: 50,
       withdrawalStrategy: null,
 
-      setGoal: (g) => set({ selectedGoal: g }),
+      pkEinkaufProJahr: 0,
+      pkEinkaufJahre: 3,
+
+      setGoal: (g: string) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
       setPerson1: (p) => set((state) => ({ person1: { ...state.person1, ...p } })),
       setPerson2: (p) => set((state) => ({ person2: { ...state.person2, ...p } })),
@@ -341,6 +350,8 @@ export const useStore = create<WealthWiseState>()(
       setPkChoice: (v) => set({ pkChoice: v }),
       setPkMixPercent: (v) => set({ pkMixPercent: v }),
       setWithdrawalStrategy: (v) => set({ withdrawalStrategy: v }),
+      setPkEinkaufProJahr: (v) => set({ pkEinkaufProJahr: v }),
+      setPkEinkaufJahre: (v) => set({ pkEinkaufJahre: v }),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
