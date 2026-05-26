@@ -245,11 +245,14 @@ export default function Screen4() {
     () => getEventImpactSummary(lifeEvents, retirementYear),
     [lifeEvents, retirementYear],
   )
+  // Apply events on top of the neutral scenario so the chart baseline stays consistent.
+  // (Using analysis.yearlyCashflow would switch baseline when events are added, making wealth
+  // appear higher or lower depending on the user's risk profile vs neutral 3.5%.)
   const adjustedCashflow = useMemo(
     () => lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
-      ? applyEventsToProjection(analysis.yearlyCashflow, lifeEvents)
+      ? applyEventsToProjection(scenarios.neutral.yearlyCashflow, lifeEvents)
       : null,
-    [analysis.yearlyCashflow, lifeEvents],
+    [scenarios.neutral.yearlyCashflow, lifeEvents],
   )
   const ageWhenBrokeWithEvents = useMemo(() => {
     if (!adjustedCashflow) return scenarios.neutral.ageWhenBroke
