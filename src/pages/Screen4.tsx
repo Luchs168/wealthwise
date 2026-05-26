@@ -724,12 +724,37 @@ export default function Screen4() {
   }, [scenarios, adjustedCashflow, ra1, buildStackedBarData])
 
   const scenarioNeutralData = useMemo(() =>
-    buildStackedBarData(scenarios.neutral.yearlyCashflow),
-    [scenarios, buildStackedBarData])
+    buildStackedBarData(scenarios.neutral.yearlyCashflow, adjustedCashflow?.filter(r => r.age >= ra1) ?? null),
+    [scenarios, adjustedCashflow, ra1, buildStackedBarData])
+
+  const adjCashflowOpt = useMemo(
+    () => hasEnabledEvents ? applyEventsToProjection(scenarios.optimistic.yearlyCashflow, lifeEvents) : null,
+    [scenarios.optimistic.yearlyCashflow, lifeEvents, hasEnabledEvents],
+  )
+  const adjCashflowPess = useMemo(
+    () => hasEnabledEvents ? applyEventsToProjection(scenarios.pessimistic.yearlyCashflow, lifeEvents) : null,
+    [scenarios.pessimistic.yearlyCashflow, lifeEvents, hasEnabledEvents],
+  )
+
+  const ageWhenBrokeOptWithEvents = useMemo(() => {
+    if (!adjCashflowOpt) return scenarios.optimistic.ageWhenBroke
+    const broke = adjCashflowOpt.find(r => r.wealthEndOfYear <= 0)
+    return broke ? broke.age : null
+  }, [adjCashflowOpt, scenarios])
+
+  const ageWhenBrokePessWithEvents = useMemo(() => {
+    if (!adjCashflowPess) return scenarios.pessimistic.ageWhenBroke
+    const broke = adjCashflowPess.find(r => r.wealthEndOfYear <= 0)
+    return broke ? broke.age : null
+  }, [adjCashflowPess, scenarios])
+
+  const scenarioOptData = useMemo(() =>
+    buildStackedBarData(scenarios.optimistic.yearlyCashflow, adjCashflowOpt?.filter(r => r.age >= ra1) ?? null),
+    [scenarios, adjCashflowOpt, ra1, buildStackedBarData])
 
   const scenarioPessData = useMemo(() =>
-    buildStackedBarData(scenarios.pessimistic.yearlyCashflow),
-    [scenarios, buildStackedBarData])
+    buildStackedBarData(scenarios.pessimistic.yearlyCashflow, adjCashflowPess?.filter(r => r.age >= ra1) ?? null),
+    [scenarios, adjCashflowPess, ra1, buildStackedBarData])
 
   const scenarioChartData = useMemo(() => {
     const ages = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1).map(r => r.age)
@@ -1120,13 +1145,13 @@ export default function Screen4() {
 
 {/* Central statement */}
 {(() => {
-  const optAge = scenarios.optimistic.ageWhenBroke ?? 99
-  const pesAge = scenarios.pessimistic.ageWhenBroke ?? 99
+  const optAge = (hasEnabledEvents ? ageWhenBrokeOptWithEvents : scenarios.optimistic.ageWhenBroke) ?? 99
+  const pesAge = (hasEnabledEvents ? ageWhenBrokePessWithEvents : scenarios.pessimistic.ageWhenBroke) ?? 99
   const minAge = Math.min(optAge, pesAge)
   const maxAge = Math.max(optAge, pesAge)
   return (
     <div style={{ textAlign: 'center', padding: '24px 16px 20px' }}>
-      <div style={{ fontSize: 12, color: 'var(--ink-400)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Szenarien-Vergleich</div>
+      <div style={{ fontSize: 12, color: 'var(--ink-400)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Szenarien-Vergleich{hasEnabledEvents && ' · inkl. Lebensereignisse'}</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: 'var(--navy-800)', lineHeight: 1.2, marginBottom: 8 }}>
         Ihr Vermögen reicht je nach Szenario bis Alter {minAge >= 99 ? '95+' : minAge}–{maxAge >= 99 ? '95+' : maxAge}
       </div>
@@ -1141,7 +1166,7 @@ export default function Screen4() {
 <section className="block">
   <div className="block-head">
     <h2 className="block-title"><span className="block-num">S</span>Vermögensverlauf – Szenarien im Vergleich</h2>
-    <span className="block-hint">Neutrales Szenario (oben) · Pessimistisches Szenario (unten)</span>
+    <span className="block-hint">Optimistisch · Neutral · Pessimistisch{hasEnabledEvents ? ' · inkl. Lebensereignisse' : ''}</span>
   </div>
 
   {/* Shared legend */}
@@ -1159,17 +1184,63 @@ export default function Screen4() {
     ))}
   </div>
 
-  {scenarioNeutralData.length > 0 ? (<>
+  {scenarioOptData.length > 0 ? (<>
+
+  {/* Chart 0: Optimistic */}
+  {(() => {
+    const displayAge = ageWhenBrokeOptWithEvents ?? 99
+    const baseAge = scenarios.optimistic.ageWhenBroke ?? 99
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingRight: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#15803d' }}>Optimistisches Szenario (5% Rendite, 1% Inflation)</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: displayAge >= 99 ? '#15803d' : '#dc2626' }}>
+            {displayAge >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${displayAge}`}
+            {hasEnabledEvents && baseAge !== displayAge && <span style={{ fontSize: 10, color: 'var(--ink-400)', marginLeft: 4 }}>(ohne: {baseAge >= 99 ? '95+' : `Alter ${baseAge}`})</span>}
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={190}>
+          <BarChart data={scenarioOptData} margin={{ top: 4, right: 8, left: -10, bottom: 28 }} barCategoryGap="20%">
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
+            <XAxis dataKey="age" height={42}
+              tick={(props: any) => {
+                const { x, y, payload } = props
+                const yr = currentYear + (payload.value - currentAge1)
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text x={0} y={0} dy={12} textAnchor="middle" fontSize={9} fill="var(--ink-400)">{yr}</text>
+                    <text x={0} y={0} dy={24} textAnchor="middle" fontSize={9} fill="#15803d">{payload.value}</text>
+                  </g>
+                )
+              }}
+            />
+            <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} width={40} />
+            <Tooltip formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name]} labelFormatter={(l: number) => `Alter ${l}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+            <Bar dataKey="gebunden" name="Gebund. Vorsorge" stackId="w" fill="#7c3aed" />
+            <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" />
+            <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" />
+            <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
+            {displayAge < 99 && (
+              <ReferenceLine x={displayAge} stroke="#15803d" strokeDasharray="4 4"
+                label={{ value: `Alter ${displayAge}`, fill: '#15803d', fontSize: 10, position: 'top' }} />
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  })()}
 
   {/* Chart 1: Neutral */}
   {(() => {
-    const neutAge = scenarios.neutral.ageWhenBroke
+    const displayAge = ageWhenBrokeWithEvents ?? 99
+    const baseAge = scenarios.neutral.ageWhenBroke ?? 99
     return (
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingRight: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-800)' }}>Neutrales Szenario (3.5% Rendite, 1.5% Inflation)</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: neutAge == null || neutAge >= 99 ? '#15803d' : '#dc2626' }}>
-            {neutAge == null || neutAge >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${neutAge}`}
+          <span style={{ fontSize: 13, fontWeight: 700, color: displayAge >= 99 ? '#15803d' : '#dc2626' }}>
+            {displayAge >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${displayAge}`}
+            {hasEnabledEvents && baseAge !== displayAge && <span style={{ fontSize: 10, color: 'var(--ink-400)', marginLeft: 4 }}>(ohne: {baseAge >= 99 ? '95+' : `Alter ${baseAge}`})</span>}
           </span>
         </div>
         <ResponsiveContainer width="100%" height={190}>
@@ -1193,9 +1264,9 @@ export default function Screen4() {
             <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" />
             <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" />
             <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
-            {(scenarios.neutral.ageWhenBroke ?? 99) < 99 && (
-              <ReferenceLine x={scenarios.neutral.ageWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
-                label={{ value: `Alter ${scenarios.neutral.ageWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+            {displayAge < 99 && (
+              <ReferenceLine x={displayAge} stroke="#ef4444" strokeDasharray="4 4"
+                label={{ value: `Alter ${displayAge}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
             )}
           </BarChart>
         </ResponsiveContainer>
@@ -1205,13 +1276,15 @@ export default function Screen4() {
 
   {/* Chart 2: Pessimistic */}
   {(() => {
-    const pessAge = scenarios.pessimistic.ageWhenBroke
+    const displayAge = ageWhenBrokePessWithEvents ?? 99
+    const baseAge = scenarios.pessimistic.ageWhenBroke ?? 99
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingRight: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy-800)' }}>Pessimistisches Szenario (1% Rendite, 2.5% Inflation)</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: pessAge == null || pessAge >= 99 ? '#15803d' : '#dc2626' }}>
-            {pessAge == null || pessAge >= 99 ? 'Vermögen reicht.' : `Vermögen reicht nicht! (bis ${pessAge})`}
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#b45309' }}>Pessimistisches Szenario (1% Rendite, 2.5% Inflation)</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: displayAge >= 99 ? '#15803d' : '#dc2626' }}>
+            {displayAge >= 99 ? 'Vermögen reicht.' : `Reicht bis Alter ${displayAge}`}
+            {hasEnabledEvents && baseAge !== displayAge && <span style={{ fontSize: 10, color: 'var(--ink-400)', marginLeft: 4 }}>(ohne: {baseAge >= 99 ? '95+' : `Alter ${baseAge}`})</span>}
           </span>
         </div>
         <ResponsiveContainer width="100%" height={190}>
@@ -1235,9 +1308,9 @@ export default function Screen4() {
             <Bar dataKey="wertschriften" name="Wertschriften" stackId="w" fill="#1e3a8a" />
             <Bar dataKey="liquid" name="Liquidität" stackId="w" fill="#93c5fd" />
             <Bar dataKey="immobilien" name="Immobilien" stackId="w" fill="#2563eb" radius={[2,2,0,0]} />
-            {(scenarios.pessimistic.ageWhenBroke ?? 99) < 99 && (
-              <ReferenceLine x={scenarios.pessimistic.ageWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
-                label={{ value: `Alter ${scenarios.pessimistic.ageWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+            {displayAge < 99 && (
+              <ReferenceLine x={displayAge} stroke="#ef4444" strokeDasharray="4 4"
+                label={{ value: `Alter ${displayAge}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
             )}
           </BarChart>
         </ResponsiveContainer>
@@ -1254,15 +1327,20 @@ export default function Screen4() {
   {/* 3 KPI cards */}
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 20 }}>
     {[
-      { label: 'Optimistisch', age: scenarios.optimistic.ageWhenBroke, bg: '#ecfdf5', border: '#bbf7d0', color: '#15803d', hint: '5% Rendite, 1% Inflation' },
-      { label: 'Neutral', age: scenarios.neutral.ageWhenBroke, bg: '#f0f9ff', border: '#bae6fd', color: 'var(--navy-700)', hint: '3.5% Rendite, 1.5% Inflation' },
-      { label: 'Pessimistisch', age: scenarios.pessimistic.ageWhenBroke, bg: '#fffbeb', border: '#fde68a', color: '#d97706', hint: '1% Rendite, 2.5% Inflation' },
+      { label: 'Optimistisch', age: ageWhenBrokeOptWithEvents ?? scenarios.optimistic.ageWhenBroke, baseAge: scenarios.optimistic.ageWhenBroke, bg: '#ecfdf5', border: '#bbf7d0', color: '#15803d', hint: '5% Rendite, 1% Inflation' },
+      { label: 'Neutral', age: ageWhenBrokeWithEvents ?? scenarios.neutral.ageWhenBroke, baseAge: scenarios.neutral.ageWhenBroke, bg: '#f0f9ff', border: '#bae6fd', color: 'var(--navy-700)', hint: '3.5% Rendite, 1.5% Inflation' },
+      { label: 'Pessimistisch', age: ageWhenBrokePessWithEvents ?? scenarios.pessimistic.ageWhenBroke, baseAge: scenarios.pessimistic.ageWhenBroke, bg: '#fffbeb', border: '#fde68a', color: '#d97706', hint: '1% Rendite, 2.5% Inflation' },
     ].map((s, i) => (
       <div key={i} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>{s.label}</div>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: s.color }}>
           {s.age == null || s.age >= 99 ? 'Alter 95+' : `Alter ${s.age}`}
         </div>
+        {hasEnabledEvents && s.baseAge !== s.age && (
+          <div style={{ fontSize: 10, color: s.color, marginTop: 2, opacity: 0.7 }}>
+            ohne Ereignisse: {s.baseAge == null || s.baseAge >= 99 ? '95+' : `Alter ${s.baseAge}`}
+          </div>
+        )}
         <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 4 }}>{s.hint}</div>
       </div>
     ))}
@@ -1530,12 +1608,28 @@ export default function Screen4() {
       })}
 
       {hasEnabledEvents && (
-        <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-          Mit diesen Ereignissen reicht Ihr Vermögen bis <strong>Alter {(displayAgeWhenBroke ?? 99) >= 99 ? '95+' : displayAgeWhenBroke}</strong>
-          {ageWhenBrokeWithEvents && analysis.ageWhenBroke && ageWhenBrokeWithEvents !== analysis.ageWhenBroke
-            ? ` (ohne Ereignisse: Alter ${analysis.ageWhenBroke >= 99 ? '95+' : analysis.ageWhenBroke})`
-            : ''}
-          .
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {[
+            { label: 'Optimistisch', adj: ageWhenBrokeOptWithEvents, base: scenarios.optimistic.ageWhenBroke, color: '#15803d', bg: '#ecfdf5', border: '#bbf7d0' },
+            { label: 'Neutral', adj: ageWhenBrokeWithEvents, base: scenarios.neutral.ageWhenBroke, color: 'var(--navy-700)', bg: '#f0f9ff', border: '#bae6fd' },
+            { label: 'Pessimistisch', adj: ageWhenBrokePessWithEvents, base: scenarios.pessimistic.ageWhenBroke, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+          ].map(s => {
+            const adjAge = s.adj ?? 99
+            const baseAge = s.base ?? 99
+            return (
+              <div key={s.label} style={{ padding: '10px 10px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--ink-400)', marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: adjAge >= 99 ? '#15803d' : s.color }}>
+                  {adjAge >= 99 ? 'Alter 95+' : `Alter ${adjAge}`}
+                </div>
+                {baseAge !== adjAge && (
+                  <div style={{ fontSize: 10, color: 'var(--ink-400)' }}>
+                    ohne: {baseAge >= 99 ? '95+' : `Alter ${baseAge}`}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
