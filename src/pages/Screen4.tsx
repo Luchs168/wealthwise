@@ -696,11 +696,21 @@ export default function Screen4() {
 
   const currentYear = useMemo(() => new Date().getFullYear(), [])
 
-  // Helper: filter cashflow to 5-year intervals and build stacked bar data
-  const buildStackedBarData = useCallback((rows: typeof scenarios.neutral.yearlyCashflow, adjRows?: typeof rows | null) => {
+  const [chartFromAge, setChartFromAge] = useState(currentAge1)
+  const [chartToAge, setChartToAge] = useState(95)
+
+  // Build stacked bar data for a given age range, auto-adjusting tick interval
+  const buildStackedBarData = useCallback((
+    rows: typeof scenarios.neutral.yearlyCashflow,
+    adjRows?: typeof rows | null,
+    fromAge: number = currentAge1,
+    toAge: number = 95,
+  ) => {
+    const range = toAge - fromAge
+    const interval = range <= 15 ? 1 : range <= 30 ? 2 : 5
     return rows
-      .filter(r => r.age >= ra1 && r.age <= 95 && (r.age - ra1) % 5 === 0)
-      .map((r, i) => {
+      .filter(r => r.age >= fromAge && r.age <= toAge && (r.age - fromAge) % interval === 0)
+      .map(r => {
         const adjR = adjRows ? adjRows.find(a => a.age === r.age) : null
         const total = Math.max(0, adjR ? adjR.wealthEndOfYear : r.wealthEndOfYear)
         const sf = (r.wealthLiquid + r.wealthWertschriften) > 0
@@ -715,17 +725,15 @@ export default function Screen4() {
           immobilien: r.wealthImmobilien,
         }
       })
-  }, [ra1, currentAge1, currentYear])
+  }, [currentAge1, currentYear])
 
-  const chartData = useMemo(() => {
-    const base = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1)
-    const adj = adjustedCashflow ? adjustedCashflow.filter(r => r.age >= ra1) : null
-    return buildStackedBarData(base, adj)
-  }, [scenarios, adjustedCashflow, ra1, buildStackedBarData])
+  const chartData = useMemo(() =>
+    buildStackedBarData(scenarios.neutral.yearlyCashflow, adjustedCashflow ?? null, chartFromAge, chartToAge),
+    [scenarios, adjustedCashflow, chartFromAge, chartToAge, buildStackedBarData])
 
   const scenarioNeutralData = useMemo(() =>
-    buildStackedBarData(scenarios.neutral.yearlyCashflow, adjustedCashflow?.filter(r => r.age >= ra1) ?? null),
-    [scenarios, adjustedCashflow, ra1, buildStackedBarData])
+    buildStackedBarData(scenarios.neutral.yearlyCashflow, adjustedCashflow ?? null, chartFromAge, chartToAge),
+    [scenarios, adjustedCashflow, chartFromAge, chartToAge, buildStackedBarData])
 
   const adjCashflowOpt = useMemo(
     () => hasEnabledEvents ? applyEventsToProjection(scenarios.optimistic.yearlyCashflow, lifeEvents) : null,
@@ -749,12 +757,12 @@ export default function Screen4() {
   }, [adjCashflowPess, scenarios])
 
   const scenarioOptData = useMemo(() =>
-    buildStackedBarData(scenarios.optimistic.yearlyCashflow, adjCashflowOpt?.filter(r => r.age >= ra1) ?? null),
-    [scenarios, adjCashflowOpt, ra1, buildStackedBarData])
+    buildStackedBarData(scenarios.optimistic.yearlyCashflow, adjCashflowOpt ?? null, chartFromAge, chartToAge),
+    [scenarios, adjCashflowOpt, chartFromAge, chartToAge, buildStackedBarData])
 
   const scenarioPessData = useMemo(() =>
-    buildStackedBarData(scenarios.pessimistic.yearlyCashflow, adjCashflowPess?.filter(r => r.age >= ra1) ?? null),
-    [scenarios, adjCashflowPess, ra1, buildStackedBarData])
+    buildStackedBarData(scenarios.pessimistic.yearlyCashflow, adjCashflowPess ?? null, chartFromAge, chartToAge),
+    [scenarios, adjCashflowPess, chartFromAge, chartToAge, buildStackedBarData])
 
   const scenarioChartData = useMemo(() => {
     const ages = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1).map(r => r.age)
@@ -994,10 +1002,10 @@ export default function Screen4() {
   {/* Wealth trajectory – stacked bar chart (neutral scenario) */}
   <div style={{ marginBottom: 24 }}>
     {(() => {
-      const neutralAge = scenarios.neutral.ageWhenBroke
-      const verdictStr = neutralAge == null || neutralAge >= 99
-        ? <span style={{ color: '#15803d', fontWeight: 700 }}>Vermögen reicht.</span>
-        : <span style={{ color: '#dc2626', fontWeight: 700 }}>Vermögen reicht bis Alter {neutralAge}</span>
+      const displayAge = displayAgeWhenBroke ?? 99
+      const verdictStr = displayAge >= 99
+        ? <span style={{ color: '#15803d', fontWeight: 700 }}>Vermögen reicht (Neutral).</span>
+        : <span style={{ color: '#dc2626', fontWeight: 700 }}>Vermögen reicht bis Alter {displayAge} (Neutral)</span>
       return (
         <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 6 }}>{verdictStr}</div>
       )
@@ -1031,9 +1039,48 @@ export default function Screen4() {
           <ReferenceLine x={displayAgeWhenBroke ?? undefined} stroke="#ef4444" strokeDasharray="4 4"
             label={{ value: `Alter ${displayAgeWhenBroke}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
         )}
+        {chartFromAge < ra1 && (
+          <ReferenceLine x={ra1} stroke="var(--navy-400)" strokeDasharray="3 3"
+            label={{ value: `Pensionierung ${ra1}`, fill: 'var(--navy-600)', fontSize: 9, position: 'insideTopRight' }} />
+        )}
       </BarChart>
     </ResponsiveContainer>
-    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+
+    {/* Range slider */}
+    <div style={{ marginTop: 10, padding: '10px 4px 0' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginBottom: 3 }}>
+            <span>Von Alter</span>
+            <span style={{ fontWeight: 700, color: 'var(--ink-700)' }}>{chartFromAge}</span>
+          </div>
+          <input type="range" min={currentAge1} max={chartToAge - 1} step={1}
+            value={chartFromAge}
+            onChange={e => setChartFromAge(Number(e.target.value))}
+            style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginBottom: 3 }}>
+            <span>Bis Alter</span>
+            <span style={{ fontWeight: 700, color: 'var(--ink-700)' }}>{chartToAge}</span>
+          </div>
+          <input type="range" min={chartFromAge + 1} max={95} step={1}
+            value={chartToAge}
+            onChange={e => setChartToAge(Number(e.target.value))}
+            style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+          />
+        </div>
+        <button
+          onClick={() => { setChartFromAge(currentAge1); setChartToAge(95) }}
+          style={{ padding: '4px 10px', fontSize: 11, border: '1px solid var(--ink-300)', borderRadius: 6, background: 'white', cursor: 'pointer', color: 'var(--ink-500)', whiteSpace: 'nowrap' }}
+        >
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
       {[
         { color: '#7c3aed', label: 'Gebundenes Vorsorgevermögen (3a)' },
         { color: '#1e3a8a', label: 'Wertschriften' },
@@ -1169,6 +1216,38 @@ export default function Screen4() {
     <span className="block-hint">Optimistisch · Neutral · Pessimistisch{hasEnabledEvents ? ' · inkl. Lebensereignisse' : ''}</span>
   </div>
 
+  {/* Shared range control */}
+  <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12, padding: '8px 4px', background: 'var(--ink-50)', borderRadius: 10 }}>
+    <div style={{ flex: 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginBottom: 3 }}>
+        <span>Von Alter</span>
+        <span style={{ fontWeight: 700, color: 'var(--ink-700)' }}>{chartFromAge}</span>
+      </div>
+      <input type="range" min={currentAge1} max={chartToAge - 1} step={1}
+        value={chartFromAge}
+        onChange={e => setChartFromAge(Number(e.target.value))}
+        style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+      />
+    </div>
+    <div style={{ flex: 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginBottom: 3 }}>
+        <span>Bis Alter</span>
+        <span style={{ fontWeight: 700, color: 'var(--ink-700)' }}>{chartToAge}</span>
+      </div>
+      <input type="range" min={chartFromAge + 1} max={95} step={1}
+        value={chartToAge}
+        onChange={e => setChartToAge(Number(e.target.value))}
+        style={{ width: '100%', accentColor: 'var(--navy-700)' }}
+      />
+    </div>
+    <button
+      onClick={() => { setChartFromAge(currentAge1); setChartToAge(95) }}
+      style={{ padding: '4px 10px', fontSize: 11, border: '1px solid var(--ink-300)', borderRadius: 6, background: 'white', cursor: 'pointer', color: 'var(--ink-500)', whiteSpace: 'nowrap' }}
+    >
+      Reset
+    </button>
+  </div>
+
   {/* Shared legend */}
   <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
     {[
@@ -1224,6 +1303,10 @@ export default function Screen4() {
               <ReferenceLine x={displayAge} stroke="#15803d" strokeDasharray="4 4"
                 label={{ value: `Alter ${displayAge}`, fill: '#15803d', fontSize: 10, position: 'top' }} />
             )}
+            {chartFromAge < ra1 && (
+              <ReferenceLine x={ra1} stroke="var(--navy-400)" strokeDasharray="3 3"
+                label={{ value: `Pension. ${ra1}`, fill: 'var(--navy-600)', fontSize: 9, position: 'insideTopRight' }} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1268,6 +1351,10 @@ export default function Screen4() {
               <ReferenceLine x={displayAge} stroke="#ef4444" strokeDasharray="4 4"
                 label={{ value: `Alter ${displayAge}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
             )}
+            {chartFromAge < ra1 && (
+              <ReferenceLine x={ra1} stroke="var(--navy-400)" strokeDasharray="3 3"
+                label={{ value: `Pension. ${ra1}`, fill: 'var(--navy-600)', fontSize: 9, position: 'insideTopRight' }} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1311,6 +1398,10 @@ export default function Screen4() {
             {displayAge < 99 && (
               <ReferenceLine x={displayAge} stroke="#ef4444" strokeDasharray="4 4"
                 label={{ value: `Alter ${displayAge}`, fill: '#ef4444', fontSize: 10, position: 'top' }} />
+            )}
+            {chartFromAge < ra1 && (
+              <ReferenceLine x={ra1} stroke="var(--navy-400)" strokeDasharray="3 3"
+                label={{ value: `Pension. ${ra1}`, fill: 'var(--navy-600)', fontSize: 9, position: 'insideTopRight' }} />
             )}
           </BarChart>
         </ResponsiveContainer>
