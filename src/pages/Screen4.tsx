@@ -865,6 +865,35 @@ export default function Screen4() {
         propertyValue: property.has ? property.value : undefined,
         hasPK: p1.hasPK,
         scenarios,
+        wealthBreakdown: wealthBreakdown,
+        ahvChoiceLabel: ahvChoice === 'vorbezug2' ? 'AHV-Vorbezug 2 Jahre (-13.6%)'
+          : ahvChoice === 'vorbezug1' ? 'AHV-Vorbezug 1 Jahr (-6.8%)'
+          : ahvChoice === 'ordentlich' ? 'Ordentlicher Bezug'
+          : ahvChoice === 'aufschub1' ? 'AHV-Aufschub 1 Jahr (+5.2%)'
+          : ahvChoice === 'aufschub2' ? 'AHV-Aufschub 2 Jahre (+10.8%)'
+          : 'Noch nicht gewahlt',
+        pkChoiceLabel: pkChoice === 'rente' ? 'Vollrente' : pkChoice === 'kapital' ? 'Vollkapitalbezug' : pkChoice === 'mix' ? 'Mix 50/50' : 'Noch nicht gewahlt',
+        withdrawalStrategyLabel: withdrawalStrategy === 'verzehr90' ? 'Vermogensverzehr bis 90'
+          : withdrawalStrategy === 'verzehr95' ? 'Vermogensverzehr bis 95'
+          : withdrawalStrategy === 'kapitalerhalt' ? 'Kapitalerhalt'
+          : 'Noch nicht gewahlt',
+        taxData: {
+          annualRetirementTax: retirementTax1.totalTax,
+          marginalRate: incomeTax1?.marginalRate ?? 0.25,
+          pkVariant: pkVariantTax ?? undefined,
+          thirdPillarSavings: withdrawalPlan.hasAnything ? withdrawalPlan.savings : undefined,
+          thirdPillarWorstTax: withdrawalPlan.hasAnything ? withdrawalPlan.worst.totalTax : undefined,
+          thirdPillarOptimalTax: withdrawalPlan.hasAnything ? withdrawalPlan.optimal.totalTax : undefined,
+        },
+        pkEinkaufData: pkEinkaufProJahr > 0 && pkEinkaufTotal > 0 ? {
+          proJahr: pkEinkaufProJahr,
+          effJahre: pkEinkaufEffJahre,
+          total: pkEinkaufTotal,
+          taxSaving: pkEinkaufTotalTaxSaving,
+          marginalRate: pkEinkaufMarginalRate,
+          renteMonatBefore: pkEinkaufRenteMonatBefore,
+          renteMonatAfter: pkEinkaufRenteMonatAfter,
+        } : undefined,
       })
     } catch (err) {
       console.error('PDF generation failed:', err)
