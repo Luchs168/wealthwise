@@ -277,8 +277,13 @@ export default function Screen4() {
   const pkMonthlyForRente = p1.hasPK && p1.pkBezugsart !== 'kapital'
     ? (p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1) : 0
 
+  // AHV monthly incl. 13th rent (distributed over 12 months)
+  const ahvMonthlyInkl13 = Math.round(analysis.ahv.combinedYearlyInkl13 / 12)
   // PK display monthly adjusted for Kapitalbezug (so AHV+PK cards sum to Total)
-  const displayPkMonthly = Math.max(0, analysis.monthlyIncome.total - Math.round(analysis.ahv.combinedYearlyInkl13 / 12))
+  const displayPkMonthly = Math.max(0, analysis.monthlyIncome.total - ahvMonthlyInkl13)
+  // Effective income: computed from components to guard against any stale-state issue
+  // where analysis.monthlyIncome.total could briefly be 0 during React re-renders
+  const effectiveMonthlyIncome = Math.max(analysis.monthlyIncome.total, ahvMonthlyInkl13 + displayPkMonthly)
 
   const incomeTax1 = useMemo(() => {
     const isCouple = taxStatus === 'verheiratet'
@@ -467,7 +472,7 @@ export default function Screen4() {
   , [currentAge1, bridgingRetireAge, p1.income, pkMonthlyAtEarlyRetirement, ahvMonthly1, bridgingGap.monthlyNetGap, monthlyBudget])
 
   // Wealth depletion computed values
-  const wdMonthlyIncome = analysis.monthlyIncome.total
+  const wdMonthlyIncome = effectiveMonthlyIncome
   const wdMonthlyGap = Math.max(0, monthlyBudget - wdMonthlyIncome)
   const wdEffectiveWithdrawal = wdCustomWithdrawal ?? wdMonthlyGap
 
@@ -664,8 +669,8 @@ export default function Screen4() {
   const [taxSubG, setTaxSubG] = useState(false)
   const [taxSubH, setTaxSubH] = useState(false)
 
-  // After-tax monthly surplus: pension income minus budget minus estimated monthly retirement tax
-  const surplusAfterTax = analysis.surplus - retirementTax1.monthlyTax
+  // After-tax monthly surplus: use effectiveMonthlyIncome (component-based) to avoid a 0-total bug
+  const surplusAfterTax = effectiveMonthlyIncome - monthlyBudget - retirementTax1.monthlyTax
 
   // Alt analysis after-tax surplus (different retirement age → different AHV/PK amounts → different tax)
   const altDisplayPkMonthly = Math.max(0, altAnalysis.monthlyIncome.total - Math.round(altAnalysis.ahv.combinedYearlyInkl13 / 12))
@@ -680,7 +685,7 @@ export default function Screen4() {
   const verdictBg = displayVerdict === 'green' ? 'var(--green-50)' : displayVerdict === 'yellow' ? '#fffbeb' : '#fef2f2'
   const verdictBorder = displayVerdict === 'green' ? 'var(--green-200)' : displayVerdict === 'yellow' ? '#fde68a' : '#fecaca'
 
-  const coveragePct = monthlyBudget > 0 ? Math.round((analysis.monthlyIncome.total / monthlyBudget) * 100) : 0
+  const coveragePct = monthlyBudget > 0 ? Math.round((effectiveMonthlyIncome / monthlyBudget) * 100) : 0
 
   const chartData = useMemo(() => {
     const base = scenarios.neutral.yearlyCashflow.filter(r => r.age >= ra1)
@@ -765,6 +770,7 @@ export default function Screen4() {
         fzBalance1: projectedFzAtRetirement > 0 ? projectedFzAtRetirement : undefined,
         hasProperty: property.has,
         propertyValue: property.has ? property.value : undefined,
+        hasPK: p1.hasPK,
         scenarios,
       })
     } catch (err) {
@@ -887,7 +893,7 @@ export default function Screen4() {
       Bei einem monatlichen Bedarf von{' '}
       <strong style={{ color: 'var(--ink-700)' }}>CHF {fmtCHF(monthlyBudget)}</strong>{' '}
       und Renten von{' '}
-      <strong style={{ color: 'var(--ink-700)' }}>CHF {fmtCHF(analysis.monthlyIncome.total)}/Mt.</strong>
+      <strong style={{ color: 'var(--ink-700)' }}>CHF {fmtCHF(effectiveMonthlyIncome)}/Mt.</strong>
     </div>
   </div>
 
@@ -907,7 +913,7 @@ export default function Screen4() {
         <Area type="monotone" dataKey="pessimistisch" stackId="band" fill="transparent" stroke="none" legendType="none" />
         <Area type="monotone" dataKey="shade" stackId="band" fill="#dbeafe" stroke="none" fillOpacity={0.5} legendType="none" />
         {/* Main neutral line */}
-        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (2.5%)" />
+        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (3.5%)" />
         {/* Zero reference line */}
         <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
         {/* Depletion age */}
@@ -920,7 +926,7 @@ export default function Screen4() {
     <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 6 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
         <div style={{ width: 24, height: 3, background: 'var(--navy-700)', borderRadius: 2 }} />
-        <span>Neutrales Szenario (2.5%)</span>
+        <span>Neutrales Szenario (3.5%)</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-500)' }}>
         <div style={{ width: 20, height: 12, background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 2 }} />
@@ -934,7 +940,7 @@ export default function Screen4() {
     <div style={{ background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
       <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 6, fontWeight: 500 }}>Monatliche Einnahmen</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#15803d' }}>
-        CHF {fmtCHF(analysis.monthlyIncome.total)}
+        CHF {fmtCHF(effectiveMonthlyIncome)}
       </div>
       <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 4 }}>AHV + PK-Renten</div>
     </div>
@@ -960,7 +966,7 @@ export default function Screen4() {
       Es besteht eine monatliche Lücke von <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>.{' '}
       {retirementTax1.monthlyTax > 0 && (
         <span style={{ fontSize: 12, opacity: 0.85 }}>
-          (Lebenshaltung CHF {fmtCHF(monthlyBudget)} + Steuern CHF {fmtCHF(retirementTax1.monthlyTax)} − Einnahmen CHF {fmtCHF(analysis.monthlyIncome.total)})
+          (Lebenshaltung CHF {fmtCHF(monthlyBudget)} + Steuern CHF {fmtCHF(retirementTax1.monthlyTax)} − Einnahmen CHF {fmtCHF(effectiveMonthlyIncome)})
         </span>
       )}
       {' '}Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
@@ -1037,7 +1043,7 @@ export default function Screen4() {
         Ihr Vermögen reicht je nach Szenario bis Alter {minAge >= 99 ? '95+' : minAge}–{maxAge >= 99 ? '95+' : maxAge}
       </div>
       <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
-        Optimistisch (4% Rendite) bis Neutral (2.5%) bis Pessimistisch (1%)
+        Optimistisch (4% Rendite) bis Neutral (3.5%) bis Pessimistisch (1%)
       </div>
     </div>
   )
@@ -1057,7 +1063,7 @@ export default function Screen4() {
         <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} />
         <Tooltip formatter={(v: number) => [`CHF ${fmtCHF(v)}`, '']} labelFormatter={l => `Alter ${l}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
         <Line type="monotone" dataKey="optimistisch" stroke="#16a34a" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="Optimistisch (4%)" />
-        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (2.5%)" />
+        <Line type="monotone" dataKey="neutral" stroke="var(--navy-700)" strokeWidth={2.5} dot={false} name="Neutral (3.5%)" />
         <Line type="monotone" dataKey="pessimistisch" stroke="#d97706" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="Pessimistisch (1%)" />
         <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" />
         {/* Life event markers */}
@@ -1084,7 +1090,7 @@ export default function Screen4() {
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 20 }}>
     {[
       { label: 'Optimistisch', age: scenarios.optimistic.ageWhenBroke, bg: '#ecfdf5', border: '#bbf7d0', color: '#15803d', hint: '4% Rendite, 1% Inflation' },
-      { label: 'Neutral', age: scenarios.neutral.ageWhenBroke, bg: '#f0f9ff', border: '#bae6fd', color: 'var(--navy-700)', hint: '2.5% Rendite, 1.5% Inflation' },
+      { label: 'Neutral', age: scenarios.neutral.ageWhenBroke, bg: '#f0f9ff', border: '#bae6fd', color: 'var(--navy-700)', hint: '3.5% Rendite, 1.5% Inflation' },
       { label: 'Pessimistisch', age: scenarios.pessimistic.ageWhenBroke, bg: '#fffbeb', border: '#fde68a', color: '#d97706', hint: '1% Rendite, 2% Inflation' },
     ].map((s, i) => (
       <div key={i} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
@@ -2052,7 +2058,7 @@ export default function Screen4() {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>Monatl. Einnahmen</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#15803d' }}>CHF {fmtCHF(analysis.monthlyIncome.total)}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: '#15803d' }}>CHF {fmtCHF(effectiveMonthlyIncome)}</div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>Startvermögen</div>
