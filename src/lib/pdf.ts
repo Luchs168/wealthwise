@@ -416,54 +416,49 @@ export async function exportPDF(data: PdfData): Promise<void> {
   addPage()
   section('Vermogensverlauf', `Vermogensentwicklung bis Alter 95 - Risikoprofil: ${riskLabel}`)
 
-  const VIOLET = [124, 58, 237]  as [number, number, number]
-  const DKBLUE = [30,  58, 138]  as [number, number, number]
-  const LTBLUE = [147, 197, 253] as [number, number, number]
-  const MDBLUE = [37,  99, 235]  as [number, number, number]
-
-  function drawStackedBarChart(
-    rows: Array<{ age: number; wealthLiquid: number; wealthWertschriften: number; wealthGebunden: number; wealthImmobilien: number; wealthEndOfYear: number }>,
-    chartLabel: string,
-    verdictText: string,
-    verdictIsGood: boolean,
-    chartTopY: number,
-  ): number {
+  // ─── Combined 3-scenario line chart ────────────────────────────────────────
+  if (data.scenarios) {
     const ra = data.retirementAge1
-    const pts = rows.filter(r => r.age >= ra && r.age <= 95 && (r.age - ra) % 5 === 0)
-    if (pts.length === 0) return chartTopY
+    const LINE_GREEN  = [21,  128,  61] as [number, number, number]
+    const LINE_NAVY   = [30,   58, 138] as [number, number, number]
+    const LINE_ORANGE = [194,  65,  12] as [number, number, number]
 
-    const totals = pts.map(r =>
-      Math.max(0, r.wealthEndOfYear) + r.wealthGebunden + r.wealthImmobilien)
-    const maxTotal = Math.max(...totals, 1)
-    const tickSz = maxTotal > 2_000_000 ? 500_000 : maxTotal > 1_000_000 ? 250_000 : maxTotal > 500_000 ? 100_000 : 50_000
-    const yMax = Math.max(tickSz, Math.ceil(maxTotal / tickSz) * tickSz)
+    const scenLines = [
+      { rows: data.scenarios.optimistic.yearlyCashflow,  color: LINE_GREEN,  label: 'Optimistisch (5% / 1%)',  broke: data.scenarios.optimistic.ageWhenBroke },
+      { rows: data.scenarios.neutral.yearlyCashflow,     color: LINE_NAVY,   label: 'Neutral (3.5% / 1.5%)',   broke: data.scenarios.neutral.ageWhenBroke },
+      { rows: data.scenarios.pessimistic.yearlyCashflow, color: LINE_ORANGE, label: 'Pessimistisch (1% / 2.5%)', broke: data.scenarios.pessimistic.ageWhenBroke },
+    ]
 
-    const leftPad = 20
-    const bottomPad = 12
-    const chartH = 50
+    // Y-max across all 3 scenarios
+    const allWealth = scenLines.flatMap(s =>
+      s.rows.filter(r => r.age >= ra && r.age <= 95).map(r => Math.max(0, r.wealthEndOfYear) + r.wealthImmobilien))
+    const maxWealth = Math.max(...allWealth, 1)
+    const tickSz = maxWealth > 5_000_000 ? 2_000_000 : maxWealth > 2_000_000 ? 1_000_000 : maxWealth > 1_000_000 ? 500_000 : maxWealth > 500_000 ? 250_000 : 100_000
+    const yMax = Math.max(tickSz, Math.ceil(maxWealth / tickSz) * tickSz)
+
+    const leftPad = 24
+    const bottomPad = 14
+    const chartH = 72
     const plotH = chartH - bottomPad
     const plotX = ML + leftPad
-    const plotY = chartTopY
+    const plotY = y + 6
     const plotW = CW - leftPad
-    const numBars = pts.length
-    const slotW = plotW / numBars
-    const barW = Math.min(slotW * 0.65, 14)
 
+    // Title
     doc.setFontSize(8.5)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...NAVY)
-    doc.text(chartLabel, plotX, plotY - 1)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...(verdictIsGood ? GREEN : RED))
-    doc.text(verdictText, W - MR, plotY - 1, { align: 'right' })
+    doc.text('Vermogensverlauf: 3 Szenarien im Vergleich', plotX, plotY - 2)
 
+    // Background
     doc.setFillColor(250, 251, 253)
     doc.rect(plotX, plotY, plotW, plotH, 'F')
     doc.setDrawColor(...BORDER)
     doc.setLineWidth(0.25)
     doc.rect(plotX, plotY, plotW, plotH, 'S')
 
-    const numTicks = 4
+    // Y-axis grid lines + labels
+    const numTicks = 5
     for (let i = 0; i <= numTicks; i++) {
       const val = (yMax / numTicks) * i
       const gy = plotY + plotH - (val / yMax) * plotH
@@ -479,77 +474,70 @@ export async function exportPDF(data: PdfData): Promise<void> {
       doc.text(lv, plotX - 1, gy + 2, { align: 'right' })
     }
 
-    pts.forEach((r, i) => {
-      const barX = plotX + i * slotW + (slotW - barW) / 2
-      const wFree = Math.max(0, r.wealthEndOfYear)
-      const sfRaw = r.wealthLiquid + r.wealthWertschriften
-      const sf = sfRaw > 0 ? r.wealthLiquid / sfRaw : 0.3
-      const liq  = Math.round(wFree * sf)
-      const wert = wFree - liq
-      const geb  = r.wealthGebunden
-      const immob = r.wealthImmobilien
-      const total = liq + wert + geb + immob
+    // X-axis age labels + vertical tick at each 5-year mark
+    const agePoints = []
+    for (let a = ra; a <= 95; a++) agePoints.push(a)
+    const ageRange = 95 - ra
+    const xForAge = (age: number) => plotX + ((age - ra) / ageRange) * plotW
 
-      if (total === 0) return
-
-      let stackY = plotY + plotH
-      const segments = [
-        { val: liq,   color: LTBLUE },
-        { val: wert,  color: DKBLUE },
-        { val: geb,   color: VIOLET },
-        { val: immob, color: MDBLUE },
-      ]
-      for (const seg of segments) {
-        if (seg.val <= 0) continue
-        const h = (seg.val / yMax) * plotH
-        stackY -= h
-        doc.setFillColor(...seg.color)
-        doc.rect(barX, stackY, barW, h, 'F')
-      }
-
-      const barCenterX = barX + barW / 2
+    for (let a = ra; a <= 95; a += 5) {
+      const ax = xForAge(a)
+      doc.setDrawColor(215, 222, 232)
+      doc.setLineWidth(0.15)
+      doc.line(ax, plotY, ax, plotY + plotH)
       doc.setTextColor(...INK5)
       doc.setFontSize(6)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${r.age}`, barCenterX, plotY + plotH + 5, { align: 'center' })
+      doc.text(`${a}`, ax, plotY + plotH + 5, { align: 'center' })
+    }
+
+    // Draw lines for each scenario
+    scenLines.forEach(sc => {
+      const pts = sc.rows.filter(r => r.age >= ra && r.age <= 95)
+      if (pts.length < 2) return
+      doc.setDrawColor(...sc.color)
+      doc.setLineWidth(0.7)
+      for (let i = 1; i < pts.length; i++) {
+        const r0 = pts[i - 1], r1 = pts[i]
+        const w0 = Math.max(0, r0.wealthEndOfYear) + r0.wealthImmobilien
+        const w1 = Math.max(0, r1.wealthEndOfYear) + r1.wealthImmobilien
+        const x0 = xForAge(r0.age), y0 = plotY + plotH - (w0 / yMax) * plotH
+        const x1 = xForAge(r1.age), y1 = plotY + plotH - (w1 / yMax) * plotH
+        doc.line(x0, y0, x1, y1)
+      }
+      // Depletion marker
+      if (sc.broke && sc.broke < 99) {
+        const bx = xForAge(Math.min(sc.broke, 95))
+        doc.setDrawColor(...sc.color)
+        doc.setLineWidth(0.4)
+        doc.line(bx, plotY, bx, plotY + plotH)
+      }
     })
 
+    // Restores line width after drawing
     doc.setLineWidth(0.2)
-    return chartTopY + chartH + 6
-  }
-
-  // Draw charts
-  if (data.scenarios) {
-    const neutralBreak = data.scenarios.neutral.ageWhenBroke
-    const pessBreak    = data.scenarios.pessimistic.ageWhenBroke
-
-    const neutLabel   = 'Neutrales Szenario (3.5% Rendite / 1.5% Inflation)'
-    const neutVerdict = neutralBreak == null || neutralBreak >= 99 ? 'Vermogen reicht.' : `Reicht bis Alter ${neutralBreak}`
-    const pessLabel   = 'Pessimistisches Szenario (1% Rendite / 2.5% Inflation)'
-    const pessVerdict = pessBreak == null || pessBreak >= 99 ? 'Vermogen reicht.' : `Reicht nicht! (bis ${pessBreak})`
-
-    y += 4
-    y = drawStackedBarChart(data.scenarios.neutral.yearlyCashflow,    neutLabel, neutVerdict, neutralBreak == null || neutralBreak >= 99, y)
-    y = drawStackedBarChart(data.scenarios.pessimistic.yearlyCashflow, pessLabel, pessVerdict, pessBreak == null || pessBreak >= 99, y)
 
     // Legend
-    const legendItems = [
-      { color: VIOLET,  label: 'Geb. Vorsorge (3a)' },
-      { color: DKBLUE,  label: 'Wertschriften' },
-      { color: LTBLUE,  label: 'Liquiditat' },
-      { color: MDBLUE,  label: 'Immobilien' },
-    ]
-    let legX = ML + 20
-    legendItems.forEach(({ color, label }) => {
-      doc.setFillColor(...color)
-      doc.rect(legX, y, 5, 4, 'F')
+    y = plotY + plotH + bottomPad - 2
+    const legY = y
+    let legX = ML + leftPad
+    scenLines.forEach(sc => {
+      doc.setFillColor(...sc.color)
+      doc.rect(legX, legY - 3, 12, 2.5, 'F')
       doc.setTextColor(...INK)
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
-      doc.text(label, legX + 7, y + 3.5)
-      legX += 42
+      doc.text(sc.label, legX + 14, legY - 0.5)
+      // Show verdict
+      const broke = sc.broke
+      const verdict = broke == null || broke >= 99 ? 'Reicht bis 95+' : `Aufgebraucht Alter ${broke}`
+      const vColor: [number, number, number] = broke == null || broke >= 99 ? LINE_GREEN : LINE_ORANGE
+      doc.setTextColor(...vColor)
+      doc.setFontSize(6.5)
+      doc.text(verdict, legX + 14, legY + 4.5)
+      legX += 58
     })
-    y += 10
+    y = legY + 9
   } else {
     doc.setTextColor(...INK5)
     doc.setFontSize(9)

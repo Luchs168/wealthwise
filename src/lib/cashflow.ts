@@ -592,10 +592,9 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
 
     if (p1Retired || p2RetiredSimple) {
       const gap = totalExpThisYear - totalRenten
-      if (gap > 0) {
-        assetConsumption = gap
-        wealth -= gap
-      }
+      assetConsumption = Math.max(0, gap)
+      // gap < 0 means pension surplus → add to investable wealth; gap > 0 means draw-down
+      wealth -= gap
     }
 
     // K2: correct retirement tax via calculateRetirementTax (canton + Kirchensteuer)
