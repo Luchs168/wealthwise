@@ -106,9 +106,9 @@ const KK_CANTON_DEFAULTS: Record<string, number> = {
 }
 
 const RISK_PROFILES = [
-  { id: 'conservative' as const, icon: '🛡️', title: 'Sicherheitsorientiert', sub: 'Sparkonto, Obligationen', return: '0.5–1.5%', color: '#16a34a', bg: '#f0fdf4' },
-  { id: 'balanced' as const, icon: '⚖️', title: 'Ausgewogen', sub: 'Mix aus Aktien und Obligationen', return: '2–3.5%', color: 'var(--navy-700)', bg: 'var(--navy-50)' },
-  { id: 'growth' as const, icon: '📈', title: 'Wachstumsorientiert', sub: 'Überwiegend Aktien', return: '3.5–5%', color: '#d97706', bg: '#fffbeb' },
+  { id: 'conservative' as const, icon: '🛡️', title: 'Konservativ', sub: '25% Aktien, Obligationen', return: '2.5%', color: '#16a34a', bg: '#f0fdf4' },
+  { id: 'balanced' as const, icon: '⚖️', title: 'Ausgewogen', sub: '50% Aktien', return: '3.5%', color: 'var(--navy-700)', bg: 'var(--navy-50)' },
+  { id: 'growth' as const, icon: '📈', title: 'Wachstumsorientiert', sub: '80%+ Aktien', return: '5.0%', color: '#d97706', bg: '#fffbeb' },
 ]
 
 const SUB_STEP_LABELS = ['Budget', 'Ruhestand', 'Ereignisse']
@@ -408,7 +408,7 @@ export default function Screen3() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [retirementAdjust, setRetirementAdjust] = useState(1.0)
   const [showLoading, setShowLoading] = useState(false)
-  const [lifeEventsOpen, setLifeEventsOpen] = useState(lifeEvents.length > 0)
+  const [strategyOpen, setStrategyOpen] = useState(false)
 
   const currentYear = new Date().getFullYear()
   const p1Age = person1.dob ? Math.max(0, currentYear - new Date(person1.dob).getFullYear()) : 50
@@ -452,7 +452,6 @@ export default function Screen3() {
   function handleAddLifeEvent() {
     const cfg = CATEGORY_CONFIG['sonstiges']
     addLifeEvent({ id: uid(), category: 'sonstiges', year: currentYear + 2, amount: cfg.defaultAmount, art: cfg.defaultArt, duration: cfg.defaultDuration, enabled: true, details: {} })
-    setLifeEventsOpen(true)
   }
 
   function parseAndSetResult(text: string, months: number) {
@@ -903,131 +902,165 @@ export default function Screen3() {
             <div className="page-head">
               <div className="eyebrow">3C · Lebensereignisse</div>
               <h1 className="title">Geplante Ereignisse</h1>
-              <p className="subtitle">Optional: Grössere Ausgaben oder Veränderungen beeinflussen Ihren Vermögensverlauf.</p>
+              <p className="subtitle">Grössere Ausgaben oder Lebensveränderungen beeinflussen Ihren Vermögensverlauf.</p>
             </div>
 
+            {/* Quick presets — always visible */}
             <section className="block">
-              <div
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: lifeEventsOpen ? 16 : 0 }}
-                onClick={() => setLifeEventsOpen(!lifeEventsOpen)}
-              >
-                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--navy-800)' }}>
-                  Lebensereignisse
-                  {lifeEvents.length > 0 && (
-                    <span style={{ marginLeft: 8, fontSize: 12, background: 'var(--navy-100)', color: 'var(--navy-700)', padding: '2px 8px', borderRadius: 10, fontWeight: 500 }}>
-                      {lifeEvents.length}
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                Schnellauswahl
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {[
+                  { label: '🚗 Auto', amount: 40000, category: 'auto' as LifeEventCategory },
+                  { label: '✈️ Weltreise', amount: 30000, category: 'reise' as LifeEventCategory },
+                  { label: '🏠 Renovation', amount: 50000, category: 'renovation' as LifeEventCategory },
+                  { label: '🎓 Ausbildung Kinder', amount: 20000, category: 'ausbildung' as LifeEventCategory },
+                  { label: '🎁 Schenkung', amount: 50000, category: 'sonstiges' as LifeEventCategory, customLabel: 'Schenkung' },
+                  { label: '⏰ Teilzeit', amount: CATEGORY_CONFIG['teilzeit'].defaultAmount, category: 'teilzeit' as LifeEventCategory },
+                ].map(btn => (
+                  <button
+                    key={btn.label}
+                    onClick={() => {
+                      const cfg = CATEGORY_CONFIG[btn.category]
+                      addLifeEvent({
+                        id: uid(), category: btn.category,
+                        year: currentYear + 2, amount: btn.amount,
+                        art: cfg.defaultArt, duration: cfg.defaultDuration,
+                        enabled: true,
+                        details: btn.customLabel ? { customLabel: btn.customLabel } : {},
+                      })
+                    }}
+                    style={{
+                      padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500,
+                      border: '1.5px solid var(--navy-200)', background: 'var(--navy-50)',
+                      color: 'var(--navy-800)', cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {btn.label}
+                    <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--ink-400)', fontFamily: 'var(--font-mono)' }}>
+                      CHF {fmtCHF(btn.amount)}
                     </span>
-                  )}
-                </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  style={{ transform: lifeEventsOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', color: 'var(--ink-400)' }}>
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
+                  </button>
+                ))}
               </div>
 
-              {lifeEventsOpen && (
-                <>
-                  {lifeEvents.length === 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10 }}>Was planen Sie?</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                        {[
-                          { label: '🔨 Renovation', category: 'renovation' as LifeEventCategory },
-                          { label: '⏰ Teilzeit', category: 'teilzeit' as LifeEventCategory },
-                          { label: '🛒 Anschaffung', category: 'sonstiges' as LifeEventCategory },
-                          { label: '✓ Nichts davon', category: null },
-                        ].map(btn => (
-                          <button key={btn.label} onClick={() => {
-                            if (btn.category) {
-                              const cfg = CATEGORY_CONFIG[btn.category]
-                              addLifeEvent({ id: uid(), category: btn.category, year: currentYear + 2, amount: cfg.defaultAmount, art: cfg.defaultArt, duration: cfg.defaultDuration, enabled: true, details: {} })
-                            }
-                          }} style={{
-                            padding: '10px 8px', borderRadius: 10, fontSize: 13, fontWeight: 500,
-                            border: '1.5px solid var(--ink-200)', background: '#fff',
-                            color: 'var(--ink-700)', cursor: 'pointer', textAlign: 'left',
-                          }}>
-                            {btn.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {lifeEvents.map(evt => (
-                    <LifeEventCard key={evt.id} event={evt} onUpdate={patch => updateLifeEvent(evt.id, patch)} onDelete={() => removeLifeEvent(evt.id)}
-                      currentYear={currentYear} retirementYear={retirementYear} p1Income={p1.income || 0} p1PkRate={p1.pkRate || 5.4} />
-                  ))}
-
-                  <button onClick={handleAddLifeEvent} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--navy-600)', fontSize: 13, fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 16, fontWeight: 300 }}>+</span>Ereignis hinzufügen
-                  </button>
-
-                  {lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0 && (
-                    <EventTimeline events={lifeEvents} currentYear={currentYear} maxYear={retirementYear + 10} />
-                  )}
-
-                  {impactSummary.enabledCount > 0 && (
-                    <div className="ahv-card" style={{ marginTop: 14 }}>
-                      <div className="ahv-row">
-                        <div>
-                          <div className="ahv-row-label">Sonderausgaben total</div>
-                          <div className="ahv-row-sub">Vor Pension: CHF {fmtCHF(impactSummary.beforeRetirement)}{impactSummary.afterRetirement > 0 && ` · Danach: CHF ${fmtCHF(impactSummary.afterRetirement)}`}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="ahv-row-val" style={{ color: '#ef4444' }}>− CHF {fmtCHF(impactSummary.totalOutflow)}</div>
-                        </div>
-                      </div>
-                      {impactSummary.totalInflow > 0 && (
-                        <div className="ahv-row">
-                          <div><div className="ahv-row-label">Erwartete Zuflüsse</div></div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div className="ahv-row-val" style={{ color: '#22c55e' }}>+ CHF {fmtCHF(impactSummary.totalInflow)}</div>
-                          </div>
-                        </div>
-                      )}
-                      <div className="ahv-row ahv-total">
-                        <div><div className="ahv-row-label">Nettoauswirkung</div></div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="ahv-row-val" style={{ color: impactSummary.netImpact >= 0 ? '#22c55e' : '#ef4444' }}>
-                            {impactSummary.netImpact >= 0 ? '+' : '−'}CHF {fmtCHF(Math.abs(impactSummary.netImpact))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+              <button
+                onClick={handleAddLifeEvent}
+                style={{
+                  width: '100%', padding: '11px 16px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                  border: '2px dashed var(--navy-300)', background: 'transparent',
+                  color: 'var(--navy-700)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 20, lineHeight: 1 }}>+</span> Eigenes Ereignis hinzufügen
+              </button>
             </section>
 
-            {/* Risk profile: only shown if user has Wertschriften */}
-            {wertschriften > 0 && (
+            {/* Event list — always visible when events exist */}
+            {lifeEvents.length > 0 && (
               <section className="block">
-                <div className="block-head">
-                  <h2 className="block-title">Anlagestrategie</h2>
-                  <span className="block-hint">Für Ihre Wertschriften</span>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy-800)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Geplante Ereignisse
+                  <span style={{ fontSize: 12, background: 'var(--navy-100)', color: 'var(--navy-700)', padding: '2px 8px', borderRadius: 10, fontWeight: 500 }}>
+                    {lifeEvents.length}
+                  </span>
                 </div>
-                <div role="radiogroup" style={{ display: 'grid', gap: 8 }}>
-                  {RISK_PROFILES.map(profile => (
-                    <button key={profile.id} role="radio" aria-checked={riskProfile === profile.id} onClick={() => setRiskProfile(profile.id)} style={{
-                      textAlign: 'left', padding: '12px 14px', borderRadius: 10,
-                      border: `2px solid ${riskProfile === profile.id ? profile.color : 'var(--ink-200)'}`,
-                      background: riskProfile === profile.id ? profile.bg : 'white',
-                      cursor: 'pointer', transition: 'all .15s',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 18 }}>{profile.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13.5, color: riskProfile === profile.id ? profile.color : 'var(--navy-800)' }}>
-                            {profile.title}{riskProfile === profile.id && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, opacity: 0.8 }}>✓</span>}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--ink-500)' }}>{profile.sub}</div>
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: profile.color }}>{profile.return} p.a.</div>
+
+                {lifeEvents.map(evt => (
+                  <LifeEventCard key={evt.id} event={evt} onUpdate={patch => updateLifeEvent(evt.id, patch)} onDelete={() => removeLifeEvent(evt.id)}
+                    currentYear={currentYear} retirementYear={retirementYear} p1Income={p1.income || 0} p1PkRate={p1.pkRate || 5.4} />
+                ))}
+
+                {lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0 && (
+                  <EventTimeline events={lifeEvents} currentYear={currentYear} maxYear={retirementYear + 10} />
+                )}
+
+                {impactSummary.enabledCount > 0 && (
+                  <div className="ahv-card" style={{ marginTop: 14 }}>
+                    <div className="ahv-row">
+                      <div>
+                        <div className="ahv-row-label">Sonderausgaben total</div>
+                        <div className="ahv-row-sub">Vor Pension: CHF {fmtCHF(impactSummary.beforeRetirement)}{impactSummary.afterRetirement > 0 && ` · Danach: CHF ${fmtCHF(impactSummary.afterRetirement)}`}</div>
                       </div>
-                    </button>
-                  ))}
+                      <div style={{ textAlign: 'right' }}>
+                        <div className="ahv-row-val" style={{ color: '#ef4444' }}>− CHF {fmtCHF(impactSummary.totalOutflow)}</div>
+                      </div>
+                    </div>
+                    {impactSummary.totalInflow > 0 && (
+                      <div className="ahv-row">
+                        <div><div className="ahv-row-label">Erwartete Zuflüsse</div></div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="ahv-row-val" style={{ color: '#22c55e' }}>+ CHF {fmtCHF(impactSummary.totalInflow)}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="ahv-row ahv-total">
+                      <div><div className="ahv-row-label">Nettoauswirkung</div></div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div className="ahv-row-val" style={{ color: impactSummary.netImpact >= 0 ? '#22c55e' : '#ef4444' }}>
+                          {impactSummary.netImpact >= 0 ? '+' : '−'}CHF {fmtCHF(Math.abs(impactSummary.netImpact))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Anlagestrategie — compact, subordinate */}
+            {wertschriften > 0 && (
+              <section className="block" style={{ padding: '14px 16px' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                  onClick={() => setStrategyOpen(!strategyOpen)}
+                >
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-500)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 2 }}>
+                      Anlagestrategie im Ruhestand
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy-800)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {RISK_PROFILES.find(p => p.id === riskProfile)?.icon}{' '}
+                      {RISK_PROFILES.find(p => p.id === riskProfile)?.title}
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--navy-600)', fontWeight: 500 }}>
+                        {RISK_PROFILES.find(p => p.id === riskProfile)?.return} p.a.
+                      </span>
+                      <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓</span>
+                    </div>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+                    style={{ color: 'var(--ink-400)', transform: strategyOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </div>
+
+                {strategyOpen && (
+                  <div role="radiogroup" style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                    {RISK_PROFILES.map(profile => (
+                      <button
+                        key={profile.id}
+                        role="radio"
+                        aria-checked={riskProfile === profile.id}
+                        onClick={() => { setRiskProfile(profile.id); setStrategyOpen(false) }}
+                        style={{
+                          flex: 1, minWidth: 100, padding: '10px 12px', borderRadius: 10, textAlign: 'center',
+                          border: `2px solid ${riskProfile === profile.id ? profile.color : 'var(--ink-200)'}`,
+                          background: riskProfile === profile.id ? profile.bg : 'white',
+                          cursor: 'pointer', transition: 'all .15s',
+                        }}
+                      >
+                        <div style={{ fontSize: 18, marginBottom: 4 }}>{profile.icon}</div>
+                        <div style={{ fontWeight: 600, fontSize: 12.5, color: riskProfile === profile.id ? profile.color : 'var(--navy-800)' }}>
+                          {profile.title}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>{profile.sub}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: profile.color, marginTop: 4 }}>
+                          {profile.return} p.a.
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </>
