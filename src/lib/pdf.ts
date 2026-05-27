@@ -1183,10 +1183,11 @@ export async function exportPDF(data: PdfData): Promise<void> {
   const disclaimer =
     'Diese Analyse wurde von WealthWise auf Basis Ihrer personlichen Angaben erstellt und dient ausschliesslich der Orientierung. Sie ersetzt keine professionelle Finanz- oder Vorsorgeberatung durch eine qualifizierte Fachperson (CFP, Vorsorgeberater).\n\n' +
     'Alle Berechnungen sind Richtwerte auf Basis vereinfachter Annahmen. Anderungen der gesetzlichen Grundlagen, Ihrer personlichen Situation oder der Kapitalmarktentwicklung konnen die Ergebnisse wesentlich beeinflussen.\n\n' +
-    'Fur verbindliche Auskunfte wenden Sie sich an Ihre Pensionskasse, die zustandige Ausgleichskasse (SVA) oder einen zertifizierten Finanzplaner (fpvs.ch).'
+    'Fur verbindliche Auskunfte wenden Sie sich an Ihre Pensionskasse, die zustandige Ausgleichskasse (SVA) oder einen zertifizierten Finanzplaner (fpvs.ch).\n\n' +
+    'Dieser Prototyp wurde im Rahmen einer Masterarbeit an der Fachhochschule Nordwestschweiz (FHNW), MAS Information Systems Management 2026, entwickelt und dient ausschliesslich zu Demonstrations- und Forschungszwecken.'
   const dLines = doc.splitTextToSize(disclaimer, CW - 12)
   doc.text(dLines, ML + 6, y + 17)
-  y += 54
+  y += 66
 
   // Footer branding bar
   if (y + 16 < PAGE_H - 4) {
