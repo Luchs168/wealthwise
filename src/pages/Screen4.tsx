@@ -144,8 +144,9 @@ export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
   const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
-    ahvChoice, pkChoice, pkMixPercent: _pkMixPercent, withdrawalStrategy,
-    pkEinkaufProJahr, pkEinkaufJahre, setPkEinkaufProJahr, setPkEinkaufJahre,
+    ahvChoice, pkChoice, pkMixPercent, withdrawalStrategy,
+    pkEinkaufProJahr, pkEinkaufJahre, pkEinkaufPotenzial,
+    setPkEinkaufProJahr, setPkEinkaufJahre, setPkEinkaufPotenzial, setPkMixPercent,
     setAhvChoice, setPkChoice, setWithdrawalStrategy, addLifeEvent, removeLifeEvent } = state
   const [activeTab, setActiveTab] = useState<'ubersicht'|'szenarien'|'ahv'|'pk'|'steuern'|'entscheidungen'>('ubersicht')
   const [showCashflowTable, setShowCashflowTable] = useState(false)
@@ -294,8 +295,9 @@ export default function Screen4() {
   const taxStatus: TaxCivilStatus = (civilStatus === 'verheiratet' || civilStatus === 'partnerschaft') ? 'verheiratet' : 'ledig'
   const ahvMonthly1 = analysis.ahv.person1?.monthlyRente ?? 0
   const impliedPkMonthly1 = p1.hasPK ? Math.round(p1.pkCapital * (p1.pkRate / 100) / 12) : 0
-  const pkMonthlyForRente = p1.hasPK && p1.pkBezugsart !== 'kapital'
-    ? (p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1) : 0
+  const effectivePkChoice = pkChoice || p1.pkBezugsart
+  const pkMonthlyForRente = p1.hasPK && effectivePkChoice !== 'kapital'
+    ? (effectivePkChoice === 'mix' ? Math.round(impliedPkMonthly1 * pkMixPercent / 100) : impliedPkMonthly1) : 0
 
   // AHV monthly incl. 13th rent (distributed over 12 months)
   const ahvMonthlyInkl13 = Math.round(analysis.ahv.combinedYearlyInkl13 / 12)
@@ -325,9 +327,9 @@ export default function Screen4() {
 
   const capitalTaxResult = useMemo(() => {
     if (!p1.hasPK || pkChoice === 'rente' || !p1.pkCapital) return null
-    const amount = pkChoice === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
+    const amount = pkChoice === 'mix' ? Math.round(p1.pkCapital * (100 - pkMixPercent) / 100) : p1.pkCapital
     return { amount, result: calculateCapitalWithdrawalTax(amount, canton, taxStatus) }
-  }, [p1.hasPK, pkChoice, p1.pkCapital, canton, taxStatus])
+  }, [p1.hasPK, pkChoice, p1.pkCapital, pkMixPercent, canton, taxStatus])
 
   const thirdPillar1 = useMemo(() => {
     if (!p1.has3a) return null
@@ -356,12 +358,12 @@ export default function Screen4() {
   }, [pkEinkaufProJahr, pkEinkaufTotal, ra1, currentAge1, pkChoice, pkEinkaufEffJahre])
 
   const rvkResult = useMemo(() => {
-    if (!p1.hasPK || p1.pkBezugsart === 'rente' || !p1.pkCapital) return null
-    const capital = p1.pkBezugsart === 'mix' ? Math.round(p1.pkCapital / 2) : p1.pkCapital
-    const rente = p1.pkBezugsart === 'mix' ? Math.round(impliedPkMonthly1 / 2) : impliedPkMonthly1
+    if (!p1.hasPK || effectivePkChoice === 'rente' || !p1.pkCapital) return null
+    const capital = effectivePkChoice === 'mix' ? Math.round(p1.pkCapital * (100 - pkMixPercent) / 100) : p1.pkCapital
+    const rente = effectivePkChoice === 'mix' ? Math.round(impliedPkMonthly1 * pkMixPercent / 100) : impliedPkMonthly1
     if (rente <= 0) return null
     return calculateRenteVsKapital(capital, rente, canton, taxStatus, ra1, kirchensteuer, ahvMonthly1 * 13)
-  }, [p1.hasPK, p1.pkBezugsart, p1.pkCapital, impliedPkMonthly1, ahvMonthly1, canton, taxStatus, ra1, kirchensteuer])
+  }, [p1.hasPK, effectivePkChoice, p1.pkCapital, pkMixPercent, impliedPkMonthly1, ahvMonthly1, canton, taxStatus, ra1, kirchensteuer])
 
   const taxOptimization = (thirdPillar1?.unusedPotentialSaving ?? 0) + (pkSavingsData[pkSavingsData.length - 1]?.saving ?? 0)
 
@@ -373,14 +375,14 @@ export default function Screen4() {
     const renteOngoing = calculateRetirementTax(ahvMonthly, pkMonthly, canton, taxStatus, kirchensteuer)
     const kapitalTax = calculateCapitalWithdrawalTax(p1.pkCapital, canton, taxStatus)
     const kapitalOngoing = calculateRetirementTax(ahvMonthly, 0, canton, taxStatus, kirchensteuer)
-    const mixCapitalTax = calculateCapitalWithdrawalTax(Math.round(p1.pkCapital / 2), canton, taxStatus)
-    const mixOngoing = calculateRetirementTax(ahvMonthly, Math.round(pkMonthly / 2), canton, taxStatus, kirchensteuer)
+    const mixCapitalTax = calculateCapitalWithdrawalTax(Math.round(p1.pkCapital * (100 - pkMixPercent) / 100), canton, taxStatus)
+    const mixOngoing = calculateRetirementTax(ahvMonthly, Math.round(pkMonthly * pkMixPercent / 100), canton, taxStatus, kirchensteuer)
     return {
       rente: { annual: renteOngoing.totalTax },
       kapital: { oneTime: kapitalTax.totalTax, annual: kapitalOngoing.totalTax },
       mix: { oneTime: mixCapitalTax.totalTax, annual: mixOngoing.totalTax },
     }
-  }, [p1.hasPK, p1.pkCapital, impliedPkMonthly1, analysis.ahv.combinedMonthly, canton, taxStatus, kirchensteuer])
+  }, [p1.hasPK, p1.pkCapital, pkMixPercent, impliedPkMonthly1, analysis.ahv.combinedMonthly, canton, taxStatus, kirchensteuer])
 
   const pkCumulativeTaxData = useMemo(() => {
     if (!pkVariantTax) return []
@@ -1992,8 +1994,8 @@ export default function Screen4() {
         id: 'mix' as const,
         label: 'Mischform',
         icon: '⚖️',
-        amount: `CHF ${fmtCHF(Math.round((p1.pkCapital ?? 0) / 2 * ((p1.pkRate ?? 5.4) / 100) / 12))}/Mt. + CHF ${fmtK(Math.round((p1.pkCapital ?? 0) / 2))} Kapital`,
-        desc: '50% Rente / 50% Kapital',
+        amount: `CHF ${fmtCHF(Math.round((p1.pkCapital ?? 0) * pkMixPercent / 100 * ((p1.pkRate ?? 5.4) / 100) / 12))}/Mt. + CHF ${fmtK(Math.round((p1.pkCapital ?? 0) * (100 - pkMixPercent) / 100))} Kapital`,
+        desc: `${pkMixPercent}% Rente / ${100 - pkMixPercent}% Kapital`,
         pros: ['Ausgewogene Lösung', 'Teilsicherheit + Flexibilität'],
         cons: ['Kleinere Rente', 'Kleineres Kapital'],
       },
@@ -2023,6 +2025,41 @@ export default function Screen4() {
       )
     })}
   </div>
+
+  {/* Mischform slider */}
+  {pkChoice === 'mix' && (
+    <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)' }}>Mischform-Anteil anpassen</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy-700)', background: 'var(--navy-100)', padding: '2px 10px', borderRadius: 6 }}>
+          {pkMixPercent}% Rente / {100 - pkMixPercent}% Kapital
+        </span>
+      </div>
+      <input
+        type="range" min={10} max={90} step={5}
+        value={pkMixPercent}
+        onChange={e => setPkMixPercent(Number(e.target.value))}
+        style={{ width: '100%', accentColor: 'var(--navy-700)', marginBottom: 6 }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-400)', marginBottom: 12 }}>
+        <span>10% Rente</span><span>50/50</span><span>90% Rente</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ padding: '10px 14px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 2 }}>Monatliche Rente ({pkMixPercent}%)</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy-800)' }}>
+            CHF {fmtCHF(Math.round((p1.pkCapital ?? 0) * pkMixPercent / 100 * ((p1.pkRate ?? 5.4) / 100) / 12))}/Mt.
+          </div>
+        </div>
+        <div style={{ padding: '10px 14px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 2 }}>Kapitalauszahlung ({100 - pkMixPercent}%)</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy-800)' }}>
+            CHF {fmtCHF(Math.round((p1.pkCapital ?? 0) * (100 - pkMixPercent) / 100))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
 
   {/* Capital withdrawal tax info */}
   {pkChoice !== 'rente' && capitalTaxResult && (
@@ -2061,6 +2098,87 @@ export default function Screen4() {
   )}
 </section>
 )}
+
+{/* C: Freiwilliger PK-Einkauf */}
+{p1.hasPK && (
+<section className="block">
+  <div className="block-head">
+    <h2 className="block-title"><span className="block-num">C</span>Freiwilliger PK-Einkauf planen</h2>
+    <span className="block-hint">Steuerersparnis + Rentenverbesserung</span>
+  </div>
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+    <div>
+      <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Einkauf pro Jahr (CHF)</label>
+      <input
+        type="number" min={0} step={1000}
+        value={pkEinkaufProJahr || ''}
+        onChange={e => setPkEinkaufProJahr(Number(e.target.value) || 0)}
+        placeholder="z.B. 20 000"
+        style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--ink-300)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+      />
+    </div>
+    <div>
+      <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Anzahl Jahre</label>
+      <input
+        type="number" min={1} max={Math.max(1, ra1 - currentAge1)} step={1}
+        value={pkEinkaufJahre || ''}
+        onChange={e => setPkEinkaufJahre(Math.min(Number(e.target.value) || 1, Math.max(1, ra1 - currentAge1)))}
+        style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--ink-300)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+      />
+    </div>
+    <div style={{ gridColumn: '1 / -1' }}>
+      <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-500)', marginBottom: 4 }}>Einkaufspotenzial laut PK-Ausweis (CHF, optional)</label>
+      <input
+        type="number" min={0} step={1000}
+        value={pkEinkaufPotenzial || ''}
+        onChange={e => setPkEinkaufPotenzial(Number(e.target.value) || 0)}
+        placeholder="aus PK-Ausweis entnehmen"
+        style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--ink-300)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+      />
+    </div>
+  </div>
+
+  {pkEinkaufProJahr > 0 && (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+        <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Gesamteinkauf</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#15803d' }}>CHF {fmtCHF(pkEinkaufTotal)}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>{pkEinkaufEffJahre} J. × CHF {fmtCHF(pkEinkaufProJahr)}</div>
+        </div>
+        <div style={{ padding: '12px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Zusatz-Rente/Mt.</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--navy-800)' }}>
+            +CHF {fmtCHF(pkEinkaufRenteMonatAfter - pkEinkaufRenteMonatBefore)}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
+            {fmtCHF(pkEinkaufRenteMonatBefore)} → {fmtCHF(pkEinkaufRenteMonatAfter)}/Mt.
+          </div>
+        </div>
+        <div style={{ padding: '12px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-500)', marginBottom: 4 }}>Steuerersparnis ges.</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#d97706' }}>CHF {fmtCHF(pkEinkaufTotalTaxSaving)}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>Grenzsteuersatz {(pkEinkaufMarginalRate * 100).toFixed(0)}%</div>
+        </div>
+      </div>
+      {pkEinkaufPotenzial > 0 && pkEinkaufTotal > pkEinkaufPotenzial && (
+        <div style={{ marginBottom: 10, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#dc2626' }}>
+          ⚠ Geplanter Einkauf (CHF {fmtCHF(pkEinkaufTotal)}) übersteigt Einkaufspotenzial (CHF {fmtCHF(pkEinkaufPotenzial)}).
+        </div>
+      )}
+      {pkEinkaufSperrfristWarning && (
+        <div style={{ marginBottom: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
+          ⚠ <strong>Sperrfrist (Art. 79b BVG):</strong> Letzter Einkauf weniger als 3 Jahre vor Pensionierung — Kapitalbezug (Misch-/Kapitalform) gesperrt.
+        </div>
+      )}
+    </>
+  )}
+  <div style={{ fontSize: 12, color: 'var(--ink-400)', lineHeight: 1.6, marginTop: 4 }}>
+    PK-Einkäufe sind vollständig vom steuerbaren Einkommen abzugsfähig. Das Einkaufspotenzial steht auf Ihrem PK-Ausweis. Details → Tab Steuern, Abschnitt A2.
+  </div>
+</section>
+)}
+
 {!p1.hasPK && (
   <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-400)' }}>
     <div style={{ fontSize: 36, marginBottom: 12 }}>🏢</div>
@@ -2797,8 +2915,9 @@ export default function Screen4() {
     {[
       { label: 'Pensionierungsalter', value: `Alter ${ra1}`, icon: '🎯' },
       { label: 'AHV-Bezug', value: p1.ahvBezugAge < 65 ? `Vorbezug Alter ${p1.ahvBezugAge}` : p1.ahvBezugAge > 65 ? `Aufschub Alter ${p1.ahvBezugAge}` : 'Ordentlich Alter 65', icon: '🏛️' },
-      { label: 'PK-Bezugsform', value: pkChoice === 'rente' ? 'Vollrente' : pkChoice === 'kapital' ? 'Kapitalbezug' : pkChoice === 'mix' ? 'Mischform 50/50' : 'Noch nicht gewählt', icon: '🏢' },
+      { label: 'PK-Bezugsform', value: pkChoice === 'rente' ? 'Vollrente' : pkChoice === 'kapital' ? 'Kapitalbezug' : pkChoice === 'mix' ? `Mischform ${pkMixPercent}% Rente / ${100 - pkMixPercent}% Kapital` : 'Noch nicht gewählt', icon: '🏢' },
       { label: 'Vermögensstrategie', value: wealthInvestmentProfile === 'konto' ? 'Sparkonto (0.75%)' : wealthInvestmentProfile === 'conservative' ? 'Konservativ (2.5%)' : wealthInvestmentProfile === 'balanced' ? 'Ausgewogen (3.5%)' : 'Wachstum (5%)', icon: '📈' },
+      ...(pkEinkaufProJahr > 0 ? [{ label: 'Freiwilliger PK-Einkauf', value: `CHF ${fmtCHF(pkEinkaufProJahr)}/Jahr · ${pkEinkaufEffJahre} Jahre · Total CHF ${fmtCHF(pkEinkaufTotal)}`, icon: '💰' }] : []),
     ].map((item, i) => (
       <div key={i} style={{ padding: '14px 16px', background: 'var(--ink-50)', border: '1px solid var(--ink-200)', borderRadius: 10 }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>{item.icon} {item.label}</div>

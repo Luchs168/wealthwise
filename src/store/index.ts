@@ -168,8 +168,10 @@ export interface WealthWiseState {
   // PK-Einkauf simulation (Steuern tab)
   pkEinkaufProJahr: number
   pkEinkaufJahre: number
+  pkEinkaufPotenzial: number
   setPkEinkaufProJahr: (v: number) => void
   setPkEinkaufJahre: (v: number) => void
+  setPkEinkaufPotenzial: (v: number) => void
 
   // Actions
   setGoal: (g: string) => void
@@ -312,6 +314,7 @@ export const useStore = create<WealthWiseState>()(
 
       pkEinkaufProJahr: 0,
       pkEinkaufJahre: 3,
+      pkEinkaufPotenzial: 0,
 
       setGoal: (g: string) => set({ selectedGoal: g }),
       setCivilStatus: (s) => set({ civilStatus: s }),
@@ -352,6 +355,7 @@ export const useStore = create<WealthWiseState>()(
       setWithdrawalStrategy: (v) => set({ withdrawalStrategy: v }),
       setPkEinkaufProJahr: (v) => set({ pkEinkaufProJahr: v }),
       setPkEinkaufJahre: (v) => set({ pkEinkaufJahre: v }),
+      setPkEinkaufPotenzial: (v) => set({ pkEinkaufPotenzial: v }),
       resetStore: () => set({
         selectedGoal: 'rente',
         civilStatus: 'ledig',
