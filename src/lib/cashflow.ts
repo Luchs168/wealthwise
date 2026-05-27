@@ -3,6 +3,7 @@ import {
   calculateAge,
   calculatePkHousehold,
 } from './calc'
+import type { LifeEvent } from '../types/lifeEvents'
 import type { AhvPersonResult } from './calc'
 import {
   calculateAHVPension,
@@ -107,6 +108,7 @@ export interface CashflowInput {
   hypothekZinssatz?: number
   amortisationYearly?: number
   amortisationYears?: number
+  lifeEvents?: LifeEvent[]
 }
 
 function normalizeP(p: CashflowInput['person1']) {
@@ -369,6 +371,62 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     ? ahvBezugRaw2 + (currentAge - (p2raw.birthDate ? calculateAge(p2raw.birthDate) : currentAge))
     : null
 
+  // === Life event pre-processing ===
+  interface ImmobilienBuyEvt {
+    startYear: number
+    eigenkapital: number
+    hypothek: number
+    zinssatz: number      // decimal e.g. 0.015
+    amortisationJahr: number
+  }
+  const yearlyEventDelta = new Map<number, number>()  // year → net wealth delta (neg = outflow)
+  const teilzeitFactorByYear = new Map<number, number>() // year → income multiplier (0-1)
+  const immobilienFromEvents: ImmobilienBuyEvt[] = []
+
+  if (data.lifeEvents) {
+    for (const evt of data.lifeEvents) {
+      if (!evt.enabled) continue
+
+      if (evt.category === 'immobilie') {
+        const ep = evt.details
+        const kaufpreis = ep?.kaufpreis || (evt.amount > 0 ? Math.round(evt.amount / 0.2) : 500000)
+        const eigenkapital = ep?.eigenkapital || evt.amount || Math.round(kaufpreis * 0.2)
+        const hypothek = Math.max(0, kaufpreis - eigenkapital)
+        const zinssatz = (ep?.zinssatz ?? 1.5) / 100
+        const amortisationJahr = ep?.amortisationJahr ?? 0
+        immobilienFromEvents.push({ startYear: evt.year, eigenkapital, hypothek, zinssatz, amortisationJahr })
+        // In purchase year: subtract eigenkapital from wealth
+        yearlyEventDelta.set(evt.year, (yearlyEventDelta.get(evt.year) ?? 0) - eigenkapital)
+      } else if (evt.category === 'teilzeit' || evt.eventType === 'einkommensaenderung') {
+        // Determine income factor
+        let factor: number
+        if (evt.pensum !== undefined && evt.pensum > 0) {
+          factor = evt.pensum / 100
+        } else if (evt.amount > 0) {
+          const fullIncome = Math.max(1, inc1 + inc2)
+          factor = Math.max(0, Math.min(1, 1 - (evt.amount / fullIncome)))
+        } else {
+          continue
+        }
+        const duration = evt.duration || 1
+        const interval = evt.intervalYears && evt.intervalYears > 1 ? evt.intervalYears : 1
+        for (let i = 0; i < duration; i++) {
+          if (i % interval !== 0) continue
+          const yr = evt.year + i
+          teilzeitFactorByYear.set(yr, Math.min(teilzeitFactorByYear.get(yr) ?? 1, factor))
+        }
+      } else if (evt.amount > 0) {
+        const sign = evt.art === 'einnahme' ? 1 : -1
+        const duration = evt.art === 'laufend' ? (evt.duration || 1) : 1
+        const interval = evt.intervalYears && evt.intervalYears > 1 ? evt.intervalYears : 1
+        for (let i = 0; i < duration; i++) {
+          if (i % interval !== 0) continue
+          yearlyEventDelta.set(evt.year + i, (yearlyEventDelta.get(evt.year + i) ?? 0) + sign * evt.amount)
+        }
+      }
+    }
+  }
+
   for (let age = currentAge; age <= endAge; age++) {
     // Prevent negative compounding: once broke, next year starts from 0 not further negative
     wealth = Math.max(0, wealth)
@@ -388,6 +446,17 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     const isRetirementYearP1 = age === ra1
     const isRetirementYearP2 = p2raw ? age === (ra2InP1Years || ra2 || 65) : false
 
+    // Event-driven property costs and equity
+    let evtImmobilienMortgageCost = 0
+    let evtImmobilienEquity = 0
+    for (const imm of immobilienFromEvents) {
+      if (year < imm.startYear) continue
+      const yearsOwned = year - imm.startYear
+      const remainingHypothek = Math.max(0, imm.hypothek - yearsOwned * imm.amortisationJahr)
+      evtImmobilienMortgageCost += Math.round(remainingHypothek * imm.zinssatz + imm.eigenkapital * 0.01)
+      evtImmobilienEquity += imm.eigenkapital + Math.min(imm.hypothek, yearsOwned * imm.amortisationJahr)
+    }
+
     // Year-specific property cost: interest declines as mortgage is paid down
     let mortgageCostsThisYear = 0
     if (data.hasProperty) {
@@ -400,6 +469,7 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
         mortgageCostsThisYear = (data.monthlyMortgageCost || 0) * 12
       }
     }
+    mortgageCostsThisYear += evtImmobilienMortgageCost
 
     let employmentIncome = 0
     let ahvIncome = 0, pkRenteIncome = 0
@@ -417,15 +487,18 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth += businessProceeds
     }
 
-    if (!p1Retired) employmentIncome += p1raw.grossIncome || 0
-    if (p2raw && !p2RetiredSimple) employmentIncome += p2raw.grossIncome || 0
+    const teilzeitFactor = teilzeitFactorByYear.get(year) ?? 1
+    if (!p1Retired) employmentIncome += (p1raw.grossIncome || 0) * teilzeitFactor
+    if (p2raw && !p2RetiredSimple) employmentIncome += (p2raw.grossIncome || 0) * teilzeitFactor
 
     if (employmentIncome > 0) {
       assetReturn = Math.round(Math.max(0, wealth) * savingsReturn)
       wealth += assetReturn
       const p1Working = !p1Retired && inc1 > 0
       const p2Working = p2raw != null && !p2RetiredSimple && inc2 > 0
-      const phase = (p1Working && p2Working) ? empPhase_both : p1Working ? empPhase_p1 : empPhase_p2
+      const phase = teilzeitFactor < 1
+        ? computeEmploymentNetFactor(employmentIncome, hasPK1 || hasPK2, y3a1 + y3a2, has3a1 || has3a2)
+        : ((p1Working && p2Working) ? empPhase_both : p1Working ? empPhase_p1 : empPhase_p2)
       const netIncome = Math.round(employmentIncome * phase.netFactor)
       const saving = Math.max(0, netIncome - inflatedExpenses - mortgageCostsThisYear)
       wealth += saving
@@ -533,6 +606,10 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
       wealth -= estimatedTax
     }
 
+    // Apply life event wealth delta
+    const evtDelta = yearlyEventDelta.get(year) ?? 0
+    if (evtDelta !== 0) wealth += evtDelta
+
     // Wealth breakdown for stacked bar chart
     if (age < ra1) {
       gebunden3aTrack = Math.round(gebunden3aTrack * (1 + rate3aTrack) + yearly3aCombinedTrack)
@@ -542,11 +619,11 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     const wealthTotal = Math.max(0, wealth)
     const wLiquid = Math.round(wealthTotal * sparkontoFraction)
     const wWertschriften = wealthTotal - wLiquid
-    const wImmobilien = data.hasProperty && data.propertyValue
+    const wImmobilien = (data.hasProperty && data.propertyValue
       ? Math.max(0, data.propertyValue - (useDynamicMortgage
           ? Math.max(0, propMortgage - yearsFromNow * propAmortYearly)
           : (data.mortgage || 0)))
-      : 0
+      : 0) + evtImmobilienEquity
 
     cashflow.push({
       year, age,

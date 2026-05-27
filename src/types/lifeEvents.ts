@@ -14,6 +14,8 @@ export interface LifeEventDetails {
   vorbezug3a?: number
   hypothek?: number
   zinssatz?: number
+  amortisationJahr?: number   // CHF/year amortisation
+  mietEntfaellt?: boolean     // rent eliminated after purchase
   // Teilzeit
   neuerGrad?: number
   // Custom label

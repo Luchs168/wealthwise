@@ -207,8 +207,9 @@ export default function Screen4() {
       riskProfile,
       wealthInvestmentProfile,
       savingsStrategy,
+      lifeEvents: lifeEvents.filter(e => e.enabled),
     }
-  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy, pkEinkaufProJahr, pkEinkaufJahre])
+  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy, pkEinkaufProJahr, pkEinkaufJahre, lifeEvents])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])
@@ -259,20 +260,11 @@ export default function Screen4() {
     () => getEventImpactSummary(lifeEvents, retirementYear),
     [lifeEvents, retirementYear],
   )
-  // Apply events on top of the neutral scenario so the chart baseline stays consistent.
-  // (Using analysis.yearlyCashflow would switch baseline when events are added, making wealth
-  // appear higher or lower depending on the user's risk profile vs neutral 3.5%.)
-  const adjustedCashflow = useMemo(
-    () => lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
-      ? applyEventsToProjection(scenarios.neutral.yearlyCashflow, lifeEvents)
-      : null,
-    [scenarios.neutral.yearlyCashflow, lifeEvents],
-  )
-  const ageWhenBrokeWithEvents = useMemo(() => {
-    if (!adjustedCashflow) return scenarios.neutral.ageWhenBroke
-    const broke = adjustedCashflow.find(r => r.wealthEndOfYear <= 0)
-    return broke ? broke.age : null
-  }, [adjustedCashflow, scenarios])
+  // Events are now fully integrated into the cashflow calculation (no post-processing).
+  // adjustedCashflow is kept as null so buildStackedBarData uses the base cashflow rows,
+  // which already include all life events with proper compounding.
+  const adjustedCashflow: null = null  // events now integrated into cashflow calculation
+  const ageWhenBrokeWithEvents = scenarios.neutral.ageWhenBroke
   const hasEnabledEvents = lifeEvents.filter(e => e.enabled && e.amount > 0).length > 0
 
   const [showEventForm, setShowEventForm] = useState(false)
@@ -283,6 +275,14 @@ export default function Screen4() {
   const [newEvtToAge, setNewEvtToAge] = useState(ra1 + 5)
   const [newEvtIntervalYears, setNewEvtIntervalYears] = useState(1)
   const [newEvtPensum, setNewEvtPensum] = useState(80)
+
+  // Immobilienkauf form state
+  const [showImmobilienForm, setShowImmobilienForm] = useState(false)
+  const [immKaufpreis, setImmKaufpreis] = useState(800000)
+  const [immEigenkapital, setImmEigenkapital] = useState(160000)
+  const [immZinssatz, setImmZinssatz] = useState(1.5)
+  const [immAmortisationJahr, setImmAmortisationJahr] = useState(0)
+  const [immFromAge, setImmFromAge] = useState(Math.max(currentAge1 + 1, 35))
 
   // Use the neutral scenario (2.5% return) as the reference — it's what the chart shows.
   // The main analysis uses the user's investment profile which can diverge significantly.
@@ -767,26 +767,12 @@ export default function Screen4() {
     buildStackedBarData(scenarios.neutral.yearlyCashflow, adjustedCashflow ?? null, chartFromAge, chartToAge),
     [scenarios, adjustedCashflow, chartFromAge, chartToAge, buildStackedBarData])
 
-  const adjCashflowOpt = useMemo(
-    () => hasEnabledEvents ? applyEventsToProjection(scenarios.optimistic.yearlyCashflow, lifeEvents) : null,
-    [scenarios.optimistic.yearlyCashflow, lifeEvents, hasEnabledEvents],
-  )
-  const adjCashflowPess = useMemo(
-    () => hasEnabledEvents ? applyEventsToProjection(scenarios.pessimistic.yearlyCashflow, lifeEvents) : null,
-    [scenarios.pessimistic.yearlyCashflow, lifeEvents, hasEnabledEvents],
-  )
+  // Events are baked into all scenarios via cashflow calculation — no post-processing needed
+  const adjCashflowOpt: null = null
+  const adjCashflowPess: null = null
 
-  const ageWhenBrokeOptWithEvents = useMemo(() => {
-    if (!adjCashflowOpt) return scenarios.optimistic.ageWhenBroke
-    const broke = adjCashflowOpt.find(r => r.wealthEndOfYear <= 0)
-    return broke ? broke.age : null
-  }, [adjCashflowOpt, scenarios])
-
-  const ageWhenBrokePessWithEvents = useMemo(() => {
-    if (!adjCashflowPess) return scenarios.pessimistic.ageWhenBroke
-    const broke = adjCashflowPess.find(r => r.wealthEndOfYear <= 0)
-    return broke ? broke.age : null
-  }, [adjCashflowPess, scenarios])
+  const ageWhenBrokeOptWithEvents = scenarios.optimistic.ageWhenBroke
+  const ageWhenBrokePessWithEvents = scenarios.pessimistic.ageWhenBroke
 
   const scenarioOptData = useMemo(() =>
     buildStackedBarData(scenarios.optimistic.yearlyCashflow, adjCashflowOpt ?? null, chartFromAge, chartToAge),
@@ -964,6 +950,29 @@ export default function Screen4() {
     setShowEventForm(false)
     setNewEvtLabel('')
     setNewEvtAmount(10000)
+  }
+
+  function addImmobilienEvent() {
+    addLifeEvent({
+      id: Math.random().toString(36).slice(2, 10),
+      category: 'immobilie',
+      year: birthYear + immFromAge,
+      amount: immEigenkapital,
+      art: 'ausgabe',
+      duration: 1,
+      enabled: true,
+      details: {
+        kaufpreis: immKaufpreis,
+        eigenkapital: immEigenkapital,
+        hypothek: immKaufpreis - immEigenkapital,
+        zinssatz: immZinssatz,
+        amortisationJahr: immAmortisationJahr,
+        customLabel: `🏠 Immobilienkauf CHF ${fmtCHF(immKaufpreis)}`,
+      },
+      eventType: 'einmalig',
+      fromAge: immFromAge,
+    })
+    setShowImmobilienForm(false)
   }
 
   return (
@@ -1532,13 +1541,114 @@ export default function Screen4() {
           <span style={{ color: 'var(--ink-400)', fontSize: 10 }}>{q.sublabel}</span>
         </button>
       ))}
+      {/* Immobilienkauf special button */}
+      <button
+        onClick={() => { setShowImmobilienForm(v => !v); setShowEventForm(false) }}
+        style={{
+          padding: '7px 13px', fontSize: 12,
+          background: showImmobilienForm ? 'var(--navy-800)' : 'var(--ink-50)',
+          border: `1px solid ${showImmobilienForm ? 'var(--navy-800)' : 'var(--ink-200)'}`,
+          borderRadius: 20, cursor: 'pointer',
+          color: showImmobilienForm ? 'white' : 'var(--ink-700)', whiteSpace: 'nowrap', lineHeight: 1.4,
+        }}
+      >
+        🏠 Immobilienkauf<br />
+        <span style={{ color: showImmobilienForm ? 'rgba(255,255,255,0.7)' : 'var(--ink-400)', fontSize: 10 }}>EK + Hypothek</span>
+      </button>
     </div>
   </div>
+
+  {/* Immobilienkauf form */}
+  {showImmobilienForm && (
+    <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '16px', marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy-800)', marginBottom: 12 }}>🏠 Immobilienkauf erfassen</div>
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Kaufpreis (CHF)</label>
+            <input
+              type="number" value={immKaufpreis} min={0} step={50000}
+              onChange={e => {
+                const kp = Number(e.target.value)
+                setImmKaufpreis(kp)
+                setImmEigenkapital(Math.round(kp * 0.2))
+              }}
+              style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Eigenkapital (CHF)</label>
+            <input
+              type="number" value={immEigenkapital} min={0} step={10000}
+              onChange={e => setImmEigenkapital(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Zinssatz (%)</label>
+            <input
+              type="number" value={immZinssatz} min={0} step={0.1} max={10}
+              onChange={e => setImmZinssatz(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Amortisation CHF/J</label>
+            <input
+              type="number" value={immAmortisationJahr} min={0} step={5000}
+              onChange={e => setImmAmortisationJahr(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--ink-500)', display: 'block', marginBottom: 4 }}>Alter bei Kauf</label>
+            <input
+              type="number" value={immFromAge} min={currentAge1 + 1} max={85}
+              onChange={e => setImmFromAge(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--ink-300)', borderRadius: 8, boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+        {(() => {
+          const hypothek = Math.max(0, immKaufpreis - immEigenkapital)
+          const jahresZins = Math.round(hypothek * immZinssatz / 100)
+          const unterhalt = Math.round(immKaufpreis * 0.01)
+          const amort = immAmortisationJahr
+          const totalJahr = jahresZins + unterhalt + amort
+          return (
+            <div style={{ padding: '10px 14px', background: '#e0f2fe', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 12, color: '#0c4a6e', lineHeight: 1.7 }}>
+              <strong>Vorschau:</strong><br />
+              Hypothek: CHF {fmtCHF(hypothek)} ({Math.round(hypothek / immKaufpreis * 100)}%)<br />
+              Laufende Kosten/Jahr: CHF {fmtCHF(totalJahr)} (Zins CHF {fmtCHF(jahresZins)} + Unterhalt CHF {fmtCHF(unterhalt)}{amort > 0 ? ` + Amort. CHF ${fmtCHF(amort)}` : ''})<br />
+              Im Kaufjahr: CHF {fmtCHF(immEigenkapital)} Eigenkapital aus Vermögen
+            </div>
+          )
+        })()}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={addImmobilienEvent}
+            disabled={immKaufpreis <= 0 || immEigenkapital <= 0}
+            style={{ padding: '10px 20px', fontSize: 13, fontWeight: 700, background: 'var(--navy-800)', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', opacity: (immKaufpreis <= 0 || immEigenkapital <= 0) ? 0.5 : 1 }}
+          >
+            Immobilienkauf hinzufügen
+          </button>
+          <button
+            onClick={() => setShowImmobilienForm(false)}
+            style={{ padding: '10px 16px', fontSize: 13, background: 'white', color: 'var(--ink-600)', border: '1px solid var(--ink-300)', borderRadius: 10, cursor: 'pointer' }}
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
   {/* Manual add form toggle */}
   <div style={{ marginBottom: 16 }}>
     <button
-      onClick={() => setShowEventForm(v => !v)}
+      onClick={() => { setShowEventForm(v => !v); setShowImmobilienForm(false) }}
       style={{ padding: '8px 16px', fontSize: 13, background: showEventForm ? 'var(--navy-800)' : 'white', color: showEventForm ? 'white' : 'var(--navy-800)', border: '1px solid var(--navy-800)', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
     >
       {showEventForm ? '✕ Abbrechen' : '+ Ereignis manuell erfassen'}
@@ -1730,12 +1840,18 @@ export default function Screen4() {
         const evtFromAge = evt.fromAge ?? (evt.year - birthYear)
         const evtToAge = evt.toAge
         const isIncome = evt.eventType === 'einkommensaenderung'
+        const isImmobilie = evt.category === 'immobilie'
         const isRecurring = evt.eventType === 'wiederkehrend' || evt.art === 'laufend'
         const label = evt.details?.customLabel || cfg.label
         const icon = cfg.icon
 
         let descLine = ''
-        if (isIncome) {
+        if (isImmobilie) {
+          const hypothek = evt.details?.hypothek ?? Math.max(0, (evt.details?.kaufpreis ?? 0) - (evt.details?.eigenkapital ?? evt.amount))
+          const zinssatz = evt.details?.zinssatz ?? 1.5
+          const jahresKosten = Math.round(hypothek * zinssatz / 100 + (evt.details?.eigenkapital ?? evt.amount) * 0.01)
+          descLine = `Alter ${evtFromAge} · EK CHF ${fmtCHF(evt.details?.eigenkapital ?? evt.amount)} · Hyp. CHF ${fmtCHF(hypothek)} @ ${zinssatz}% · ca. CHF ${fmtCHF(jahresKosten)}/J`
+        } else if (isIncome) {
           descLine = `Alter ${evtFromAge}–${evtToAge ?? ra1} · CHF ${fmtCHF(evt.amount)}/J Einkommensreduktion`
         } else if (isRecurring) {
           const interval = evt.intervalYears && evt.intervalYears > 1 ? ` · alle ${evt.intervalYears} J.` : '/J'
@@ -1745,19 +1861,39 @@ export default function Screen4() {
         }
 
         return (
-          <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isIncome ? '#fef9ff' : 'var(--ink-50)', border: `1px solid ${isIncome ? '#e9d5ff' : 'var(--ink-200)'}`, borderRadius: 10, fontSize: 13 }}>
-            <div>
+          <div key={evt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isImmobilie ? '#f0f9ff' : isIncome ? '#fef9ff' : 'var(--ink-50)', border: `1px solid ${isImmobilie ? '#bae6fd' : isIncome ? '#e9d5ff' : 'var(--ink-200)'}`, borderRadius: 10, fontSize: 13 }}>
+            <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 500, color: 'var(--ink-800)' }}>{icon} {label}</div>
               <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 2 }}>{descLine}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              {isIncome && <span style={{ fontSize: 10, padding: '2px 8px', background: '#e9d5ff', color: '#7c3aed', borderRadius: 10, fontWeight: 600 }}>Einkomm.</span>}
-              {isRecurring && !isIncome && <span style={{ fontSize: 10, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', borderRadius: 10, fontWeight: 600 }}>Laufend</span>}
+              {isImmobilie && <span style={{ fontSize: 10, padding: '2px 8px', background: '#bae6fd', color: '#0369a1', borderRadius: 10, fontWeight: 600 }}>Immobilie</span>}
+              {isIncome && !isImmobilie && <span style={{ fontSize: 10, padding: '2px 8px', background: '#e9d5ff', color: '#7c3aed', borderRadius: 10, fontWeight: 600 }}>Einkomm.</span>}
+              {isRecurring && !isIncome && !isImmobilie && <span style={{ fontSize: 10, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', borderRadius: 10, fontWeight: 600 }}>Laufend</span>}
               <button onClick={() => removeLifeEvent(evt.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-400)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
             </div>
           </div>
         )
       })}
+
+      {/* Teilzeit notice */}
+      {lifeEvents.filter(e => e.enabled && (e.category === 'teilzeit' || e.eventType === 'einkommensaenderung')).length > 0 && (() => {
+        const tzEvts = lifeEvents.filter(e => e.enabled && (e.category === 'teilzeit' || e.eventType === 'einkommensaenderung'))
+        const firstTz = tzEvts[0]
+        const fromAge = firstTz.fromAge ?? (firstTz.year - birthYear)
+        const toAge = firstTz.toAge ?? ra1
+        const pensum = firstTz.pensum ?? Math.round((1 - firstTz.amount / Math.max(1, (p1.income || p1.grossIncome || 80000))) * 100)
+        const fullIncome = (p1.income || p1.grossIncome || 80000)
+        const reducedIncome = Math.round(fullIncome * pensum / 100)
+        return (
+          <div style={{ display: 'flex', gap: 10, padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
+            <span style={{ flexShrink: 0, fontSize: 16 }}>ℹ️</span>
+            <div>
+              <strong>Teilzeit-Hinweis:</strong> Lebensereignis «Teilzeit {pensum}%» reduziert Ihr Einkommen von CHF {fmtCHF(fullIncome)} auf CHF {fmtCHF(reducedIncome)}/Jahr in den Jahren Alter {fromAge}–{toAge}. AHV- und PK-Auswirkungen sind vereinfacht — für eine präzise Analyse wenden Sie sich an Ihre PK.
+            </div>
+          </div>
+        )
+      })()}
 
       {hasEnabledEvents && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -1767,18 +1903,12 @@ export default function Screen4() {
             { label: 'Pessimistisch', adj: ageWhenBrokePessWithEvents, base: scenarios.pessimistic.ageWhenBroke, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
           ].map(s => {
             const adjAge = s.adj ?? 99
-            const baseAge = s.base ?? 99
             return (
               <div key={s.label} style={{ padding: '10px 10px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: 'var(--ink-400)', marginBottom: 2 }}>{s.label}</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: adjAge >= 99 ? '#15803d' : s.color }}>
                   {adjAge >= 99 ? 'Alter 95+' : `Alter ${adjAge}`}
                 </div>
-                {baseAge !== adjAge && (
-                  <div style={{ fontSize: 10, color: 'var(--ink-400)' }}>
-                    ohne: {baseAge >= 99 ? '95+' : `Alter ${baseAge}`}
-                  </div>
-                )}
               </div>
             )
           })}
