@@ -313,54 +313,6 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* SOCIAL PROOF */}
-      <div style={{ background: '#fff', borderBottom: '1px solid var(--ink-200)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 40px' }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'var(--navy-50)', border: '1px solid var(--navy-200)', borderRadius: 30, padding: '6px 20px', marginBottom: 16 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--navy-700)' }}>
-                Bereits über <strong>4'800</strong> Personen haben ihre Vorsorge analysiert
-              </span>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-            {[
-              {
-                text: 'Ich hätte nicht gedacht, wie einfach das geht. In 12 Minuten hatte ich eine klare Übersicht über meine AHV und PK. Jetzt weiss ich, wo ich stehe.',
-                name: 'Markus B.',
-                location: 'Zürich, 54 Jahre',
-                stars: 5,
-              },
-              {
-                text: 'Als Selbständiger ohne Pensionskasse hatte ich keine Ahnung, wo ich stehe. Jetzt weiss ich: Meine Schreinerei ist meine 2. Säule. Ich muss die Nachfolge anpacken.',
-                name: 'Marco B.',
-                location: 'Emmen, 54 Jahre',
-                stars: 5,
-              },
-              {
-                text: 'Nach meiner Scheidung hatte ich jahrelang Angst vor den Zahlen. Dieses Tool hat mir gezeigt, dass ich Anspruch auf Ergänzungsleistungen habe – das wusste ich nicht.',
-                name: 'Ruth G.',
-                location: 'Thun, 61 Jahre',
-                stars: 5,
-              },
-            ].map((t, i) => (
-              <div key={i} style={{ background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 16, padding: '24px 22px' }}>
-                <div style={{ display: 'flex', gap: 2, marginBottom: 12 }}>
-                  {Array.from({ length: t.stars }).map((_, j) => (
-                    <svg key={j} width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  ))}
-                </div>
-                <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--ink-700)', lineHeight: 1.65, fontStyle: 'italic' }}>"{t.text}"</p>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy-900)' }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>{t.location}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* VORTEILE */}
       <div style={{ background: 'var(--navy-900)', borderTop: '1px solid rgba(255,255,255,.06)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 40px' }}>
