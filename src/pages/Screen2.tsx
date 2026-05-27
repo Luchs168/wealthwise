@@ -2118,7 +2118,7 @@ export default function Screen2() {
                     value={cur.num3aAccounts || 1}
                     onChange={(e) => updatePerson(activeTab, { num3aAccounts: Number(e.target.value) })}
                   >
-                    {[1, 2, 3, 4, 5].map(n => (
+                    {[1, 2, 3, 4, 5, 6].map(n => (
                       <option key={n} value={n}>{n} {n === 1 ? 'Konto' : 'Konten'}</option>
                     ))}
                   </select>
@@ -2145,7 +2145,11 @@ export default function Screen2() {
                           const newAccounts = Array.from({ length: cur.num3aAccounts || 1 }, (_, j) =>
                             j === i ? (parseInt(e.target.value) || 0) : (cur.accounts3a?.[j] || 0)
                           )
-                          updatePerson(activeTab, { accounts3a: newAccounts })
+                          const newTotal = newAccounts.reduce((s, v) => s + v, 0)
+                          updatePerson(activeTab, {
+                            accounts3a: newAccounts,
+                            ...(newTotal > 0 ? { balance3a: newTotal } : {}),
+                          })
                         }}
                       />
                     </div>
@@ -2157,7 +2161,10 @@ export default function Screen2() {
                     </div>
                   )}
                   <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#1e3a5f' }}>
-                    Für optimale Staffelung: Grössere Konten sollten in einem Jahr ohne anderen Kapitalbezug (PK) bezogen werden. Jeder Bezug wird separat besteuert.
+                    {(cur.num3aAccounts || 1) >= 6
+                      ? 'Für optimale Staffelung: Mit 6 separaten 3a-Konten können Sie den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.'
+                      : 'Für optimale Staffelung: Grössere Konten sollten in einem Jahr ohne anderen Kapitalbezug (PK) bezogen werden. Jeder Bezug wird separat besteuert.'
+                    }
                   </div>
                 </div>
               )}
@@ -2217,7 +2224,7 @@ export default function Screen2() {
               })()}
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
-                <span>Empfehlung: Mit 3–5 separaten 3a-Konten können Sie den Bezug über mehrere Jahre staffeln und die Kapitalbezugssteuer deutlich reduzieren.</span>
+                <span>Empfehlung: Mit 6 separaten 3a-Konten können Sie den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.</span>
               </div>
             </>
           )}
