@@ -488,8 +488,9 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     }
 
     const teilzeitFactor = teilzeitFactorByYear.get(year) ?? 1
-    if (!p1Retired) employmentIncome += (p1raw.grossIncome || 0) * teilzeitFactor
-    if (p2raw && !p2RetiredSimple) employmentIncome += (p2raw.grossIncome || 0) * teilzeitFactor
+    const p1Income = !p1Retired ? (p1raw.grossIncome || 0) * teilzeitFactor : 0
+    const p2Income = (p2raw && !p2RetiredSimple) ? (p2raw.grossIncome || 0) : 0
+    employmentIncome += p1Income + p2Income
 
     if (employmentIncome > 0) {
       assetReturn = Math.round(Math.max(0, wealth) * savingsReturn)

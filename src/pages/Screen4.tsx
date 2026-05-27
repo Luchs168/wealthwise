@@ -16,7 +16,7 @@ import {
   CANTONAL_TAX_URLS, CANTON_NAMES,
 } from '../lib/tax'
 import type { TaxCivilStatus } from '../lib/tax'
-import { applyEventsToProjection, getEventImpactSummary } from '../utils/lifeEventCalculation'
+import { getEventImpactSummary } from '../utils/lifeEventCalculation'
 import { calculateAllVariants, calculateBreakEven, buildBreakEvenChartData, AHV_2026 } from '../utils/ahvCalculation'
 import { AHV_BEZUG_FAKTOREN_2025 } from '../constants/swissVorsorge2025'
 import {
@@ -1824,6 +1824,18 @@ export default function Screen4() {
         >
           Ereignis hinzufügen
         </button>
+      </div>
+    </div>
+  )}
+
+  {/* Impact summary banner */}
+  {hasEnabledEvents && eventsImpact.enabledCount > 0 && (
+    <div style={{ display: 'flex', gap: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 12, color: '#15803d', marginBottom: 12, alignItems: 'center' }}>
+      <span>📊</span>
+      <div>
+        <strong>{eventsImpact.enabledCount} Ereignis{eventsImpact.enabledCount > 1 ? 'se' : ''} aktiv</strong>
+        {eventsImpact.totalOutflow > 0 && <> · Abflüsse gesamt: <strong>CHF {fmtCHF(eventsImpact.totalOutflow)}</strong></>}
+        {eventsImpact.totalInflow > 0 && <> · Zuflüsse: <strong>CHF {fmtCHF(eventsImpact.totalInflow)}</strong></>}
       </div>
     </div>
   )}
