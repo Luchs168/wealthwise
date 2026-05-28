@@ -109,6 +109,10 @@ export interface CashflowInput {
   amortisationYearly?: number
   amortisationYears?: number
   lifeEvents?: LifeEvent[]
+  // Children: year when each child was born — used to reduce expenses when they leave home (age 25)
+  childrenBirthYears?: number[]
+  // Monthly budget reduction when all children have left home (CHF)
+  childrenCostReduction?: number
 }
 
 function normalizeP(p: CashflowInput['person1']) {
@@ -350,6 +354,13 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
   let gebunden3aTrack = (p1raw.pillar3aBalance || 0) + (p2raw ? (p2raw.pillar3aBalance || 0) : 0)
   const yearly3aCombinedTrack = (p1raw.yearly3a || 0) + (p2raw ? (p2raw.yearly3a || 0) : 0)
   const rate3aTrack = CONSTANTS.RETURNS_3A[p1raw.form3a || 'sparkonto'] ?? 0.0075
+  // Children departure: youngest child turns 25 → reduce monthly budget
+  const youngestChildBirthYear = data.childrenBirthYears?.length
+    ? Math.max(...data.childrenBirthYears)
+    : 0
+  const childDepartureYear = youngestChildBirthYear > 0 ? youngestChildBirthYear + 25 : null
+  const childCostReduction = (data.childrenCostReduction || 0) * 12
+
   const baseExpensesYear = (data.monthlyExpenses || 0) * 12
   const cashflow: CashflowRow[] = []
   const currentYear = new Date().getFullYear()
@@ -434,7 +445,11 @@ export function calculateYearlyCashflow(data: CashflowInput): CashflowRow[] {
     const year = currentYear + (age - currentAge)
     const yearsFromNow = age - currentAge
     const expFactor = Math.pow(1 + inflationRate, yearsFromNow)
-    const inflatedExpenses = Math.round(baseExpensesYear * expFactor)
+    // Children have left home by this year → base expenses permanently reduced
+    const effectiveBaseExpenses = (childDepartureYear && year >= childDepartureYear)
+      ? Math.max(0, baseExpensesYear - childCostReduction)
+      : baseExpensesYear
+    const inflatedExpenses = Math.round(effectiveBaseExpenses * expFactor)
 
     const p1Retired = age >= ra1
     const p2RetiredSimple = p2raw ? age >= (ra2InP1Years || ra2 || 65) : false

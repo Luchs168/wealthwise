@@ -143,7 +143,7 @@ const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | '
 export default function Screen4() {
   const navigate = useNavigate()
   const state = useStore()
-  const { expenses, person1, person2, hasPartner, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
+  const { expenses, person1, person2, hasPartner, hasChildren, children, location, freeAssets, sparkonto, wertschriften, property, kirchensteuer, lifeEvents, riskProfile, wealthInvestmentProfile, savingsStrategy,
     ahvChoice, pkChoice, pkMixPercent, withdrawalStrategy,
     pkEinkaufProJahr, pkEinkaufJahre, pkEinkaufPotenzial,
     setPkEinkaufProJahr, setPkEinkaufJahre, setPkEinkaufPotenzial, setPkMixPercent,
@@ -208,8 +208,15 @@ export default function Screen4() {
       wealthInvestmentProfile,
       savingsStrategy,
       lifeEvents: lifeEvents.filter(e => e.enabled),
+      childrenBirthYears: children
+        .map(c => parseInt(String(c.year)))
+        .filter(y => !isNaN(y) && y > 1950),
+      // Per-child monthly cost reduction when youngest turns 25 (~KK 120 + BFS increment ~1380)
+      childrenCostReduction: hasChildren && children.length > 0
+        ? children.filter(c => { const yr = parseInt(String(c.year)); return !isNaN(yr) && yr > 1950 }).length * 1500
+        : 0,
     }
-  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy, pkEinkaufProJahr, pkEinkaufJahre, lifeEvents])
+  }, [p1, p2, civilStatus, canton, kirchensteuer, freeAssets, sparkonto, wertschriften, monthlyBudget, property, riskProfile, wealthInvestmentProfile, savingsStrategy, pkEinkaufProJahr, pkEinkaufJahre, lifeEvents, children, hasChildren])
 
   const analysis = useMemo(() => calculateProAnalysis(inputData), [inputData])
   const scenarios = useMemo(() => calculateScenarios(inputData), [inputData])

@@ -74,20 +74,37 @@ function LoadingTransition({ onDone }: { onDone: () => void }) {
 }
 
 const CATEGORIES = [
-  { id: 'wohnen',        label: 'Wohnen & Energie',          icon: '🏠', bfsMonthlyEinzel: 1076, bfsMonthlyPaar: 3280 },
-  { id: 'gesundheit',    label: 'Gesundheit & Krankenkasse', icon: '🏥', bfsMonthlyEinzel:  615, bfsMonthlyPaar: 1870 },
-  { id: 'nahrung',       label: 'Nahrung & Restaurants',     icon: '🍽️', bfsMonthlyEinzel:  541, bfsMonthlyPaar: 1650 },
-  { id: 'mobilitaet',    label: 'Mobilität',                  icon: '🚗', bfsMonthlyEinzel:  237, bfsMonthlyPaar:  720 },
-  { id: 'freizeit',      label: 'Freizeit & Ferien',          icon: '✈️', bfsMonthlyEinzel:  338, bfsMonthlyPaar: 1030 },
-  { id: 'bekleidung',    label: 'Bekleidung',                 icon: '👔', bfsMonthlyEinzel:   80, bfsMonthlyPaar:  240 },
-  { id: 'kommunikation', label: 'Kommunikation',              icon: '📱', bfsMonthlyEinzel:  100, bfsMonthlyPaar:  310 },
-  { id: 'uebrige',       label: 'Übriges',                    icon: '📦', bfsMonthlyEinzel:  394, bfsMonthlyPaar: 1200 },
+  { id: 'wohnen',        label: 'Wohnen & Energie',          icon: '🏠',
+    bfsEinzel: 1580, bfsPaar: 2100, bfsPaar1K: 2600, bfsPaar2K: 2900, bfsAllein: 1850 },
+  { id: 'gesundheit',    label: 'Gesundheit & Krankenkasse', icon: '🏥',
+    bfsEinzel:  620, bfsPaar: 1200, bfsPaar1K: 1200, bfsPaar2K: 1200, bfsAllein:  620 },
+  { id: 'nahrung',       label: 'Nahrung & Restaurants',     icon: '🍽️',
+    bfsEinzel:  760, bfsPaar: 1200, bfsPaar1K: 1450, bfsPaar2K: 1650, bfsAllein:  960 },
+  { id: 'mobilitaet',    label: 'Mobilität',                  icon: '🚗',
+    bfsEinzel:  480, bfsPaar:  720, bfsPaar1K:  850, bfsPaar2K:  950, bfsAllein:  560 },
+  { id: 'freizeit',      label: 'Freizeit & Ferien',          icon: '✈️',
+    bfsEinzel:  520, bfsPaar:  880, bfsPaar1K: 1150, bfsPaar2K: 1350, bfsAllein:  720 },
+  { id: 'bekleidung',    label: 'Bekleidung',                 icon: '👔',
+    bfsEinzel:  110, bfsPaar:  200, bfsPaar1K:  300, bfsPaar2K:  380, bfsAllein:  160 },
+  { id: 'kommunikation', label: 'Kommunikation',              icon: '📱',
+    bfsEinzel:  130, bfsPaar:  200, bfsPaar1K:  250, bfsPaar2K:  280, bfsAllein:  160 },
+  { id: 'uebrige',       label: 'Übriges',                    icon: '📦',
+    bfsEinzel:  550, bfsPaar:  780, bfsPaar1K: 1000, bfsPaar2K: 1100, bfsAllein:  700 },
 ]
 
 const PIE_COLORS = ['#1a2b4a', '#3b82f6', '#0ea5e9', '#7c3aed', '#059669', '#d97706', '#dc2626', '#64748b']
 
-const BFS_RENTNER_EINZEL = 3381
-const BFS_RENTNER_PAAR = 10300
+// BFS 2022 Haushaltsbudgeterhebung – monatliche Gesamtausgaben (Referenzwerte, CHF)
+const BFS_REF = {
+  einzel:         5000,
+  paar:           8150,
+  paar1Kind:     10000,
+  paar2Kind:     11000,
+  alleinerziehend: 6500,
+}
+
+// KK child premium (Grundversicherung Kinder ca. CHF 120/Mt.)
+const KK_KIND = 120
 
 const ADJUST_OPTIONS = [
   { id: 0.75, label: 'Deutlich weniger', hint: '−25%', color: '#16a34a' },
@@ -389,15 +406,45 @@ function LifeEventCard({ event, onUpdate, onDelete, currentYear, retirementYear,
 
 export default function Screen3() {
   const navigate = useNavigate()
-  const { expenses, setExpenses, persons, person1, hasPartner, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, savingsStrategy, setSavingsStrategy } = useStore()
+  const { expenses, setExpenses, persons, person1, hasPartner, hasChildren, children, location, lifeEvents, addLifeEvent, updateLifeEvent, removeLifeEvent, riskProfile, setRiskProfile, wertschriften, savingsStrategy, setSavingsStrategy } = useStore()
   const isPaar = hasPartner
   const canton = location?.kanton ?? 'ZH'
+  const currentYear = new Date().getFullYear()
+
+  // Determine how many children are currently at home (< 25 years old)
+  const numChildren = children.filter(c => c.year && String(c.year).length === 4).length
+  const numActiveChildren = children.filter(c => {
+    const yr = parseInt(String(c.year))
+    return !isNaN(yr) && (currentYear - yr) < 25
+  }).length
+
+  // Household type determines BFS reference values
+  type HhType = 'einzel' | 'paar' | 'paar1Kind' | 'paar2Kind' | 'alleinerziehend'
+  const householdType: HhType = isPaar
+    ? (numChildren >= 2 ? 'paar2Kind' : numChildren === 1 ? 'paar1Kind' : 'paar')
+    : (numChildren >= 1 ? 'alleinerziehend' : 'einzel')
+
   const kkPremium = KK_CANTON_DEFAULTS[canton] ?? 600
-  const gesundheitDefault = isPaar ? 2 * kkPremium + 2 * 83 : kkPremium + 83
-  const activeCats = CATEGORIES.map(cat => ({
-    ...cat,
-    bfsMonthly: isPaar ? cat.bfsMonthlyPaar : cat.bfsMonthlyEinzel,
-  }))
+  // KK: 2 adults for couples, 1 adult for single, + CHF 120/Mt per child
+  const numAdults = isPaar ? 2 : 1
+  const gesundheitDefault = numAdults * (kkPremium + 83) + numActiveChildren * KK_KIND
+
+  const activeCats = CATEGORIES.map(cat => {
+    const bfsMap: Record<HhType, number> = {
+      einzel: cat.bfsEinzel, paar: cat.bfsPaar,
+      paar1Kind: cat.bfsPaar1K, paar2Kind: cat.bfsPaar2K, alleinerziehend: cat.bfsAllein,
+    }
+    return { ...cat, bfsMonthly: bfsMap[householdType] }
+  })
+
+  const bfsRef = BFS_REF[householdType]
+  const bfsRefLabel: Record<HhType, string> = {
+    einzel: '1-Personen-Haushalt',
+    paar: 'Paar ohne Kinder',
+    paar1Kind: 'Paar mit 1 Kind',
+    paar2Kind: 'Paar mit 2+ Kindern',
+    alleinerziehend: 'Alleinerziehend',
+  }
 
   const [subStep, setSubStep] = useState(0)
   const [budgetTab, setBudgetTab] = useState<'schnell' | 'detailliert' | 'import'>('schnell')
@@ -410,7 +457,6 @@ export default function Screen3() {
   const [showLoading, setShowLoading] = useState(false)
   const [strategyOpen, setStrategyOpen] = useState(false)
 
-  const currentYear = new Date().getFullYear()
   const p1Age = person1.dob ? Math.max(0, currentYear - new Date(person1.dob).getFullYear()) : 50
   const retirementYear = currentYear + Math.max(1, (person1.retireAge || 65) - p1Age)
   const p1 = persons.find(p => p.id === 1)!
@@ -425,13 +471,25 @@ export default function Screen3() {
       const d = cat.id === 'gesundheit' ? gesundheitDefault : cat.bfsMonthly
       return sum + (expenses.detailed[cat.id] ?? d)
     }, 0),
-    [expenses.detailed, isPaar, location?.kanton],
+    [expenses.detailed, householdType, location?.kanton, numActiveChildren],
   )
 
   const baseTotal = budgetTab === 'detailliert' ? detailedTotal : (expenses.customAmount || 0)
   const retirementTotal = Math.round(baseTotal * retirementAdjust)
-  const bfsRef = isPaar ? BFS_RENTNER_PAAR : BFS_RENTNER_EINZEL
   const yearsToRetirement = Math.max(1, retirementYear - currentYear)
+
+  // Children departure: youngest child turns 25 → budget reduction
+  const youngestChildBirthYear = children.reduce((min, c) => {
+    const yr = parseInt(String(c.year))
+    return !isNaN(yr) && yr > min ? yr : min
+  }, 0)
+  const youngestChildAge25Year = youngestChildBirthYear > 0 ? youngestChildBirthYear + 25 : null
+  const childrenCostReduction = numActiveChildren > 0 ? Math.round(
+    numActiveChildren * KK_KIND +
+    (isPaar
+      ? (BFS_REF[householdType] - BFS_REF.paar) / Math.max(1, numActiveChildren)
+      : (BFS_REF.alleinerziehend - BFS_REF.einzel)) * numActiveChildren / Math.max(1, numActiveChildren)
+  ) : 0
   const surplus = nettoMonatlich - baseTotal
   const monthlyToInvest = Math.max(0, surplus)
   const effectiveRate = STRATEGY_RATES[savingsStrategy] ?? 0.035
@@ -557,7 +615,7 @@ export default function Screen3() {
             {budgetTab === 'schnell' && (
               <section className="block">
                 <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 8, fontSize: 12.5, color: 'var(--ink-600)' }}>
-                  Referenz BFS 2022: {isPaar ? 'Rentnerpaare CHF 10\'300/Mt.' : 'Einzelhaushalte CHF 3\'381/Mt.'}
+                  Referenz BFS 2022 · {bfsRefLabel[householdType]}: <strong>CHF {bfsRef.toLocaleString('de-CH')}/Mt.</strong>
                 </div>
                 <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--ink-700)', marginBottom: 10 }}>
                   Monatliche Ausgaben heute
@@ -573,6 +631,12 @@ export default function Screen3() {
                       CHF {fmtCHF(expenses.customAmount || 0)}/Mt.
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--ink-400)' }}>CHF {fmtCHF((expenses.customAmount || 0) * 12)}/Jahr</div>
+                  </div>
+                )}
+                {numActiveChildren > 0 && youngestChildAge25Year && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 10, padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
+                    <span>👶</span>
+                    <span>{numActiveChildren === 1 ? 'Kind zieht' : `${numActiveChildren} Kinder ziehen`} voraussichtlich bis {youngestChildAge25Year} aus → Budget reduziert sich dann um ca. CHF {fmtCHF(numActiveChildren * KK_KIND + (isPaar ? Math.round((BFS_REF[householdType] - BFS_REF.paar) / numActiveChildren) : Math.round(BFS_REF.alleinerziehend - BFS_REF.einzel)))}/Mt.</span>
                   </div>
                 )}
               </section>
@@ -597,9 +661,7 @@ export default function Screen3() {
                           <div className="cat-label">{cat.label}</div>
                           <div className="cat-avg">
                             {cat.id === 'gesundheit'
-                              ? isPaar
-                                ? `⌀ ${canton}: 2× CHF ${fmtCHF(kkPremium)}/Mt. (Prämie + Franchise)`
-                                : `⌀ ${canton}: CHF ${fmtCHF(gesundheitDefault)}/Mt. (Prämie + Franchise)`
+                              ? `⌀ ${canton}: ${numAdults}× CHF ${fmtCHF(kkPremium)}${numActiveChildren > 0 ? ` + ${numActiveChildren} Kind${numActiveChildren > 1 ? 'er' : ''} à CHF ${KK_KIND}` : ''}/Mt.`
                               : `⌀ CHF ${fmtCHF(cat.bfsMonthly)}/Mt. (BFS 2022)`}
                           </div>
                           <div className="compare-bar">
@@ -608,9 +670,7 @@ export default function Screen3() {
                           </div>
                           {cat.id === 'gesundheit' && (
                             <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 2 }}>
-                              {isPaar
-                                ? `Inkl. 2× Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 1'870/Mt.`
-                                : `Inkl. Grundversicherung, Franchise und Selbstbehalt. BFS-Ø: CHF 615/Mt.`}
+                              {numAdults}× Grundversicherung + Franchise{numActiveChildren > 0 ? ` + ${numActiveChildren} Kindprämie(n) à CHF ${KK_KIND}/Mt.` : ''}. BFS-Ø CHF {fmtCHF(bfsRef > 0 ? Math.round(bfsRef * 0.12) : 620)}/Mt.
                             </div>
                           )}
                         </div>
@@ -628,10 +688,20 @@ export default function Screen3() {
                     <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, color: 'var(--navy-800)' }}>CHF {fmtCHF(detailedTotal)}/Mt.</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 12, color: 'var(--ink-400)' }}>BFS {isPaar ? 'Paar' : 'Rentner'}-⌀</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-400)' }}>BFS 2022 ⌀ {bfsRefLabel[householdType]}</div>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--ink-500)' }}>CHF {fmtCHF(bfsRef)}/Mt.</div>
                   </div>
                 </div>
+                {/* Children departure notice */}
+                {numActiveChildren > 0 && youngestChildAge25Year && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 10, padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
+                    <span style={{ flexShrink: 0 }}>👶</span>
+                    <div>
+                      <strong>Kinder-Kosten:</strong> {numActiveChildren === 1 ? 'Ihr Kind zieht' : `Ihre ${numActiveChildren} Kinder ziehen`} voraussichtlich bis {youngestChildAge25Year} aus. Das Budget reduziert sich dann um ca. <strong>CHF {fmtCHF(numActiveChildren * KK_KIND + (isPaar ? Math.round((BFS_REF[householdType] - BFS_REF.paar) / numActiveChildren) : Math.round(BFS_REF.alleinerziehend - BFS_REF.einzel)))}/Mt.</strong> — dies wird im Vermögensverlauf berücksichtigt.
+                    </div>
+                  </div>
+                )}
+
                 {detailedTotal > 0 && (
                   <div style={{ marginTop: 20 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-700)', marginBottom: 8 }}>Ausgabenverteilung</div>
