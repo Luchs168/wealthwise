@@ -867,7 +867,7 @@ export default function Screen4() {
           : ahvChoice === 'aufschub1' ? 'AHV-Aufschub 1 Jahr (+5.2%)'
           : ahvChoice === 'aufschub2' ? 'AHV-Aufschub 2 Jahre (+10.8%)'
           : 'Noch nicht gewahlt',
-        pkChoiceLabel: pkChoice === 'rente' ? 'Vollrente' : pkChoice === 'kapital' ? 'Vollkapitalbezug' : pkChoice === 'mix' ? 'Mix 50/50' : 'Noch nicht gewahlt',
+        pkChoiceLabel: pkChoice === 'rente' ? 'Vollrente' : pkChoice === 'kapital' ? 'Vollkapitalbezug' : pkChoice === 'mix' ? `Mix ${pkMixPercent}/${100 - pkMixPercent}` : 'Noch nicht gewahlt',
         withdrawalStrategyLabel: withdrawalStrategy === 'verzehr90' ? 'Vermogensverzehr bis 90'
           : withdrawalStrategy === 'verzehr95' ? 'Vermogensverzehr bis 95'
           : withdrawalStrategy === 'kapitalerhalt' ? 'Kapitalerhalt'
@@ -2387,7 +2387,7 @@ export default function Screen4() {
 <section className="block">
   <div className="block-head">
     <h2 className="block-title"><span className="block-num">A</span>PK-Bezug: Steuerlicher Variantenvergleich</h2>
-    <span className="block-hint">100% Rente / 100% Kapital / 50/50 Mix</span>
+    <span className="block-hint">100% Rente / 100% Kapital / {pkMixPercent}/{100 - pkMixPercent} Mix</span>
   </div>
 
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
@@ -2412,17 +2412,18 @@ export default function Screen4() {
       <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>Kapitalbezugssteuer<br/>+ nur AHV-Steuer</div>
       {pkChoice === 'kapital' && <div style={{ fontSize: 10, color: '#dc2626', marginTop: 6, fontWeight: 600 }}>✓ Ihre Wahl</div>}
     </div>
-    {/* 50/50 Mix */}
+    {/* Dynamic Mix card — label and values reflect current pkMixPercent */}
     <div style={{ padding: '14px', background: '#fffbeb', border: `2px solid ${pkChoice === 'mix' ? '#d97706' : '#fde68a'}`, borderRadius: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#d97706', marginBottom: 8 }}>50/50 Mix</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#d97706', marginBottom: 8 }}>{pkMixPercent}/{100 - pkMixPercent} Mix</div>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy-800)', marginBottom: 1 }}>
         CHF {fmtCHF(pkVariantTax.mix.oneTime)}<span style={{ fontSize: 10, fontWeight: 400 }}> einmalig</span>
       </div>
       <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4 }}>
         + CHF {fmtCHF(pkVariantTax.mix.annual)}<span style={{ fontSize: 10 }}>/Jahr laufend</span>
       </div>
-      <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>50% Kapital, 50% Rente</div>
+      <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>{100 - pkMixPercent}% Kapital, {pkMixPercent}% Rente</div>
       {pkChoice === 'mix' && <div style={{ fontSize: 10, color: '#d97706', marginTop: 6, fontWeight: 600 }}>✓ Ihre Wahl</div>}
+      {pkChoice !== 'mix' && <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 6 }}>Vergleichsvariante</div>}
     </div>
   </div>
 
@@ -2438,14 +2439,14 @@ export default function Screen4() {
           <XAxis dataKey="year" tick={{ fontSize: 11, fill: 'var(--ink-400)' }} label={{ value: 'Jahre ab Pensionierung', position: 'insideBottomRight', offset: -4, fontSize: 10 }} />
           <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: 'var(--ink-400)' }} width={52} />
           <Tooltip
-            formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name === 'rente' ? '100% Rente' : name === 'kapital' ? '100% Kapital' : '50/50 Mix']}
+            formatter={(v: number, name: string) => [`CHF ${fmtCHF(v)}`, name === 'rente' ? '100% Rente' : name === 'kapital' ? '100% Kapital' : `${pkMixPercent}/${100 - pkMixPercent} Mix`]}
             labelFormatter={(l: number) => `Jahr ${l}`}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
           <Line type="monotone" dataKey="rente" stroke="#1a2b4a" strokeWidth={2} dot={false} name="rente" />
           <Line type="monotone" dataKey="kapital" stroke="#dc2626" strokeWidth={2} dot={false} name="kapital" />
           <Line type="monotone" dataKey="mix" stroke="#d97706" strokeWidth={2} dot={false} name="mix" />
-          <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'rente' ? '100% Rente' : v === 'kapital' ? '100% Kapital' : '50/50 Mix'} />
+          <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'rente' ? '100% Rente' : v === 'kapital' ? '100% Kapital' : `${pkMixPercent}/${100 - pkMixPercent} Mix${pkChoice === 'mix' ? ' (Ihre Wahl)' : ''}`} />
         </LineChart>
       </ResponsiveContainer>
       {(() => {
