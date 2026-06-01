@@ -62,7 +62,7 @@ function MdjInput({ income, ahvAvgIncome, retireAge, autoY, gaps, onUpdate, onTo
         )}
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--ink-500)', marginBottom: 8, lineHeight: 1.5 }}>
-        Die AHV-Rente basiert auf Ihrem durchschnittlichen Einkommen über alle Beitragsjahre – nicht auf dem heutigen Lohn. Falls Sie früher weniger verdient haben, passen Sie diesen Wert an.
+        Die AHV-Rente basiert auf deinem durchschnittlichen Einkommen über alle Beitragsjahre – nicht auf dem heutigen Lohn. Falls du früher weniger verdient hast, passe diesen Wert an.
       </div>
       <div className="amount-wrap" style={{ maxWidth: 220 }}>
         <span className="prefix">CHF</span>
@@ -113,7 +113,7 @@ function MdjInput({ income, ahvAvgIncome, retireAge, autoY, gaps, onUpdate, onTo
           <div>· Karriere mit stetigem Anstieg: ca. 60–75% des heutigen Einkommens</div>
           <div>· Lange Teilzeit-Phasen: ca. 40–60% des heutigen Einkommens</div>
           <div>· Immer ähnlich verdient: ca. 90–100% des heutigen Einkommens</div>
-          <div style={{ marginTop: 4, color: 'var(--ink-400)' }}>Den genauen Wert finden Sie auf Ihrem IK-Auszug – kostenlos bestellbar unter{' '}
+          <div style={{ marginTop: 4, color: 'var(--ink-400)' }}>Den genauen Wert findest du auf deinem IK-Auszug – kostenlos bestellbar unter{' '}
             <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
           </div>
         </div>
@@ -149,7 +149,7 @@ function TransitionOverlay2({
           Vorsorge und Vermögen erfasst
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-500)', margin: '0 0 28px' }}>
-          Hier ist Ihre erste Einschätzung:
+          Hier ist deine erste Einschätzung:
         </p>
 
         {/* Wow moment */}
@@ -182,7 +182,7 @@ function TransitionOverlay2({
         </div>
 
         <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 24px', lineHeight: 1.6 }}>
-          Im nächsten Schritt ermitteln wir Ihren Bedarf – wie viel Sie nach der Pensionierung tatsächlich ausgeben möchten.
+          Im nächsten Schritt ermitteln wir deinen Bedarf – wie viel du nach der Pensionierung tatsächlich ausgeben möchtest.
         </p>
         <button
           className="btn btn-primary"
@@ -620,9 +620,9 @@ export default function Screen2() {
       <main>
         <div className="page-head">
           <div className="eyebrow">{subStep === 0 ? 'Schritt 2a · AHV / 1. Säule' : 'Schritt 2b · Pensionskasse & Vermögen'}</div>
-          <h1 className="title">{subStep === 0 ? 'AHV – Ihre 1. Säule' : 'Pensionskasse, 3a & Vermögen'}</h1>
+          <h1 className="title">{subStep === 0 ? 'AHV – deine 1. Säule' : 'Pensionskasse, 3a & Vermögen'}</h1>
           <p className="subtitle">
-            {subStep === 0 ? 'Berechnen Sie Ihre voraussichtliche AHV-Rente basierend auf Ihren Beitragsjahren und Ihrem Einkommen.' : 'Erfassen Sie Ihre 2. und 3. Säule sowie Ihr weiteres Vermögen.'}
+            {subStep === 0 ? 'Berechne deine voraussichtliche AHV-Rente basierend auf deinen Beitragsjahren und deinem Einkommen.' : 'Erfasse deine 2. und 3. Säule sowie dein weiteres Vermögen.'}
           </p>
         </div>
 
@@ -639,7 +639,7 @@ export default function Screen2() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink-600)', fontWeight: 500 }}>
                 {completedSections} von 4 Bereichen ausgefüllt
-                {completedSections < 4 && <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> – je mehr Angaben, desto präziser Ihre Analyse</span>}
+                {completedSections < 4 && <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> – je mehr Angaben, desto präziser deine Analyse</span>}
                 {completedSections === 4 && <span style={{ color: 'var(--green-600)', fontWeight: 600 }}> – alle Bereiche vollständig!</span>}
               </div>
               <div style={{ height: 4, background: 'var(--ink-100)', borderRadius: 4, marginTop: 6, overflow: 'hidden' }}>
@@ -764,12 +764,12 @@ export default function Screen2() {
                   )}
                   {bezugAge < 65 && (
                     <div style={{ marginTop: 8, fontSize: 12.5, color: '#92400e', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
-                      ⚠ Der Vorbezug reduziert Ihre AHV-Rente dauerhaft und lebenslang. Alle 5 Varianten finden Sie in der Analyse (Schritt 4).
+                      ⚠ Der Vorbezug reduziert deine AHV-Rente dauerhaft und lebenslang. Alle 5 Varianten findest du in der Analyse (Schritt 4).
                     </div>
                   )}
                   {bezugAge > 65 && (
                     <div style={{ marginTop: 8, fontSize: 12.5, color: '#14532d', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-                      ✓ Der Aufschub erhöht Ihre AHV-Rente dauerhaft. Je länger die Lebenserwartung, desto vorteilhafter.
+                      ✓ Der Aufschub erhöht deine AHV-Rente dauerhaft. Je länger die Lebenserwartung, desto vorteilhafter.
                     </div>
                   )}
                 </>
@@ -822,7 +822,7 @@ export default function Screen2() {
             )}
             <div className="ahv-row ahv-total">
               <div>
-                <div className="ahv-row-label">{isPaar ? 'Haushalt total' : 'Ihre AHV-Rente'}</div>
+                <div className="ahv-row-label">{isPaar ? 'Haushalt total' : 'Deine AHV-Rente'}</div>
                 <div className="ahv-row-sub">inkl. 13. AHV-Rente (ab Dez. 2026)</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -902,7 +902,7 @@ export default function Screen2() {
                   </div>
                   {autoY < 44 && (
                     <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 11.5, color: '#92400e' }}>
-                      ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erhalten Sie {Math.round(autoY / 44 * 100)}% der vollen AHV-Rente ({44 - autoY} Beitragsjahr{44 - autoY === 1 ? ' fehlt' : 'e fehlen'}). Das sind ca. CHF {fmtCHF(Math.round((44 - autoY) / 44 * 2520))} weniger pro Monat – zusätzlich zur Vorbezugskürzung.
+                      ⚠ Bei Pension mit {id === 1 ? person1.retireAge : person2.retireAge} erhältst du {Math.round(autoY / 44 * 100)}% der vollen AHV-Rente ({44 - autoY} Beitragsjahr{44 - autoY === 1 ? ' fehlt' : 'e fehlen'}). Das sind ca. CHF {fmtCHF(Math.round((44 - autoY) / 44 * 2520))} weniger pro Monat – zusätzlich zur Vorbezugskürzung.
                     </div>
                   )}
 
@@ -919,14 +919,14 @@ export default function Screen2() {
 
                   {gaps > 0 && persons.find(p => p.id === id)?.hasKZG && (
                     <div style={{ marginTop: 6, padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#166534' }}>
-                      ℹ Gut zu wissen: Ihre Erziehungsgutschriften können Beitragslücken teilweise kompensieren. Die AHV rechnet Ihnen für jedes Jahr mit Kindern unter 16 eine Gutschrift von CHF 45'360 an (hälftig bei Ehepaaren). Diese sind in Ihrer Rentenberechnung bereits berücksichtigt.
+                      ℹ Gut zu wissen: Deine Erziehungsgutschriften können Beitragslücken teilweise kompensieren. Die AHV rechnet dir für jedes Jahr mit Kindern unter 16 eine Gutschrift von CHF 45'360 an (hälftig bei Ehepaaren). Diese sind in deiner Rentenberechnung bereits berücksichtigt.
                     </div>
                   )}
                 </div>
               ))}
               <p style={{ fontSize: 12, color: 'var(--ink-400)', margin: '8px 0 0' }}>
                 Max. 44 Beitragsjahre für die volle Rente. Jedes fehlende Jahr kürzt die Rente um ca. 2.3% (lebenslang).
-                {' '}→ Bestellen Sie Ihren IK-Auszug kostenlos unter{' '}
+                {' '}→ Bestelle deinen IK-Auszug kostenlos unter{' '}
                 <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>www.ahv-iv.ch</a>
               </p>
 
@@ -980,8 +980,8 @@ export default function Screen2() {
                     {isImmigrant && autoY < 44 && (
                       <div style={{ padding: '10px 14px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#1e40af', lineHeight: 1.6, marginBottom: 6 }}>
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>Sozialversicherungsabkommen</div>
-                        Die Schweiz hat Abkommen mit über 40 Ländern (u.a. Türkei, Deutschland, Italien, Portugal, Spanien, Kosovo, Serbien). Beitragsjahre aus Ihrem Herkunftsland können für die <strong>Anspruchsberechtigung</strong> auf Schweizer AHV angerechnet werden. Die Rentenhöhe berechnet sich aber nur auf den Schweizer Jahren.
-                        {' '}Sie könnten zudem Anspruch auf eine Rente aus Ihrem Herkunftsland haben.{' '}
+                        Die Schweiz hat Abkommen mit über 40 Ländern (u.a. Türkei, Deutschland, Italien, Portugal, Spanien, Kosovo, Serbien). Beitragsjahre aus deinem Herkunftsland können für die <strong>Anspruchsberechtigung</strong> auf Schweizer AHV angerechnet werden. Die Rentenhöhe berechnet sich aber nur auf den Schweizer Jahren.
+                        {' '}Du könntest zudem Anspruch auf eine Rente aus deinem Herkunftsland haben.{' '}
                         <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8' }}>Mehr Infos: ahv-iv.ch</a>
                       </div>
                     )}
@@ -993,9 +993,9 @@ export default function Screen2() {
                       return (
                         <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '2px solid #16a34a', borderRadius: 8, fontSize: 12, color: '#14532d', lineHeight: 1.6, marginBottom: 6 }}>
                           <div style={{ fontWeight: 700, marginBottom: 4, color: '#15803d' }}>Wichtig: Möglicherweise KEINE Beitragslücken!</div>
-                          Als verheiratete Person sind Sie von der AHV-Beitragspflicht befreit, wenn Ihr Ehepartner erwerbstätig ist und mindestens den doppelten Mindestbeitrag entrichtet. Da Ihr Partner ein Einkommen von CHF {(partnerIncome).toLocaleString('de-CH')} hat, war dies sehr wahrscheinlich der Fall.
+                          Als verheiratete Person bist du von der AHV-Beitragspflicht befreit, wenn dein Ehepartner erwerbstätig ist und mindestens den doppelten Mindestbeitrag entrichtet. Da dein Partner ein Einkommen von CHF {(partnerIncome).toLocaleString('de-CH')} hat, war dies sehr wahrscheinlich der Fall.
                           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600 }}>Hat Ihr Partner in den Lückenjahren gearbeitet?</span>
+                            <span style={{ fontWeight: 600 }}>Hat dein Partner in den Lückenjahren gearbeitet?</span>
                             {(['Ja', 'Nein'] as const).map(v => (
                               <button key={v} type="button"
                                 onClick={() => {
@@ -1017,11 +1017,11 @@ export default function Screen2() {
                           </div>
                           {curP.partnerCoveredGaps && (
                             <div style={{ marginTop: 6, fontWeight: 600, color: '#15803d' }}>
-                              Lücken auf 0 gesetzt – Ihre AHV-Rente wurde entsprechend erhöht.
+                              Lücken auf 0 gesetzt – deine AHV-Rente wurde entsprechend erhöht.
                             </div>
                           )}
                           <div style={{ marginTop: 6, fontSize: 11.5, color: '#166534' }}>
-                            Bestellen Sie Ihren IK-Auszug (kostenlos) zur Prüfung:{' '}
+                            Bestelle deinen IK-Auszug (kostenlos) zur Prüfung:{' '}
                             <a href="https://www.ahv-iv.ch/de/Merkblaetter-Formulare/Formulare/Anmeldung-IK-Auszug" target="_blank" rel="noreferrer" style={{ color: '#15803d' }}>IK-Auszug bestellen</a>
                           </div>
                         </div>
@@ -1087,7 +1087,7 @@ export default function Screen2() {
                       // Auto-filled from Screen 1
                       <div style={{ padding: '12px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 13 }}>
                         <div style={{ color: '#166534', marginBottom: 6, lineHeight: 1.5 }}>
-                          Basierend auf Ihren Angaben ({autoKzgCount} {autoKzgCount === 1 ? 'Kind' : 'Kinder'}) werden{' '}
+                          Basierend auf deinen Angaben ({autoKzgCount} {autoKzgCount === 1 ? 'Kind' : 'Kinder'}) werden{' '}
                           <strong>ca. {autoKzgYears} Jahre</strong> Erziehungsgutschriften berücksichtigt.
                           {isMarried2 && ' (bei Ehepaaren hälftig aufgeteilt)'}
                         </div>
@@ -1120,7 +1120,7 @@ export default function Screen2() {
                         <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 10, lineHeight: 1.5 }}>
                           {hasScreen1Children
                             ? 'Passen Sie die Werte manuell an (z.B. bei Pflegekindern oder geteilter Betreuung).'
-                            : 'Falls Sie Kinder unter 16 erzogen haben (auch Pflegekinder), erhöhen Erziehungsgutschriften Ihre AHV-Rente.'}
+                            : 'Falls du Kinder unter 16 erzogen hast (auch Pflegekinder), erhöhen Erziehungsgutschriften deine AHV-Rente.'}
                           {isMarried2 && ' Bei Ehepaaren werden die Gutschriften hälftig aufgeteilt.'}
                         </div>
                         {[
@@ -1204,7 +1204,7 @@ export default function Screen2() {
                   IK-Auszug (AHV-Kontoauszug) hochladen
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink-500)', marginBottom: 12, lineHeight: 1.5 }}>
-                  Mit Ihrem individuellen Kontoauszug (IK-Auszug) der SVA können wir Ihr massgebendes Durchschnittseinkommen (MDJ) und Ihre Beitragslücken exakt berechnen.
+                  Mit deinem individuellen Kontoauszug (IK-Auszug) der SVA können wir dein massgebendes Durchschnittseinkommen (MDJ) und deine Beitragslücken exakt berechnen.
                   {' '}<a href="https://www.ahv-iv.ch/de/Merkblaetter-Formulare/Formulare/Anmeldung-IK-Auszug" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>IK-Auszug bestellen (kostenlos)</a>
                 </div>
 
@@ -1283,7 +1283,7 @@ export default function Screen2() {
                         <>
                           <div style={{ marginBottom: 8, padding: '7px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: 11.5, color: '#14532d', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
                             <span>🔒</span>
-                            <span>Dokument wird nur lokal in Ihrem Browser verarbeitet – kein Server-Upload, sofort verworfen nach Extraktion.</span>
+                            <span>Dokument wird nur lokal in deinem Browser verarbeitet – kein Server-Upload, sofort verworfen nach Extraktion.</span>
                           </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {mobile && (
@@ -1366,7 +1366,7 @@ export default function Screen2() {
 
                           {poorOcr && (
                             <div style={{ marginBottom: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12, color: '#92400e' }}>
-                              ⚠ Die automatische Erkennung war ungenau. Bitte tragen Sie die Werte von Ihrem IK-Auszug ein.
+                              ⚠ Die automatische Erkennung war ungenau. Bitte trage die Werte von deinem IK-Auszug ein.
                             </div>
                           )}
 
@@ -1571,7 +1571,7 @@ export default function Screen2() {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     Aktuelles Altersguthaben
-                    <span title="Steht auf Ihrem PK-Ausweis unter «Altersguthaben» oder «Sparguthaben» (Seite 1)." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                    <span title="Steht auf deinem PK-Ausweis unter «Altersguthaben» oder «Sparguthaben» (Seite 1)." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
                   </label>
                   <CHFField
                     label=""
@@ -1580,7 +1580,7 @@ export default function Screen2() {
                   />
                   {isEstimated && (
                     <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4, paddingLeft: 2 }}>
-                      Schätzung – ersetzen Sie diesen Wert mit der Zahl Ihres PK-Ausweises
+                      Schätzung – ersetze diesen Wert mit der Zahl deines PK-Ausweises
                     </div>
                   )}
                 </div>
@@ -1589,7 +1589,7 @@ export default function Screen2() {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     Umwandlungssatz (UWS)
-                    <span title="Der UWS bestimmt, wie viel Jahresrente Sie pro CHF 100'000 erhalten. Beispiel: CHF 500'000 × 5.4% = CHF 27'000/Jahr. Steht auf Ihrem PK-Ausweis. Schweizer Durchschnitt: 5.0–5.8%." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                    <span title="Der UWS bestimmt, wie viel Jahresrente du pro CHF 100'000 erhältst. Beispiel: CHF 500'000 × 5.4% = CHF 27'000/Jahr. Steht auf deinem PK-Ausweis. Schweizer Durchschnitt: 5.0–5.8%." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
                   </label>
                   <div className="amount-wrap" style={{ maxWidth: 160 }}>
                     <input
@@ -1655,7 +1655,7 @@ export default function Screen2() {
                           label=""
                           value={cur.pkAnnualContribution}
                           onChange={(v) => updatePKAndProject(activeTab, { pkAnnualContribution: v })}
-                          hint="«Sparbeiträge total» auf Ihrem Vorsorgeausweis"
+                          hint="«Sparbeiträge total» auf deinem Vorsorgeausweis"
                         />
                       )}
                     </div>
@@ -1663,8 +1663,8 @@ export default function Screen2() {
                     {/* Zinssatz */}
                     <div>
                       <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-700)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        Zinssatz Ihrer Pensionskasse
-                        <span title="BVG-Mindestzins 2026: 1.25%. Den genauen Wert finden Sie im Geschäftsbericht Ihrer PK." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
+                        Zinssatz deiner Pensionskasse
+                        <span title="BVG-Mindestzins 2026: 1.25%. Den genauen Wert findest du im Geschäftsbericht deiner PK." style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--ink-200)', color: 'var(--ink-600)', fontSize: 10, fontWeight: 700, display: 'inline-grid', placeItems: 'center', cursor: 'help', flexShrink: 0 }}>?</span>
                       </label>
                       <div className="amount-wrap" style={{ maxWidth: 160 }}>
                         <input
@@ -1876,7 +1876,7 @@ export default function Screen2() {
                                   <div>Auswirkung ohne Rückzahlung: ca. <strong>CHF {fmtCHF(renteMinus)}/Mt. weniger Rente</strong></div>
                                 )}
                                 <div style={{ fontSize: 11, color: '#92400e', marginTop: 4 }}>
-                                  Rückzahlungen erhöhen Ihr Altersguthaben und sind steuerlich abzugsfähig (wie ein PK-Einkauf).
+                                  Rückzahlungen erhöhen dein Altersguthaben und sind steuerlich abzugsfähig (wie ein PK-Einkauf).
                                 </div>
                               </div>
                             )
@@ -1969,7 +1969,7 @@ export default function Screen2() {
                 {/* Validierungshinweise */}
                 {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital < 50000 && proj.currentAge > 50 && (
                   <div style={{ marginTop: 10, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
-                    ⚠ Das Guthaben liegt unter CHF 50'000 für Alter {proj.currentAge}. Bitte überprüfen Sie Ihre Eingabe – typisch für Ihr Alter: CHF 200'000–450'000.
+                    ⚠ Das Guthaben liegt unter CHF 50'000 für Alter {proj.currentAge}. Bitte überprüfe deine Eingabe – typisch für dein Alter: CHF 200'000–450'000.
                   </div>
                 )}
                 {cur.pkCurrentCapital > 0 && cur.pkCurrentCapital >= 50000 && cur.pkCurrentCapital < 100000 && proj.currentAge > 50 && (
@@ -1984,12 +1984,12 @@ export default function Screen2() {
                 )}
                 {cur.pkRate < 4 && cur.pkRate > 0 && (
                   <div style={{ marginTop: 10, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
-                    ⚠ Ein Umwandlungssatz unter 4.0% ist sehr ungewöhnlich. Schweizer Durchschnitt: ca. 5.0–5.8%. Bitte prüfen Sie Ihre Angabe.
+                    ⚠ Ein Umwandlungssatz unter 4.0% ist sehr ungewöhnlich. Schweizer Durchschnitt: ca. 5.0–5.8%. Bitte prüfe deine Angabe.
                   </div>
                 )}
                 {cur.pkRate > 6.8 && (
                   <div style={{ marginTop: 10, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
-                    ⚠ Ein Umwandlungssatz über 6.8% liegt über dem BVG-Minimum. Bitte prüfen Sie Ihre Angabe.
+                    ⚠ Ein Umwandlungssatz über 6.8% liegt über dem BVG-Minimum. Bitte prüfe deine Angabe.
                   </div>
                 )}
                 {cur.hasPK && (
@@ -2013,7 +2013,7 @@ export default function Screen2() {
           {!cur.hasPK && cur.employmentStatus !== 'selfEmployed' && (
             <div className="info-callout">
               <span className="info-callout-icon">i</span>
-              <span>Ohne PK ist das 3a-Maximum höher (CHF 36'288/Jahr statt CHF 7'258). Sie können sich auch freiwillig bei der Auffangeinrichtung versichern.</span>
+              <span>Ohne PK ist das 3a-Maximum höher (CHF 36'288/Jahr statt CHF 7'258). Du kannst dich auch freiwillig bei der Auffangeinrichtung versichern.</span>
             </div>
           )}
           {!cur.hasPK && cur.employmentStatus === 'selfEmployed' && (() => {
@@ -2022,18 +2022,18 @@ export default function Screen2() {
               <div style={{ marginTop: 12, padding: '16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 8 }}>Vorsorge ohne Pensionskasse</div>
                 <p style={{ fontSize: 13, color: 'var(--ink-600)', margin: '0 0 12px', lineHeight: 1.6 }}>
-                  Als Selbständige/r ohne PK fehlt Ihnen die 2. Säule. Das ist bei vielen Selbständigen der Fall. Ihre Altersvorsorge stützt sich auf AHV, Säule 3a und Ihr Vermögen.
+                  Als Selbständige/r ohne PK fehlt dir die 2. Säule. Das ist bei vielen Selbständigen der Fall. Deine Altersvorsorge stützt sich auf AHV, Säule 3a und dein Vermögen.
                 </p>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-700)', marginBottom: 8 }}>Was können Sie tun?</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-700)', marginBottom: 8 }}>Was kannst du tun?</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ padding: '10px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12.5, color: '#1e3a5f', lineHeight: 1.55 }}>
                     <strong>Freiwilliger Beitritt zur BVG-Auffangeinrichtung:</strong> Auch mit {age} Jahren noch möglich.{age >= 58 ? ' Hinweis: Ab ca. Alter 58–60 lohnt sich der Beitritt kaum noch.' : ' Vorteil: Steuern sparen + Rente aufbauen. Sinnvoll bis ca. Alter 58.'}
                   </div>
                   <div style={{ padding: '10px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12.5, color: '#14532d', lineHeight: 1.55 }}>
-                    <strong>Säule 3a maximieren:</strong> Ohne PK gilt das höhere Maximum (CHF 36'288/Jahr bzw. 20% des Nettoeinkommens). Prüfen Sie: Ist Ihr Nettoeinkommen hoch genug für den Maximalbetrag?
+                    <strong>Säule 3a maximieren:</strong> Ohne PK gilt das höhere Maximum (CHF 36'288/Jahr bzw. 20% des Nettoeinkommens). Prüfe: Ist dein Nettoeinkommen hoch genug für den Maximalbetrag?
                   </div>
                   <div style={{ padding: '10px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#78350f', lineHeight: 1.55 }}>
-                    <strong>Firmenwert als Alterskapital:</strong> Der Verkauf oder die Übergabe Ihres Betriebs kann einen wesentlichen Teil Ihrer Altersvorsorge bilden. Erfassen Sie den geschätzten Wert unten.
+                    <strong>Firmenwert als Alterskapital:</strong> Der Verkauf oder die Übergabe deines Betriebs kann einen wesentlichen Teil deiner Altersvorsorge bilden. Erfasse den geschätzten Wert unten.
                   </div>
                 </div>
               </div>
@@ -2162,7 +2162,7 @@ export default function Screen2() {
                   )}
                   <div style={{ marginTop: 8, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#1e3a5f' }}>
                     {(cur.num3aAccounts || 1) >= 6
-                      ? 'Für optimale Staffelung: Mit 6 separaten 3a-Konten können Sie den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.'
+                      ? 'Für optimale Staffelung: Mit 6 separaten 3a-Konten kannst du den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.'
                       : 'Für optimale Staffelung: Grössere Konten sollten in einem Jahr ohne anderen Kapitalbezug (PK) bezogen werden. Jeder Bezug wird separat besteuert.'
                     }
                   </div>
@@ -2218,13 +2218,13 @@ export default function Screen2() {
                 if (cur.yearly3a <= maxAllowed) return null
                 return (
                   <div style={{ marginTop: 10, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
-                    ⚠ <strong>Achtung 20%-Regel:</strong> Bei Ihrem Nettoeinkommen von ca. CHF {fmtCHF(cur.income)} beträgt Ihr 3a-Maximum CHF {fmtCHF(maxAllowed)}/Jahr (20% des Nettoeinkommens). Sie zahlen möglicherweise mehr ein als steuerlich erlaubt. Klären Sie dies mit Ihrer Steuerbehörde.
+                    ⚠ <strong>Achtung 20%-Regel:</strong> Bei deinem Nettoeinkommen von ca. CHF {fmtCHF(cur.income)} beträgt dein 3a-Maximum CHF {fmtCHF(maxAllowed)}/Jahr (20% des Nettoeinkommens). Du zahlst möglicherweise mehr ein als steuerlich erlaubt. Kläre dies mit deiner Steuerbehörde.
                   </div>
                 )
               })()}
               <div className="info-callout" style={{ marginTop: 12 }}>
                 <span className="info-callout-icon">i</span>
-                <span>Empfehlung: Mit 6 separaten 3a-Konten können Sie den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.</span>
+                <span>Empfehlung: Mit 6 separaten 3a-Konten kannst du den Bezug über die Jahre 60–65 staffeln (1 Konto pro Jahr) und die Kapitalbezugssteuer deutlich reduzieren.</span>
               </div>
             </>
           )}
@@ -2414,7 +2414,7 @@ export default function Screen2() {
                 <span className="block-hint">Optional</span>
               </div>
               <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
-                Der Verkauf Ihres Unternehmens kann Ihr wichtigstes Alterskapital sein. Geben Sie den geschätzten Nettoerlös nach Steuern an.
+                Der Verkauf deines Unternehmens kann dein wichtigstes Alterskapital sein. Gib den geschätzten Nettoerlös nach Steuern an.
               </p>
               <div className="form-grid">
                 <CHFField
@@ -2439,7 +2439,7 @@ export default function Screen2() {
                   Der Nettoerlös nach Steuern ist entscheidend (Liquidationsgewinnsteuer beachten). Lassen Sie den Wert durch einen Treuhänder oder KMU-Berater schätzen.
                 </div>
                 {(curSE.businessValue ?? 0) === 0 && (
-                  <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>Falls Sie keinen Verkauf planen, lassen Sie das Feld leer.</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-400)' }}>Falls du keinen Verkauf planst, lass das Feld leer.</div>
                 )}
               </div>
             </section>
@@ -2474,7 +2474,7 @@ export default function Screen2() {
               {activeAccordion === 'wohneigentum' && (
               <div style={{ paddingBottom: 4 }}>
               <p style={{ fontSize: 13.5, color: 'var(--ink-600)', margin: '0 0 16px', lineHeight: 1.6 }}>
-                Falls Sie selbst genutztes Wohneigentum besitzen, erfassen Sie es hier. Dies beeinflusst den Eigenmietwert (fiktives steuerbares Einkommen) und die Schuldzinsabzüge.
+                Falls du selbst genutztes Wohneigentum besitzt, erfasse es hier. Dies beeinflusst den Eigenmietwert (fiktives steuerbares Einkommen) und die Schuldzinsabzüge.
               </p>
 
               <div className="toggle-row">
@@ -2567,7 +2567,7 @@ export default function Screen2() {
 
                   <div className="info-callout" style={{ marginTop: 12 }}>
                     <span className="info-callout-icon">i</span>
-                    <span>Steuerwert: Steht auf Ihrer Steuererklärung, meist ca. 70% des Marktwerts. Lassen Sie das Feld leer für automatische Schätzung.</span>
+                    <span>Steuerwert: Steht auf deiner Steuererklärung, meist ca. 70% des Marktwerts. Lass das Feld leer für automatische Schätzung.</span>
                   </div>
                 </>
               )}
@@ -2590,7 +2590,7 @@ export default function Screen2() {
       <div className="footer">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div className="footer-meta">{subStep === 0 ? 'Schritt 2a von 4 · AHV' : 'Schritt 2b von 4 · Pensionskasse & Vermögen'}</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Deine Eingaben bleiben gespeichert</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => subStep === 0 ? navigate('/schritt/1') : setSubStep(0)}>← Zurück</button>

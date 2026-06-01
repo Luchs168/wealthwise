@@ -24,14 +24,14 @@ function OnboardingOverlay({ onClose }: { onClose: () => void }) {
           fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color: '#fff',
         }}>W</div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'var(--navy-900)', margin: '0 0 10px', lineHeight: 1.2 }}>
-          Willkommen bei Ihrer Vorsorgeanalyse
+          Willkommen bei deiner Vorsorgeanalyse
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-600)', margin: '0 0 24px', lineHeight: 1.7 }}>
-          In den nächsten Minuten ermitteln wir gemeinsam, ob Ihr Einkommen und Vermögen für Ihren gewünschten Lebensstandard nach der Pensionierung ausreicht.
+          In den nächsten Minuten ermitteln wir gemeinsam, ob dein Einkommen und Vermögen für deinen gewünschten Lebensstandard nach der Pensionierung ausreicht.
         </p>
         <div style={{ marginBottom: 28 }}>
           {[
-            'Eine klare Übersicht Ihrer Einnahmen und Ausgaben nach der Pensionierung',
+            'Eine klare Übersicht deiner Einnahmen und Ausgaben nach der Pensionierung',
             'Verschiedene Szenarien (optimistisch, realistisch, pessimistisch)',
             'Konkrete Handlungsempfehlungen mit Franken-Beträgen',
           ].map((item, i) => (
@@ -42,7 +42,7 @@ function OnboardingOverlay({ onClose }: { onClose: () => void }) {
                 display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 2,
               }}>✓</div>
               <span style={{ fontSize: 14, color: 'var(--ink-700)', lineHeight: 1.55 }}>
-                Sie erhalten: <b>{item}</b>
+                Du erhältst: <b>{item}</b>
               </span>
             </div>
           ))}
@@ -52,7 +52,7 @@ function OnboardingOverlay({ onClose }: { onClose: () => void }) {
           border: '1px solid var(--navy-200)', borderRadius: 10,
           fontSize: 13, color: 'var(--navy-700)', marginBottom: 24, lineHeight: 1.5,
         }}>
-          🔒 Ihre Angaben werden nicht gespeichert und nicht weitergegeben.
+          🔒 Deine Angaben werden nicht gespeichert und nicht weitergegeben.
         </div>
         <button
           className="btn btn-primary"
@@ -100,7 +100,7 @@ function TransitionOverlay1({
           Persönliche Angaben erfasst
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-500)', margin: '0 0 28px' }}>
-          Ihre persönliche Ausgangslage ist gespeichert.
+          Deine persönliche Ausgangslage ist gespeichert.
         </p>
         <div style={{
           background: 'var(--navy-50)', border: '1px solid var(--navy-200)',
@@ -283,7 +283,7 @@ export default function Screen1() {
           <div className="eyebrow">Schritt 1 · Situation</div>
           <h1 className="title">Persönliche Ausgangslage</h1>
           <p className="subtitle">
-            Für eine fundierte Vorsorgeanalyse benötigen wir zunächst einige Angaben zu Ihrer Lebenssituation.
+            Für eine fundierte Vorsorgeanalyse benötigen wir zunächst einige Angaben zu deiner Lebenssituation.
           </p>
         </div>
 
@@ -291,7 +291,7 @@ export default function Screen1() {
         <section className="block">
           <div className="block-head">
             <h2 className="block-title">
-              <span className="block-num">A</span>Ihr Analyseziel
+              <span className="block-num">A</span>Dein Analyseziel
             </h2>
             <span className="block-hint">Weitere Ziele folgen demnächst</span>
           </div>
@@ -325,7 +325,7 @@ export default function Screen1() {
             <h2 className="block-title">
               <span className="block-num">B</span>Persönliche Angaben
             </h2>
-            <span className="block-hint">Sie können die Planung auch als Paar durchführen.</span>
+            <span className="block-hint">Du kannst die Planung auch als Paar durchführen.</span>
           </div>
 
           <div className="tabs" role="tablist">
@@ -379,7 +379,7 @@ export default function Screen1() {
                     style={errors.dob1 ? { borderColor: '#dc2626', boxShadow: '0 0 0 3px rgba(220,38,38,.12)' } : undefined}
                   />
                   {errors.dob1 && <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626' }}>{errors.dob1}</div>}
-                  <WhyBox text="Ihr Geburtsdatum bestimmt Ihr aktuelles Alter und die verbleibenden Beitragsjahre bis zur Pensionierung – beides massgebend für die Höhe Ihrer AHV-Rente." />
+                  <WhyBox text="Dein Geburtsdatum bestimmt dein aktuelles Alter und die verbleibenden Beitragsjahre bis zur Pensionierung – beides massgebend für die Höhe deiner AHV-Rente." />
                 </div>
               </div>
 
@@ -415,11 +415,11 @@ export default function Screen1() {
                   {person1.civil === 'geschieden' && (
                     <div style={{ marginTop: 14, padding: '16px', background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy-800)', marginBottom: 12 }}>
-                        Auswirkungen Ihrer Scheidung auf die Vorsorge
+                        Auswirkungen deiner Scheidung auf die Vorsorge
                       </div>
                       {/* PK-Splitting */}
                       <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Wurde bei Ihrer Scheidung ein PK-Splitting durchgeführt?</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Wurde bei deiner Scheidung ein PK-Splitting durchgeführt?</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {(['ja', 'nein', 'weiss_nicht'] as const).map(v => (
                             <button key={v} type="button"
@@ -433,7 +433,7 @@ export default function Screen1() {
                           <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--green-700)' }}>✓ Das aktuelle PK-Guthaben berücksichtigt das Splitting bereits.</div>
                         )}
                         {(p1.divorcePkSplitting === 'nein' || p1.divorcePkSplitting === 'weiss_nicht') && (
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#92400e' }}>⚠ Prüfen Sie dies mit Ihrer Pensionskasse. Bei einer Scheidung wird das während der Ehe angesparte PK-Guthaben hälftig aufgeteilt.</div>
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#92400e' }}>⚠ Prüfe dies mit deiner Pensionskasse. Bei einer Scheidung wird das während der Ehe angesparte PK-Guthaben hälftig aufgeteilt.</div>
                         )}
                       </div>
                       {/* AHV-Splitting */}
@@ -450,14 +450,14 @@ export default function Screen1() {
                         </div>
                         {(p1.divorceAhvSplitting === 'nein' || p1.divorceAhvSplitting === 'weiss_nicht') && (
                           <div style={{ marginTop: 6, fontSize: 11.5, color: '#92400e', lineHeight: 1.5 }}>
-                            ℹ Das AHV-Splitting teilt die Einkommen aus den Ehejahren auf beide Partner auf – es kann Ihre AHV-Rente erhöhen. Bestellen Sie Ihren IK-Auszug und prüfen Sie, ob die Einkommensteilung korrekt verbucht ist.{' '}
+                            ℹ Das AHV-Splitting teilt die Einkommen aus den Ehejahren auf beide Partner auf – es kann deine AHV-Rente erhöhen. Bestelle deinen IK-Auszug und prüfe, ob die Einkommensteilung korrekt verbucht ist.{' '}
                             <a href="https://www.ahv-iv.ch" target="_blank" rel="noreferrer" style={{ color: 'var(--navy-600)' }}>IK-Auszug bestellen: www.ahv-iv.ch</a>
                           </div>
                         )}
                       </div>
                       {/* Alimente */}
                       <div>
-                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Erhalten Sie nachehelichen Unterhalt (Alimente)?</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-700)', marginBottom: 6 }}>Erhältst du nachehelichen Unterhalt (Alimente)?</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                           {([true, false] as const).map(v => (
                             <button key={String(v)} type="button"
@@ -502,7 +502,7 @@ export default function Screen1() {
                     <div className="partner-hint">
                       <div className="ph-ico">💡</div>
                       <div className="ph-body">
-                        <div className="ph-text">Möchten Sie die Planung als Paar durchführen? So können wir die AHV-Plafonierung korrekt berücksichtigen.</div>
+                        <div className="ph-text">Möchtest du die Planung als Paar durchführen? So können wir die AHV-Plafonierung korrekt berücksichtigen.</div>
                         <button type="button" className="ph-btn" onClick={handleAddPartner}>
                           + Partner:in hinzufügen
                         </button>
@@ -653,8 +653,8 @@ export default function Screen1() {
               </div>
               {activeTab === 1 && errors.income && <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626' }}>{errors.income}</div>}
               {curP.employmentStatus === 'selfEmployed'
-                ? <WhyBox text="Als Selbständige/r schwankt Ihr Einkommen. Geben Sie den Durchschnitt der letzten 3 Jahre ein. Das Nettoeinkommen (nach AHV/IV/EO-Abzügen) bestimmt Ihr 3a-Maximum (20%) und die AHV-Rente." />
-                : <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe Ihrer AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />}
+                ? <WhyBox text="Als Selbständige/r schwankt dein Einkommen. Gib den Durchschnitt der letzten 3 Jahre ein. Das Nettoeinkommen (nach AHV/IV/EO-Abzügen) bestimmt dein 3a-Maximum (20%) und die AHV-Rente." />
+                : <WhyBox text="Das Brutto-Jahreseinkommen bestimmt die Höhe deiner AHV-Rente (massgebendes Einkommen) und des BVG-koordinierten Lohns für die Pensionskasse." />}
             </div>
             <div className="field">
               <label htmlFor={`employment-grade-p${activeTab}`}>Beschäftigungsgrad</label>
@@ -699,11 +699,11 @@ export default function Screen1() {
                 </div>
               </div>
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-500)', lineHeight: 1.5 }}>
-                Falls Ihr Einkommen einen Bonusanteil enthält: Das obige Jahreseinkommen sollte der Grundlohn sein. Der Bonus erhöht das AHV-pflichtige Einkommen. Nach der Pensionierung entfällt der Bonus.
+                Falls dein Einkommen einen Bonusanteil enthält: Das obige Jahreseinkommen sollte der Grundlohn sein. Der Bonus erhöht das AHV-pflichtige Einkommen. Nach der Pensionierung entfällt der Bonus.
               </div>
               {(curP.bonusIncome ?? 0) > 0 && (
                 <div style={{ marginTop: 6, padding: '6px 10px', background: '#eff6ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
-                  Ihr AHV-pflichtiges Gesamteinkommen: CHF {fmtCHF((curP.income || 0) + (curP.bonusIncome || 0))}/Jahr
+                  Dein AHV-pflichtiges Gesamteinkommen: CHF {fmtCHF((curP.income || 0) + (curP.bonusIncome || 0))}/Jahr
                 </div>
               )}
             </div>
@@ -820,9 +820,9 @@ export default function Screen1() {
 
                     {autoKids.map(c => (
                       <div key={c.birthYear} style={{ marginBottom: 6, lineHeight: 1.5 }}>
-                        Ihr Kind (geb. {c.birthYear}) ist bei Ihrer Pensionierung erst{' '}
-                        <strong>{c.ageAtRetirement} Jahre alt</strong>. Sie erhalten automatisch eine
-                        AHV-Kinderrente (40% Ihrer AHV-Rente, max. CHF 1'008/Monat), solange das Kind
+                        Dein Kind (geb. {c.birthYear}) ist bei deiner Pensionierung erst{' '}
+                        <strong>{c.ageAtRetirement} Jahre alt</strong>. Du erhältst automatisch eine
+                        AHV-Kinderrente (40% deiner AHV-Rente, max. CHF 1'008/Monat), solange das Kind
                         unter 18 ist.
                       </div>
                     ))}
@@ -831,9 +831,9 @@ export default function Screen1() {
                       <>
                         {trainingKids.map(c => (
                           <div key={c.birthYear} style={{ marginBottom: 6, lineHeight: 1.5 }}>
-                            Ihr Kind (geb. {c.birthYear}) ist bei Ihrer Pensionierung ca.{' '}
+                            Dein Kind (geb. {c.birthYear}) ist bei deiner Pensionierung ca.{' '}
                             <strong>{c.ageAtRetirement} Jahre alt</strong>. Falls es dann noch in
-                            Ausbildung ist, erhalten Sie eine AHV-Kinderrente (40% Ihrer AHV-Rente,
+                            Ausbildung ist, erhältst du eine AHV-Kinderrente (40% deiner AHV-Rente,
                             max. CHF 1'008/Monat).
                           </div>
                         ))}
@@ -893,7 +893,7 @@ export default function Screen1() {
       <div className="footer">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div className="footer-meta">Schritt 1 von 4 · Situation</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Deine Eingaben bleiben gespeichert</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" disabled>← Zurück</button>

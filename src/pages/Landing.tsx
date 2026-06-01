@@ -5,27 +5,27 @@ import UserMenu from '../components/UserMenu'
 const FAQS = [
   {
     q: 'Wann sollte ich mit der Pensionsplanung beginnen?',
-    a: 'Idealerweise ab 50. Je früher Sie planen, desto mehr Handlungsspielraum haben Sie. Aber auch mit 60 lohnt sich eine Analyse – es gibt immer Optimierungspotenzial.',
+    a: 'Idealerweise ab 50. Je früher du planst, desto mehr Handlungsspielraum hast du. Aber auch mit 60 lohnt sich eine Analyse – es gibt immer Optimierungspotenzial.',
   },
   {
     q: 'Ersetzt WealthWise eine professionelle Finanzberatung?',
-    a: 'WealthWise gibt Ihnen eine fundierte Übersicht und zeigt Handlungsfelder auf. Bei komplexen Situationen (z. B. Scheidung, Erbschaft, Unternehmensverkauf) empfehlen wir zusätzlich eine persönliche Fachberatung.',
+    a: 'WealthWise gibt dir eine fundierte Übersicht und zeigt Handlungsfelder auf. Bei komplexen Situationen (z. B. Scheidung, Erbschaft, Unternehmensverkauf) empfehlen wir zusätzlich eine persönliche Fachberatung.',
   },
   {
     q: 'Was passiert mit meinen Daten?',
-    a: 'Alle Berechnungen erfolgen lokal in Ihrem Browser. Ihre Eingaben werden im lokalen Browserspeicher (localStorage) Ihres Geräts gespeichert, damit Sie die Analyse unterbrechen und später fortsetzen können. Diese Daten bleiben auf Ihrem Gerät gespeichert und verlassen es nicht. Sie können alle Daten jederzeit löschen: "Neue Analyse starten" oder Browser-Cache leeren. Auf gemeinsam genutzten Geräten empfehlen wir, die Daten nach der Nutzung aktiv zu löschen.',
+    a: 'Alle Berechnungen erfolgen lokal in deinem Browser. Deine Eingaben werden im lokalen Browserspeicher (localStorage) deines Geräts gespeichert, damit du die Analyse unterbrechen und später fortsetzen kannst. Diese Daten bleiben auf deinem Gerät gespeichert und verlassen es nicht. Du kannst alle Daten jederzeit löschen: "Neue Analyse starten" oder Browser-Cache leeren. Auf gemeinsam genutzten Geräten empfehlen wir, die Daten nach der Nutzung aktiv zu löschen.',
   },
   {
     q: 'Wie genau ist die Berechnung?',
-    a: 'Wir verwenden aktuelle AHV- und BVG-Kennzahlen (Stand 2026) und anerkannte Berechnungsmethoden. Die Ergebnisse sind Richtwerte – für verbindliche Zahlen kontaktieren Sie Ihre Ausgleichskasse oder Pensionskasse.',
+    a: 'Wir verwenden aktuelle AHV- und BVG-Kennzahlen (Stand 2026) und anerkannte Berechnungsmethoden. Die Ergebnisse sind Richtwerte – für verbindliche Zahlen kontaktiere deine Ausgleichskasse oder Pensionskasse.',
   },
   {
     q: 'Brauche ich alle Unterlagen?',
-    a: 'Nein. Sie können auch mit Schätzwerten starten. Je vollständiger Ihre Angaben, desto präziser das Ergebnis. Sie können Daten jederzeit ergänzen.',
+    a: 'Nein. Du kannst auch mit Schätzwerten starten. Je vollständiger deine Angaben, desto präziser das Ergebnis. Du kannst Daten jederzeit ergänzen.',
   },
   {
     q: 'Kann ich die Analyse speichern?',
-    a: 'Sie können Ihre Analyse als PDF herunterladen. Da keine Daten auf unseren Servern gespeichert werden, empfehlen wir den Download am Ende der Analyse.',
+    a: 'Du kannst deine Analyse als PDF herunterladen. Da keine Daten auf unseren Servern gespeichert werden, empfehlen wir den Download am Ende der Analyse.',
   },
 ]
 
@@ -81,7 +81,7 @@ export default function Landing() {
           <div className="nav-links">
             <a href="#unterlagen">Unterlagen</a>
             <a href="#so-gehts">So gehts</a>
-            <a href="#features">Was Sie erfahren</a>
+            <a href="#features">Was du erfährst</a>
             <a href="#faq">FAQ</a>
             <UserMenu />
             <button className="nav-cta" onClick={() => navigate('/schritt/1')}>Analyse starten</button>
@@ -98,7 +98,7 @@ export default function Landing() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--navy-800)' }}>
             <span>🔒</span>
-            <span>Diese App speichert Ihre Eingaben lokal in Ihrem Browser (kein Server, kein Tracking). Daten jederzeit löschbar.</span>
+            <span>Diese App speichert deine Eingaben lokal in deinem Browser (kein Server, kein Tracking). Daten jederzeit löschbar.</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <Link to="/datenschutz" style={{ color: 'var(--navy-700)', fontSize: 12, textDecoration: 'underline' }}>Datenschutz</Link>
@@ -124,7 +124,7 @@ export default function Landing() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
             <span style={{ fontSize: 16 }}>💾</span>
-            <span><strong>Gespeicherte Analyse gefunden</strong> – Sie können dort weitermachen, wo Sie aufgehört haben.</span>
+            <span><strong>Gespeicherte Analyse gefunden</strong> – Du kannst dort weitermachen, wo du aufgehört hast.</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button
@@ -154,9 +154,9 @@ export default function Landing() {
         <div className="hero">
           <div>
             <div className="hero-eyebrow">Für alle die ihre Pensionierung planen · Kostenlos · In 10 Minuten</div>
-            <h1>Reicht Ihre Rente? <em>Finden Sie es heraus.</em></h1>
+            <h1>Reicht meine Rente? <em>Finde es heraus.</em></h1>
             <p className="lead">
-              Ihre digitale Vorsorgeplanung – unabhängig, transparent, verständlich.
+              Deine digitale Vorsorgeplanung – unabhängig, transparent, verständlich.
               Basierend auf offiziellen AHV/BVG-Kennzahlen 2026.
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -198,15 +198,15 @@ export default function Landing() {
             }}>
               <div style={{ fontSize: 13.5, color: 'var(--navy-700)', fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>⏱</span>
-                <span>Dauer: ca. 10–15 Minuten · Sie können jederzeit unterbrechen und später fortfahren.</span>
+                <span>Dauer: ca. 10–15 Minuten · Du kannst jederzeit unterbrechen und später fortfahren.</span>
               </div>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--navy-900)', textTransform: 'uppercase', letterSpacing: '.06em', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
-                Was erwartet Sie?
+                Was erwartet dich?
               </div>
               {[
-                'Sie geben Ihre finanzielle Ausgangslage ein',
-                'Wir berechnen Ihre Vorsorgesituation',
-                'Sie erhalten eine persönliche Analyse mit konkreten Empfehlungen',
+                'Du gibst deine finanzielle Ausgangslage ein',
+                'Wir berechnen deine Vorsorgesituation',
+                'Du erhältst eine persönliche Analyse mit konkreten Empfehlungen',
               ].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < 2 ? 8 : 0 }}>
                   <div style={{
@@ -223,7 +223,7 @@ export default function Landing() {
             <div className="hero-meta" style={{ marginTop: 16 }}>
               <span>Keine Registrierung</span>
               <i className="hero-meta-dot" />
-              <span>Nur lokal in Ihrem Browser – kein Server, kein Tracking</span>
+              <span>Nur lokal in deinem Browser – kein Server, kein Tracking</span>
             </div>
           </div>
 
@@ -319,7 +319,7 @@ export default function Landing() {
           <div style={{ textAlign: 'center', marginBottom: 44 }}>
             <div className="eyebrow" style={{ color: 'rgba(255,255,255,.45)', marginBottom: 12 }}>Warum WealthWise?</div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, color: '#fff', margin: '0 0 12px', letterSpacing: '-.02em' }}>
-              Entwickelt für Ihre Pensionierungsplanung
+              Entwickelt für deine Pensionierungsplanung
             </h2>
             <p style={{ color: 'rgba(255,255,255,.55)', fontSize: 16, maxWidth: 520, margin: '0 auto' }}>
               Für Personen ab 45 Jahren, die ihre Pensionierung fundiert planen möchten.
@@ -339,7 +339,7 @@ export default function Landing() {
               },
               {
                 icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>,
-                title: 'Ihre Daten bleiben bei Ihnen',
+                title: 'Deine Daten bleiben bei dir',
                 text: 'Alle Berechnungen im Browser, kein Server, kein Tracking. Daten im lokalen Browserspeicher, jederzeit löschbar.',
               },
               {
@@ -368,8 +368,8 @@ export default function Landing() {
         <div className="section-wrap">
           <div className="section-head">
             <div className="eyebrow">Vorbereitung</div>
-            <h2 className="sec-title">So starten Sie in 5 Minuten</h2>
-            <p className="sec-sub">Das brauchen Sie für eine erste Analyse. Alles Weitere ist optional – fehlende Werte schätzen wir für Sie.</p>
+            <h2 className="sec-title">So startest du in 5 Minuten</h2>
+            <p className="sec-sub">Das brauchst du für eine erste Analyse. Alles Weitere ist optional – fehlende Werte schätzen wir für dich.</p>
           </div>
 
           {/* Tier 1: minimal requirement */}
@@ -385,7 +385,7 @@ export default function Landing() {
                   </svg>
                 ),
                 color: '#b45309', bg: '#fffbeb', borderColor: '#fde68a',
-                title: 'Ihr aktuelles Einkommen',
+                title: 'Dein aktuelles Einkommen',
                 details: ['Bruttolohn oder letzter Lohnausweis genügt'],
               }
               const isDone = checked.has(3)
@@ -583,7 +583,7 @@ export default function Landing() {
         <div className="section-head">
           <div className="eyebrow">So funktionierts</div>
           <h2 className="sec-title">In drei Schritten zum Vorsorge-Check</h2>
-          <p className="sec-sub">Keine lange Einarbeitung, kein Papierkram – beantworten Sie einige Fragen und erhalten Sie eine fundierte Analyse Ihrer Altersvorsorge.</p>
+          <p className="sec-sub">Keine lange Einarbeitung, kein Papierkram – beantworte einige Fragen und erhalte eine fundierte Analyse deiner Altersvorsorge.</p>
         </div>
         <div className="steps-grid">
           {[
@@ -591,7 +591,7 @@ export default function Landing() {
               n: '1',
               ico: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>,
               title: 'Daten eingeben',
-              text: 'Beantworten Sie einige Fragen zu Ihrer aktuellen Vorsorgesituation – AHV, Pensionskasse, 3. Säule und Ausgaben.',
+              text: 'Beantworte einige Fragen zu deiner aktuellen Vorsorgesituation – AHV, Pensionskasse, 3. Säule und Ausgaben.',
             },
             {
               n: '2',
@@ -603,7 +603,7 @@ export default function Landing() {
               n: '3',
               ico: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="8" width="3" height="12"/><rect x="16" y="4" width="3" height="16"/></svg>,
               title: 'Ergebnis erhalten',
-              text: 'Sie erfahren auf einen Blick, ob Ihre Rente reicht, wo Ihre Lücken sind und welche Hebel Sie noch haben.',
+              text: 'Du erfährst auf einen Blick, ob deine Rente reicht, wo deine Lücken sind und welche Hebel du noch hast.',
             },
           ].map((s) => (
             <div key={s.n} className="step-card">
@@ -620,9 +620,9 @@ export default function Landing() {
       <div className="features-bg" id="features" style={{ borderTop: '1px solid var(--ink-200)', borderBottom: '1px solid var(--ink-200)' }}>
         <div className="section-wrap">
           <div className="section-head">
-            <div className="eyebrow">Was Sie erfahren</div>
+            <div className="eyebrow">Was du erfährst</div>
             <h2 className="sec-title">Antworten auf die Fragen, die zählen</h2>
-            <p className="sec-sub">WealthWise ist mehr als ein Rentenrechner. Sie erhalten konkrete Analysen zu allen wichtigen Vorsorgeentscheidungen.</p>
+            <p className="sec-sub">WealthWise ist mehr als ein Rentenrechner. Du erhältst konkrete Analysen zu allen wichtigen Vorsorgeentscheidungen.</p>
           </div>
           <div className="feat-grid">
             {[
@@ -655,7 +655,7 @@ export default function Landing() {
         <div className="section-head">
           <div className="eyebrow">Vergleich</div>
           <h2 className="sec-title">Was kostet ein Finanzplaner?</h2>
-          <p className="sec-sub">Eine professionelle Vorsorgeplanung kostet normalerweise mehrere tausend Franken. Mit WealthWise erhalten Sie eine fundierte Basis – sofort und kostenlos.</p>
+          <p className="sec-sub">Eine professionelle Vorsorgeplanung kostet normalerweise mehrere tausend Franken. Mit WealthWise erhältst du eine fundierte Basis – sofort und kostenlos.</p>
         </div>
         <div className="compare">
           <div className="compare-col">
@@ -725,8 +725,8 @@ export default function Landing() {
       {/* FINAL CTA */}
       <div className="final-cta">
         <div className="fc-inner">
-          <h2>Bereit für Klarheit über Ihre Rente?</h2>
-          <p>Starten Sie jetzt die kostenlose Analyse. Keine Registrierung. Alle Daten nur lokal in Ihrem Browser. In 10 Minuten wissen Sie mehr.</p>
+          <h2>Bereit für Klarheit über deine Rente?</h2>
+          <p>Starte jetzt die kostenlose Analyse. Keine Registrierung. Alle Daten nur lokal in deinem Browser. In 10 Minuten weisst du mehr.</p>
           <div className="final-cta-row">
             <button className="btn-primary" style={{ background: '#fff', color: 'var(--navy-900)' }} onClick={() => navigate('/schritt/1')}>
               Jetzt Analyse starten
@@ -747,7 +747,7 @@ export default function Landing() {
         }} className="mobile-sticky-cta">
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', lineHeight: 1.35 }}>
             <strong style={{ color: '#fff' }}>Kostenlose Analyse</strong><br />
-            In 10 Minuten wissen Sie mehr
+            In 10 Minuten weisst du mehr
           </div>
           <button
             className="btn-primary"
@@ -782,7 +782,7 @@ export default function Landing() {
         </div>
         <div className="footer-disclaimer">
           Basierend auf öffentlich zugänglichen Daten der AHV, BFS und BVG-Kennzahlen 2026.
-          WealthWise bietet keine Finanzberatung und stellt keine Anlageberatung dar. Die Berechnungen basieren auf vereinfachten Annahmen. Für verbindliche Entscheidungen konsultieren Sie bitte eine qualifizierte Fachperson.
+          WealthWise bietet keine Finanzberatung und stellt keine Anlageberatung dar. Die Berechnungen basieren auf vereinfachten Annahmen. Für verbindliche Entscheidungen konsultiere bitte eine qualifizierte Fachperson.
         </div>
       </footer>
     </div>

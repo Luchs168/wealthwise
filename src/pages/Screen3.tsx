@@ -48,7 +48,7 @@ function LoadingTransition({ onDone }: { onDone: () => void }) {
           Finanzbedarf ermittelt
         </h2>
         <p style={{ fontSize: 14, color: 'var(--ink-500)', margin: '0 0 32px' }}>
-          Ihre persönliche Analyse wird berechnet...
+          Deine persönliche Analyse wird berechnet...
         </p>
         <div style={{ height: 6, background: 'var(--ink-100)', borderRadius: 6, marginBottom: 20, overflow: 'hidden' }}>
           <div style={{ height: '100%', borderRadius: 6, background: 'var(--navy-700)', width: `${pct}%`, transition: 'width .6s ease' }} />
@@ -353,7 +353,7 @@ function LifeEventCard({ event, onUpdate, onDelete, currentYear, retirementYear,
               </div>
               {pkReductionMonthly > 0 && (
                 <div style={{ marginTop: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, fontSize: 12.5, color: '#92400e' }}>
-                  ⚠ PK-Vorbezug CHF {fmtCHF(event.details.pkVorbezug!)} reduziert Ihre PK-Rente um ca. <strong>CHF {fmtCHF(pkReductionMonthly)}/Monat</strong> (dauerhaft).
+                  ⚠ PK-Vorbezug CHF {fmtCHF(event.details.pkVorbezug!)} reduziert deine PK-Rente um ca. <strong>CHF {fmtCHF(pkReductionMonthly)}/Monat</strong> (dauerhaft).
                 </div>
               )}
               {mortgageInfo && event.details.hypothek && (
@@ -600,7 +600,7 @@ export default function Screen3() {
           <>
             <div className="page-head">
               <div className="eyebrow">3A · Budget</div>
-              <h1 className="title">Was geben Sie heute aus?</h1>
+              <h1 className="title">Was gibst du heute aus?</h1>
             </div>
 
             <div className="variant-toggle">
@@ -626,7 +626,7 @@ export default function Screen3() {
                 />
                 {(expenses.customAmount || 0) > 0 && (
                   <div style={{ marginTop: 18, padding: '16px 18px', background: 'var(--navy-50)', border: '1px solid var(--navy-100)', borderRadius: 12 }}>
-                    <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>Ihr Monatsbudget</div>
+                    <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>Dein Monatsbudget</div>
                     <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, color: 'var(--navy-800)', margin: '4px 0 2px' }}>
                       CHF {fmtCHF(expenses.customAmount || 0)}/Mt.
                     </div>
@@ -647,7 +647,7 @@ export default function Screen3() {
               <section className="block">
                 <div className="info-callout" style={{ marginBottom: 16 }}>
                   <span className="info-callout-icon">i</span>
-                  <span>Vorausgefüllt mit BFS-Durchschnittswerten. Passen Sie auf Ihren Lebensstil an.</span>
+                  <span>Vorausgefüllt mit BFS-Durchschnittswerten. Passe auf deinen Lebensstil an.</span>
                 </div>
                 <div className="cat-list">
                   {activeCats.map(cat => {
@@ -697,7 +697,7 @@ export default function Screen3() {
                   <div style={{ marginTop: 12, display: 'flex', gap: 10, padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
                     <span style={{ flexShrink: 0 }}>👶</span>
                     <div>
-                      <strong>Kinder-Kosten:</strong> {numActiveChildren === 1 ? 'Ihr Kind zieht' : `Ihre ${numActiveChildren} Kinder ziehen`} voraussichtlich bis {youngestChildAge25Year} aus. Das Budget reduziert sich dann um ca. <strong>CHF {fmtCHF(numActiveChildren * KK_KIND + (isPaar ? Math.round((BFS_REF[householdType] - BFS_REF.paar) / numActiveChildren) : Math.round(BFS_REF.alleinerziehend - BFS_REF.einzel)))}/Mt.</strong> — dies wird im Vermögensverlauf berücksichtigt.
+                      <strong>Kinder-Kosten:</strong> {numActiveChildren === 1 ? 'Dein Kind zieht' : `Deine ${numActiveChildren} Kinder ziehen`} voraussichtlich bis {youngestChildAge25Year} aus. Das Budget reduziert sich dann um ca. <strong>CHF {fmtCHF(numActiveChildren * KK_KIND + (isPaar ? Math.round((BFS_REF[householdType] - BFS_REF.paar) / numActiveChildren) : Math.round(BFS_REF.alleinerziehend - BFS_REF.einzel)))}/Mt.</strong> — dies wird im Vermögensverlauf berücksichtigt.
                     </div>
                   </div>
                 )}
@@ -724,7 +724,7 @@ export default function Screen3() {
             {budgetTab === 'import' && (
               <section className="block">
                 <p style={{ fontSize: 13, color: 'var(--ink-500)', margin: '0 0 16px', lineHeight: 1.5 }}>
-                  Exportieren Sie Ihre Kontobewegungen aus dem E-Banking als CSV oder Textdatei und laden Sie die Datei hoch. Negative Beträge werden als Ausgaben erkannt.
+                  Exportiere deine Kontobewegungen aus dem E-Banking als CSV oder Textdatei und lade die Datei hoch. Negative Beträge werden als Ausgaben erkannt.
                 </p>
 
                 {/* File upload zone */}
@@ -837,7 +837,7 @@ export default function Screen3() {
             {baseTotal > 0 && nettoMonatlich > 0 && (
               <section className="block">
                 <div className="block-head">
-                  <h2 className="block-title">Ihr monatlicher Überschuss</h2>
+                  <h2 className="block-title">Dein monatlicher Überschuss</h2>
                 </div>
                 <div style={{ display: 'grid', gap: 10, marginBottom: 14, padding: '12px 14px', background: 'var(--ink-50)', border: '1px solid var(--ink-100)', borderRadius: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--ink-600)' }}>
@@ -904,7 +904,7 @@ export default function Screen3() {
                   </>
                 ) : (
                   <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5, color: '#991b1b' }}>
-                    ⚠ Ausgaben übersteigen das geschätzte Netto-Einkommen. Bitte prüfen Sie Ihre Angaben.
+                    ⚠ Ausgaben übersteigen das geschätzte Netto-Einkommen. Bitte prüfe deine Angaben.
                   </div>
                 )}
               </section>
@@ -917,7 +917,7 @@ export default function Screen3() {
           <>
             <div className="page-head">
               <div className="eyebrow">3B · Ruhestand</div>
-              <h1 className="title">Wie ändert sich Ihr Bedarf?</h1>
+              <h1 className="title">Wie ändert sich dein Bedarf?</h1>
               <p className="subtitle">Berufskosten fallen weg — dafür steigen oft Freizeit und Gesundheit.</p>
             </div>
             <section className="block">
@@ -959,7 +959,7 @@ export default function Screen3() {
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
-                  ℹ Bitte erfassen Sie zuerst Ihr Budget in Schritt 3A.
+                  ℹ Bitte erfasse zuerst dein Budget in Schritt 3A.
                 </div>
               )}
             </section>
@@ -972,7 +972,7 @@ export default function Screen3() {
             <div className="page-head">
               <div className="eyebrow">3C · Lebensereignisse</div>
               <h1 className="title">Geplante Ereignisse</h1>
-              <p className="subtitle">Grössere Ausgaben oder Lebensveränderungen beeinflussen Ihren Vermögensverlauf.</p>
+              <p className="subtitle">Grössere Ausgaben oder Lebensveränderungen beeinflussen deinen Vermögensverlauf.</p>
             </div>
 
             {/* Quick presets — always visible */}
@@ -1147,7 +1147,7 @@ export default function Screen3() {
       <div className="footer">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div className="footer-meta">Schritt 3 · {SUB_STEP_LABELS[subStep]}</div>
-          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Ihre Eingaben bleiben gespeichert</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>Deine Eingaben bleiben gespeichert</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => { if (subStep === 0) navigate('/schritt/2'); else setSubStep(subStep - 1) }}>

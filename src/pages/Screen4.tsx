@@ -74,68 +74,68 @@ const fmtK = (v: number) => {
 const RECS: Record<string, Array<{ text: string; priority: 'hoch' | 'mittel' | 'niedrig'; detail: string }>> = {
   green: [
     {
-      text: 'Ihre Vorsorge ist solide aufgestellt – der Grundstein ist gelegt.',
+      text: 'Deine Vorsorge ist solide aufgestellt – der Grundstein ist gelegt.',
       priority: 'niedrig',
-      detail: 'Ihre Renten übersteigen Ihren geplanten Bedarf. Fokussieren Sie sich auf Steueroptimierung und Nachlassplanung. Überprüfen Sie Ihr Testament und allfällige Begünstigungsklauseln in der Lebensversicherung.',
+      detail: 'Deine Renten übersteigen deinen geplanten Bedarf. Fokussiere dich auf Steueroptimierung und Nachlassplanung. Überprüfe dein Testament und allfällige Begünstigungsklauseln in der Lebensversicherung.',
     },
     {
-      text: 'Prüfen Sie eine schrittweise Pensionierung zur steuerlichen Optimierung.',
+      text: 'Prüfe eine schrittweise Pensionierung zur steuerlichen Optimierung.',
       priority: 'mittel',
       detail: 'Eine Teilpensionierung (z.B. 80% ab 63, vollständig mit 65) ermöglicht einen sanften Übergang und optimiert den Steuerprogressor – das Einkommen wird über mehr Jahre verteilt.',
     },
     {
-      text: 'Beziehen Sie Säule-3a-Gelder gestaffelt über mehrere Jahre (Progressionsvorteil).',
+      text: 'Beziehe Säule-3a-Gelder gestaffelt über mehrere Jahre (Progressionsvorteil).',
       priority: 'mittel',
       detail: 'Mit 3–5 separaten 3a-Konten lässt sich der Bezug über mehrere Steuerjahre staffeln. Jeder Bezug wird separat besteuert – der Progressionsvorteil spart je nach Kanton mehrere Tausend Franken.',
     },
     {
-      text: 'Überprüfen Sie Ihre Nachlassplanung und gegenseitige Begünstigung.',
+      text: 'Überprüfe deine Nachlassplanung und gegenseitige Begünstigung.',
       priority: 'niedrig',
-      detail: 'Das neue Erbrecht (seit 2023) bietet mehr Flexibilität. Lassen Sie Ihren Ehevertrag und das Testament durch eine Notarin oder einen Notar prüfen, um Ihre gegenseitige Begünstigung optimal zu gestalten.',
+      detail: 'Das neue Erbrecht (seit 2023) bietet mehr Flexibilität. Lass deinen Ehevertrag und das Testament durch eine Notarin oder einen Notar prüfen, um deine gegenseitige Begünstigung optimal zu gestalten.',
     },
   ],
   yellow: [
     {
-      text: 'Schliessen Sie allfällige AHV-Beitragslücken durch freiwillige Einzahlungen.',
+      text: 'Schliesse allfällige AHV-Beitragslücken durch freiwillige Einzahlungen.',
       priority: 'hoch',
-      detail: 'AHV-Beitragslücken entstehen durch Auslandaufenthalte, Studium oder Selbständigkeit ohne Beiträge. Jedes fehlende Beitragsjahr kürzt die AHV-Rente um ca. 2.3% – lebenslang. Die SVA berät Sie über Nachzahlungsmöglichkeiten.',
+      detail: 'AHV-Beitragslücken entstehen durch Auslandaufenthalte, Studium oder Selbständigkeit ohne Beiträge. Jedes fehlende Beitragsjahr kürzt die AHV-Rente um ca. 2.3% – lebenslang. Die SVA berät dich über Nachzahlungsmöglichkeiten.',
     },
     {
-      text: 'Prüfen Sie Einkäufe in die Pensionskasse für steuerliche Einsparungen.',
+      text: 'Prüfe Einkäufe in die Pensionskasse für steuerliche Einsparungen.',
       priority: 'hoch',
-      detail: 'PK-Einkäufe sind steuerlich vollständig vom steuerbaren Einkommen abzugsfähig. Bei einem Grenzsteuersatz von 30% bedeutet ein Einkauf von CHF 50\'000 eine Steuerersparnis von ca. CHF 15\'000. Zudem verbessert sich Ihre Rente direkt.',
+      detail: 'PK-Einkäufe sind steuerlich vollständig vom steuerbaren Einkommen abzugsfähig. Bei einem Grenzsteuersatz von 30% bedeutet ein Einkauf von CHF 50\'000 eine Steuerersparnis von ca. CHF 15\'000. Zudem verbessert sich deine Rente direkt.',
     },
     {
-      text: 'Maximieren Sie die Säule-3a-Einzahlungen bis zur Pensionierung.',
+      text: 'Maximiere die Säule-3a-Einzahlungen bis zur Pensionierung.',
       priority: 'mittel',
       detail: 'Das 3a-Maximum 2026 beträgt CHF 7\'258 pro Person und Jahr (Erwerbstätige mit PK). Jeder einbezahlte Franken reduziert das steuerbare Einkommen direkt und wächst steuerfrei an.',
     },
     {
-      text: 'Prüfen Sie, ob eine Weiterarbeit bis 66/67 Ihre Renten signifikant verbessert.',
+      text: 'Prüfe, ob eine Weiterarbeit bis 66/67 deine Renten signifikant verbessert.',
       priority: 'mittel',
       detail: 'Jedes zusätzliche Beitragsjahr erhöht sowohl die AHV-Rente als auch das PK-Kapital. Der AHV-Aufschub von einem Jahr erhöht die Rente um 5.2%. Dies kann eine klaffende Vorsorgelücke deutlich reduzieren.',
     },
   ],
   red: [
     {
-      text: 'Dringend: Klären Sie mögliche PK-Einkäufe zur Verbesserung der Rente.',
+      text: 'Dringend: Kläre mögliche PK-Einkäufe zur Verbesserung der Rente.',
       priority: 'hoch',
-      detail: 'PK-Einkäufe sind die wirksamste Massnahme gegen eine drohende Vorsorgelücke. Sie füllen Rentenlücken und sind steuerlich voll abzugsfähig. Kontaktieren Sie Ihre Pensionskasse umgehend für einen individuellen Einkaufsplan.',
+      detail: 'PK-Einkäufe sind die wirksamste Massnahme gegen eine drohende Vorsorgelücke. Sie füllen Rentenlücken und sind steuerlich voll abzugsfähig. Kontaktiere deine Pensionskasse umgehend für einen individuellen Einkaufsplan.',
     },
     {
       text: 'Prüfen Sie, ob ein späterer Rentenbezug (Aufschub) finanziell sinnvoll ist.',
       priority: 'hoch',
-      detail: 'AHV-Aufschub von einem Jahr erhöht die AHV-Rente um 5.2% – lebenslang. Ein Aufschub bis 67 ergibt 10.4% mehr monatliche Rente. Je gesünder Sie sind und je länger Ihre Lebenserwartung, desto attraktiver ist der Aufschub.',
+      detail: 'AHV-Aufschub von einem Jahr erhöht die AHV-Rente um 5.2% – lebenslang. Ein Aufschub bis 67 ergibt 10.4% mehr monatliche Rente. Je gesünder du bist und je länger deine Lebenserwartung, desto attraktiver ist der Aufschub.',
     },
     {
-      text: 'Überprüfen Sie Ihre geplanten Ausgaben und mögliche Sparpotenziale.',
+      text: 'Überprüfe deine geplanten Ausgaben und mögliche Sparpotenziale.',
       priority: 'mittel',
-      detail: 'Analysieren Sie Ihr geplantes Budget kritisch. Berufsbedingte Kosten (Fahrkosten, Verpflegung, Berufskleidung) entfallen nach der Pensionierung. Möglicherweise liegt Ihr tatsächlicher Bedarf tiefer als berechnet.',
+      detail: 'Analysiere dein geplantes Budget kritisch. Berufsbedingte Kosten (Fahrkosten, Verpflegung, Berufskleidung) entfallen nach der Pensionierung. Möglicherweise liegt dein tatsächlicher Bedarf tiefer als berechnet.',
     },
     {
-      text: 'Nehmen Sie eine professionelle Vorsorgeberatung in Anspruch.',
+      text: 'Nimm eine professionelle Vorsorgeberatung in Anspruch.',
       priority: 'hoch',
-      detail: 'Eine qualifizierte Finanzberatung durch einen eidgenössisch anerkannten Finanzplaner (CFP) oder eine Pensionskassenberatung kann verbindliche, auf Ihre Situation zugeschnittene Massnahmen aufzeigen. Viele Kantone bieten zudem kostenlose Beratungsstellen an.',
+      detail: 'Eine qualifizierte Finanzberatung durch einen eidgenössisch anerkannten Finanzplaner (CFP) oder eine Pensionskassenberatung kann verbindliche, auf deine Situation zugeschnittene Massnahmen aufzeigen. Viele Kantone bieten zudem kostenlose Beratungsstellen an.',
     },
   ],
 }
@@ -638,8 +638,8 @@ export default function Screen4() {
     )
     if (isLowIncome) {
       recs = [
-        { text: 'Prüfen Sie Ihren EL-Anspruch nach der Pensionierung – das ist Ihr gesetzliches Recht (ELG).', priority: 'hoch' as const, detail: '' },
-        { text: 'Bestellen Sie Ihren IK-Auszug und prüfen Sie ob alle Beitragsjahre korrekt verbucht sind.', priority: 'hoch' as const, detail: '' },
+        { text: 'Prüfe deinen EL-Anspruch nach der Pensionierung – das ist dein gesetzliches Recht (ELG).', priority: 'hoch' as const, detail: '' },
+        { text: 'Bestelle deinen IK-Auszug und prüfe ob alle Beitragsjahre korrekt verbucht sind.', priority: 'hoch' as const, detail: '' },
         { text: 'Bis 65 arbeiten statt Vorbezug: Vermeidet lebenslange AHV-Kürzung von 6.8% pro Jahr.', priority: 'mittel' as const, detail: '' },
         ...recs
       ].slice(0, 3)
@@ -647,7 +647,7 @@ export default function Screen4() {
     if (isSE && noPK) {
       recs = [
         ...(currentAge1 < 58 ? [{ text: 'Prüfen Sie den freiwilligen Beitritt zur BVG-Auffangeinrichtung (sinnvoll bis ca. Alter 58).', priority: 'hoch' as const, detail: '' }] : []),
-        { text: 'Planen Sie die Nachfolge / den Verkauf Ihres Betriebs als Alterskapital.', priority: 'hoch' as const, detail: '' },
+        { text: 'Plane die Nachfolge / den Verkauf deines Betriebs als Alterskapital.', priority: 'hoch' as const, detail: '' },
         ...recs
       ].slice(0, 3)
     }
@@ -662,7 +662,7 @@ export default function Screen4() {
       recs.unshift({
         text: `WEF-Rückzahlung prüfen: CHF ${fmtCHF(p1stored.pkVorbezugAmount ?? 0)} vorbezogen – Rückzahlung spart CHF ${fmtCHF(renteMinus)}/Mt. Rente.`,
         priority: 'hoch' as const,
-        detail: `Sie haben CHF ${fmtCHF(p1stored.pkVorbezugAmount ?? 0)} für Wohneigentum vorbezogen. Eine Rückzahlung erhöht Ihre PK-Rente um ca. CHF ${fmtCHF(renteMinus)}/Monat und ist steuerlich abzugsfähig (wie ein PK-Einkauf). Frist: Bis ${rueckzahlBisJahr} (3 Jahre vor Pensionierung).`,
+        detail: `Du hast CHF ${fmtCHF(p1stored.pkVorbezugAmount ?? 0)} für Wohneigentum vorbezogen. Eine Rückzahlung erhöht deine PK-Rente um ca. CHF ${fmtCHF(renteMinus)}/Monat und ist steuerlich abzugsfähig (wie ein PK-Einkauf). Frist: Bis ${rueckzahlBisJahr} (3 Jahre vor Pensionierung).`,
       })
     }
     return recs.slice(0, 3)
@@ -990,7 +990,7 @@ export default function Screen4() {
       <main>
         <div className="page-head">
           <div className="eyebrow">Schritt 4 · Analyse</div>
-          <h1 className="title">Ihre persönliche Vorsorgeanalyse</h1>
+          <h1 className="title">Deine persönliche Vorsorgeanalyse</h1>
           <p className="subtitle">
             Berechnet per {new Date().toLocaleDateString('de-CH')} · Basierend auf AHV-Rentenskala 44 und BVG-Kennzahlen 2026
           </p>
@@ -1000,7 +1000,7 @@ export default function Screen4() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 16 }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>ℹ️</span>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6 }}>
-            Die folgenden Analysen basieren auf Ihren Angaben und den offiziellen AHV/BVG-Kennzahlen 2026. <strong>WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung.</strong> Alle Berechnungen sind Schätzungen. Bitte konsultieren Sie eine Fachperson für verbindliche Entscheidungen.
+            Die folgenden Analysen basieren auf deinen Angaben und den offiziellen AHV/BVG-Kennzahlen 2026. <strong>WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung.</strong> Alle Berechnungen sind Schätzungen. Bitte konsultiere eine Fachperson für verbindliche Entscheidungen.
           </p>
         </div>
 
@@ -1057,15 +1057,15 @@ export default function Screen4() {
   {/* Central statement */}
   <div style={{ textAlign: 'center', padding: '28px 16px 24px' }}>
     <div style={{ fontSize: 12, color: 'var(--ink-400)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
-      Ihre Vorsorgeanalyse
+      Deine Vorsorgeanalyse
     </div>
     <div style={{
       fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 800, lineHeight: 1.15, marginBottom: 12,
       color: (displayAgeWhenBroke ?? 99) >= 87 ? 'var(--navy-800)' : (displayAgeWhenBroke ?? 99) >= 82 ? '#d97706' : '#dc2626',
     }}>
       {(displayAgeWhenBroke ?? 99) >= 99
-        ? 'Ihr Vermögen reicht bis Alter 95+'
-        : `Ihr Vermögen reicht voraussichtlich bis Alter ${displayAgeWhenBroke}`
+        ? 'Dein Vermögen reicht bis Alter 95+'
+        : `Dein Vermögen reicht voraussichtlich bis Alter ${displayAgeWhenBroke}`
       }
     </div>
     <div style={{ fontSize: 14, color: 'var(--ink-500)', lineHeight: 1.6 }}>
@@ -1206,11 +1206,11 @@ export default function Screen4() {
           (Lebenshaltung CHF {fmtCHF(monthlyBudget)} + Steuern CHF {fmtCHF(retirementTax1.monthlyTax)} − Einnahmen CHF {fmtCHF(effectiveMonthlyIncome)})
         </span>
       )}
-      {' '}Diese wird aus Ihrem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
+      {' '}Diese wird aus deinem Vermögen von CHF {fmtK(wdInitialWealth)} finanziert.
     </div>
   ) : (
     <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 16, fontSize: 14, color: '#166534', lineHeight: 1.65 }}>
-      Ihre Renten übersteigen Ihren Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>{retirementTax1.monthlyTax > 0 ? ` (nach Steuern CHF ${fmtCHF(retirementTax1.monthlyTax)}/Mt.)` : ''}.
+      Deine Renten übersteigen deinen Bedarf — monatlicher Überschuss: <strong>CHF {fmtCHF(Math.abs(surplusAfterTax))}</strong>{retirementTax1.monthlyTax > 0 ? ` (nach Steuern CHF ${fmtCHF(retirementTax1.monthlyTax)}/Mt.)` : ''}.
     </div>
   )}
 
@@ -1277,7 +1277,7 @@ export default function Screen4() {
     <div style={{ textAlign: 'center', padding: '24px 16px 20px' }}>
       <div style={{ fontSize: 12, color: 'var(--ink-400)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Szenarien-Vergleich{hasEnabledEvents && ' · inkl. Lebensereignisse'}</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: 'var(--navy-800)', lineHeight: 1.2, marginBottom: 8 }}>
-        Ihr Vermögen reicht je nach Szenario bis Alter {minAge >= 99 ? '95+' : minAge}–{maxAge >= 99 ? '95+' : maxAge}
+        Dein Vermögen reicht je nach Szenario bis Alter {minAge >= 99 ? '95+' : minAge}–{maxAge >= 99 ? '95+' : maxAge}
       </div>
       <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
         Optimistisch (5% Rendite) bis Neutral (3.5%) bis Pessimistisch (1%)
@@ -1488,7 +1488,7 @@ export default function Screen4() {
 
   </>) : (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-400)', fontSize: 14 }}>
-      Bitte geben Sie Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
+      Bitte gib Geburtsdatum und Pensionierungsalter in Schritt 1 ein.
     </div>
   )}
 
@@ -1850,7 +1850,7 @@ export default function Screen4() {
   {/* Event list */}
   {lifeEvents.filter(e => e.enabled && e.amount > 0).length === 0 ? (
     <div style={{ textAlign: 'center', padding: '20px', color: 'var(--ink-400)', fontSize: 13 }}>
-      Keine Lebensereignisse geplant. Wählen Sie oben eine Schnelloption oder erfassen Sie ein Ereignis manuell.
+      Keine Lebensereignisse geplant. Wähle oben eine Schnelloption oder erfasse ein Ereignis manuell.
     </div>
   ) : (
     <div style={{ display: 'grid', gap: 8 }}>
@@ -1908,7 +1908,7 @@ export default function Screen4() {
           <div style={{ display: 'flex', gap: 10, padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
             <span style={{ flexShrink: 0, fontSize: 16 }}>ℹ️</span>
             <div>
-              <strong>Teilzeit-Hinweis:</strong> Lebensereignis «Teilzeit {pensum}%» reduziert Ihr Einkommen von CHF {fmtCHF(fullIncome)} auf CHF {fmtCHF(reducedIncome)}/Jahr in den Jahren Alter {fromAge}–{toAge}. AHV- und PK-Auswirkungen sind vereinfacht — für eine präzise Analyse wenden Sie sich an Ihre PK.
+              <strong>Teilzeit-Hinweis:</strong> Lebensereignis «Teilzeit {pensum}%» reduziert dein Einkommen von CHF {fmtCHF(fullIncome)} auf CHF {fmtCHF(reducedIncome)}/Jahr in den Jahren Alter {fromAge}–{toAge}. AHV- und PK-Auswirkungen sind vereinfacht — für eine präzise Analyse wende dich an deine PK.
             </div>
           </div>
         )
@@ -1949,8 +1949,8 @@ export default function Screen4() {
   </div>
   <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: 'var(--navy-800)', lineHeight: 1.2, marginBottom: 8 }}>
     {hasPartner
-      ? `Ihre AHV-Renten: CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt. (Haushalt)`
-      : `Ihre AHV-Rente: CHF ${fmtCHF(ahvMonthly1)}/Mt.`
+      ? `Deine AHV-Renten: CHF ${fmtCHF(analysis.ahv.combinedMonthly)}/Mt. (Haushalt)`
+      : `Deine AHV-Rente: CHF ${fmtCHF(ahvMonthly1)}/Mt.`
     }
   </div>
   <div style={{ fontSize: 13, color: 'var(--ink-500)' }}>
@@ -2068,7 +2068,7 @@ export default function Screen4() {
       <h2 className="block-title" style={{ color: '#92400e' }}><span className="block-num" style={{ background: '#f59e0b', color: 'white' }}>!</span>Frühpensionierung – Einkommenslücke</h2>
     </div>
     <div style={{ fontSize: 13.5, color: '#7c2d12', lineHeight: 1.7, marginBottom: 14 }}>
-      Zwischen Ihrer Pensionierung (Alter {ra1}) und dem AHV-Bezug (Alter {p1.ahvBezugAge || 65}) besteht eine Einkommenslücke von <strong>{(p1.ahvBezugAge || 65) - ra1} {(p1.ahvBezugAge || 65) - ra1 === 1 ? 'Jahr' : 'Jahren'}</strong>, in der weder Erwerbseinkommen noch AHV-Rente fliessen.
+      Zwischen deiner Pensionierung (Alter {ra1}) und dem AHV-Bezug (Alter {p1.ahvBezugAge || 65}) besteht eine Einkommenslücke von <strong>{(p1.ahvBezugAge || 65) - ra1} {(p1.ahvBezugAge || 65) - ra1 === 1 ? 'Jahr' : 'Jahren'}</strong>, in der weder Erwerbseinkommen noch AHV-Rente fliessen.
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
       <div style={{ padding: '12px 14px', background: 'white', borderRadius: 10, border: '1px solid #fde68a' }}>
@@ -2117,7 +2117,7 @@ export default function Screen4() {
 <section className="block">
   <div className="block-head">
     <h2 className="block-title"><span className="block-num">B</span>Bezugsform wählen</h2>
-    <span className="block-hint">Klicken Sie, um Ihre Wahl zu treffen</span>
+    <span className="block-hint">Klicke, um deine Wahl zu treffen</span>
   </div>
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
     {([
@@ -2242,7 +2242,7 @@ export default function Screen4() {
   {/* Early retirement PK bridging hint */}
   {ra1 < 65 && (
     <div style={{ marginTop: 12, padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-      <strong>Frühpensionierung:</strong> Viele Pensionskassen bieten eine <strong>Überbrückungsrente</strong> bis AHV-Bezug (65). Erkundigen Sie sich bei Ihrer PK, ob und in welcher Höhe diese verfügbar ist.
+      <strong>Frühpensionierung:</strong> Viele Pensionskassen bieten eine <strong>Überbrückungsrente</strong> bis AHV-Bezug (65). Erkundige dich bei deiner PK, ob und in welcher Höhe diese verfügbar ist.
     </div>
   )}
 </section>
@@ -2323,7 +2323,7 @@ export default function Screen4() {
     </>
   )}
   <div style={{ fontSize: 12, color: 'var(--ink-400)', lineHeight: 1.6, marginTop: 4 }}>
-    PK-Einkäufe sind vollständig vom steuerbaren Einkommen abzugsfähig. Das Einkaufspotenzial steht auf Ihrem PK-Ausweis. Details → Tab Steuern, Abschnitt A2.
+    PK-Einkäufe sind vollständig vom steuerbaren Einkommen abzugsfähig. Das Einkaufspotenzial steht auf deinem PK-Ausweis. Details → Tab Steuern, Abschnitt A2.
   </div>
 </section>
 )}
@@ -2331,7 +2331,7 @@ export default function Screen4() {
 {!p1.hasPK && (
   <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-400)' }}>
     <div style={{ fontSize: 36, marginBottom: 12 }}>🏢</div>
-    <p style={{ fontSize: 14 }}>Keine Pensionskasse erfasst. Geben Sie Ihre PK-Daten in Schritt 1 ein.</p>
+    <p style={{ fontSize: 14 }}>Keine Pensionskasse erfasst. Gib deine PK-Daten in Schritt 1 ein.</p>
   </div>
 )}
 
@@ -2398,7 +2398,7 @@ export default function Screen4() {
         CHF {fmtCHF(pkVariantTax.rente.annual)}<span style={{ fontSize: 10, fontWeight: 400 }}>/Jahr</span>
       </div>
       <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>Laufende Steuer<br/>(AHV + PK als Einkommen)</div>
-      {pkChoice === 'rente' && <div style={{ fontSize: 10, color: 'var(--navy-600)', marginTop: 6, fontWeight: 600 }}>✓ Ihre Wahl</div>}
+      {pkChoice === 'rente' && <div style={{ fontSize: 10, color: 'var(--navy-600)', marginTop: 6, fontWeight: 600 }}>✓ Deine Wahl</div>}
     </div>
     {/* 100% Kapital */}
     <div style={{ padding: '14px', background: '#fef2f2', border: `2px solid ${pkChoice === 'kapital' ? '#dc2626' : '#fecaca'}`, borderRadius: 10 }}>
@@ -2410,7 +2410,7 @@ export default function Screen4() {
         + CHF {fmtCHF(pkVariantTax.kapital.annual)}<span style={{ fontSize: 10 }}>/Jahr laufend</span>
       </div>
       <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>Kapitalbezugssteuer<br/>+ nur AHV-Steuer</div>
-      {pkChoice === 'kapital' && <div style={{ fontSize: 10, color: '#dc2626', marginTop: 6, fontWeight: 600 }}>✓ Ihre Wahl</div>}
+      {pkChoice === 'kapital' && <div style={{ fontSize: 10, color: '#dc2626', marginTop: 6, fontWeight: 600 }}>✓ Deine Wahl</div>}
     </div>
     {/* Dynamic Mix card — label and values reflect current pkMixPercent */}
     <div style={{ padding: '14px', background: '#fffbeb', border: `2px solid ${pkChoice === 'mix' ? '#d97706' : '#fde68a'}`, borderRadius: 10 }}>
@@ -2422,7 +2422,7 @@ export default function Screen4() {
         + CHF {fmtCHF(pkVariantTax.mix.annual)}<span style={{ fontSize: 10 }}>/Jahr laufend</span>
       </div>
       <div style={{ fontSize: 10.5, color: 'var(--ink-500)', lineHeight: 1.4 }}>{100 - pkMixPercent}% Kapital, {pkMixPercent}% Rente</div>
-      {pkChoice === 'mix' && <div style={{ fontSize: 10, color: '#d97706', marginTop: 6, fontWeight: 600 }}>✓ Ihre Wahl</div>}
+      {pkChoice === 'mix' && <div style={{ fontSize: 10, color: '#d97706', marginTop: 6, fontWeight: 600 }}>✓ Deine Wahl</div>}
       {pkChoice !== 'mix' && <div style={{ fontSize: 10, color: 'var(--ink-400)', marginTop: 6 }}>Vergleichsvariante</div>}
     </div>
   </div>
@@ -2446,7 +2446,7 @@ export default function Screen4() {
           <Line type="monotone" dataKey="rente" stroke="#1a2b4a" strokeWidth={2} dot={false} name="rente" />
           <Line type="monotone" dataKey="kapital" stroke="#dc2626" strokeWidth={2} dot={false} name="kapital" />
           <Line type="monotone" dataKey="mix" stroke="#d97706" strokeWidth={2} dot={false} name="mix" />
-          <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'rente' ? '100% Rente' : v === 'kapital' ? '100% Kapital' : `${pkMixPercent}/${100 - pkMixPercent} Mix${pkChoice === 'mix' ? ' (Ihre Wahl)' : ''}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'rente' ? '100% Rente' : v === 'kapital' ? '100% Kapital' : `${pkMixPercent}/${100 - pkMixPercent} Mix${pkChoice === 'mix' ? ' (Deine Wahl)' : ''}`} />
         </LineChart>
       </ResponsiveContainer>
       {(() => {
@@ -2478,7 +2478,7 @@ export default function Screen4() {
 
   <p style={{ fontSize: 12.5, color: 'var(--ink-500)', marginBottom: 16, lineHeight: 1.5 }}>
     Freiwillige Einkäufe in die Pensionskasse sind vollumfänglich vom steuerbaren Einkommen abziehbar.
-    Der Einkauf erhöht das PK-Kapital und damit Ihre spätere Rente.
+    Der Einkauf erhöht das PK-Kapital und damit deine spätere Rente.
   </p>
 
   {/* Inputs */}
@@ -2549,7 +2549,7 @@ export default function Screen4() {
     <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#92400e' }}>
       <strong>⚠️ 3-Jahres-Sperrfrist:</strong> Bei einem Kapitalbezug aus der PK darf in den letzten 3 Jahren vor dem Bezug kein steuerbegünstigter Einkauf getätigt werden (Art. 79b BVG). Die Steuerersparnis würde rückwirkend aufgehoben.
       {pkChoice !== 'rente'
-        ? ' Erwägen Sie, entweder den Einkauf früher abzuschliessen oder die Bezugsform auf Rente umzustellen.'
+        ? ' Erwäge, entweder den Einkauf früher abzuschliessen oder die Bezugsform auf Rente umzustellen.'
         : ''}
     </div>
   )}
@@ -2597,7 +2597,7 @@ export default function Screen4() {
 
   {!pkEinkaufProJahr && (
     <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--ink-400)', textAlign: 'center' }}>
-      Geben Sie einen Jahresbetrag ein, um die Steuerersparnis zu berechnen.
+      Gib einen Jahresbetrag ein, um die Steuerersparnis zu berechnen.
     </div>
   )}
 </section>
@@ -2628,7 +2628,7 @@ export default function Screen4() {
 
   {withdrawalPlan.savings > 0 && (
     <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534', marginBottom: 14, fontWeight: 600 }}>
-      Durch Staffelung sparen Sie ca. CHF {fmtCHF(withdrawalPlan.savings)} Steuern
+      Durch Staffelung sparst du ca. CHF {fmtCHF(withdrawalPlan.savings)} Steuern
     </div>
   )}
 
@@ -2690,10 +2690,10 @@ export default function Screen4() {
     </div>
   </div>
   <div style={{ padding: '12px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 13, color: '#7c2d12' }}>
-    <strong>AHV-Beiträge als Nichterwerbstätige/r:</strong> Ab Pensionierung bis AHV-Bezug (Alter 65) sind AHV-Beiträge als Nichterwerbstätige/r geschuldet. Diese richten sich nach Vermögen und Rente und betragen mindestens CHF 530/Jahr (2026). Je nach Vermögen kann dies mehrere Tausend Franken ausmachen. Zudem sollten Sie die PK-Rente auf die Vorpensionierungszeit abstimmen.
+    <strong>AHV-Beiträge als Nichterwerbstätige/r:</strong> Ab Pensionierung bis AHV-Bezug (Alter 65) sind AHV-Beiträge als Nichterwerbstätige/r geschuldet. Diese richten sich nach Vermögen und Rente und betragen mindestens CHF 530/Jahr (2026). Je nach Vermögen kann dies mehrere Tausend Franken ausmachen. Zudem solltest du die PK-Rente auf die Vorpensionierungszeit abstimmen.
   </div>
   <div style={{ marginTop: 10, padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#7f1d1d' }}>
-    <strong>Vermögenssteuer:</strong> Auf Ihrem Kapitalvermögen fallen im Kanton {CANTON_NAMES[canton] || canton} Vermögenssteuern an (ca. {((CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? 0.002) * 1000).toFixed(1)}‰). Bei CHF {fmtCHF(wdInitialWealth)} Vermögen wären das ca. CHF {fmtCHF(Math.round(wdInitialWealth * (CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? 0.002)))}/Jahr.
+    <strong>Vermögenssteuer:</strong> Auf deinem Kapitalvermögen fallen im Kanton {CANTON_NAMES[canton] || canton} Vermögenssteuern an (ca. {((CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? 0.002) * 1000).toFixed(1)}‰). Bei CHF {fmtCHF(wdInitialWealth)} Vermögen wären das ca. CHF {fmtCHF(Math.round(wdInitialWealth * (CONSTANTS.VERMÖGENSSTEUER_SATZ[canton] ?? 0.002)))}/Jahr.
   </div>
 </section>
 )}
@@ -2805,7 +2805,7 @@ export default function Screen4() {
                     </div>
                     {incomeTax1 && (
                       <div style={{ padding: '10px 14px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534' }}>
-                        ✓ Im Ruhestand sinken Ihre Steuern um <strong>CHF {fmtCHF(Math.max(0, incomeTax1.totalTax - retirementTax1.totalTax))}/Jahr</strong>
+                        ✓ Im Ruhestand sinken deine Steuern um <strong>CHF {fmtCHF(Math.max(0, incomeTax1.totalTax - retirementTax1.totalTax))}/Jahr</strong>
                         {' '}(Effektivrate {(incomeTax1.effectiveRate * 100).toFixed(1)}% → {(retirementTax1.effectiveRate * 100).toFixed(1)}%)
                       </div>
                     )}
@@ -2902,7 +2902,7 @@ export default function Screen4() {
                   {taxSubE && (
                     <div style={{ padding: '16px', background: 'white', border: '1px solid var(--ink-200)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '5px 16px', fontSize: 13, marginBottom: 14 }}>
-                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Ihre jährliche 3a-Einzahlung</span>
+                        <span style={{ color: 'var(--ink-700)', fontWeight: 500 }}>Deine jährliche 3a-Einzahlung</span>
                         <span style={{ textAlign: 'right' }}>CHF {fmtCHF(thirdPillar1.annualContribution)}</span>
                         <span style={{ color: 'var(--ink-600)' }}>Maximum {new Date().getFullYear()} {p1.hasPK ? '(mit PK)' : '(ohne PK)'}</span>
                         <span style={{ textAlign: 'right' }}>CHF {fmtCHF(thirdPillar1.maxContribution)}</span>
@@ -2919,7 +2919,7 @@ export default function Screen4() {
                       </div>
                       {thirdPillar1.unusedPotential > 0 && (
                         <div style={{ padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e' }}>
-                          Mit dem vollen Maximum von CHF {fmtCHF(thirdPillar1.maxContribution)}/Jahr sparen Sie zusätzlich CHF {fmtCHF(thirdPillar1.unusedPotentialSaving)} Steuern pro Jahr.
+                          Mit dem vollen Maximum von CHF {fmtCHF(thirdPillar1.maxContribution)}/Jahr sparst du zusätzlich CHF {fmtCHF(thirdPillar1.unusedPotentialSaving)} Steuern pro Jahr.
                         </div>
                       )}
                     </div>
@@ -2959,7 +2959,7 @@ export default function Screen4() {
                           Break-even bei Alter <strong>{rvkResult.breakEvenAge}</strong>: Ab dann übersteigen die kumulierten Rentensteuern die einmalige Kapitalbezugssteuer.
                           {rvkResult.breakEvenAge <= 82
                             ? ' Bei durchschnittlicher Lebenserwartung (ca. 84 J.) ist der Kapitalbezug steuerlich attraktiv.'
-                            : ' Der Kapitalbezug ist steuerlich attraktiv, solange Sie vor dem Break-even versterben.'}
+                            : ' Der Kapitalbezug ist steuerlich attraktiv, solange du vor dem Break-even verstirst.'}
                         </div>
                       )}
                       <div style={{ overflowX: 'auto' }}>
@@ -3023,7 +3023,7 @@ export default function Screen4() {
                 </span>
               </div>
               <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12, color: '#7c2d12' }}>
-                Als Wohneigentümer versteuern Sie einen fiktiven Mietertrag (ca. 3–4.5% des Steuerwerts), können aber Hypothekarzinsen und Unterhaltskosten abziehen.
+                Als Wohneigentümer versteuerst du einen fiktiven Mietertrag (ca. 3–4.5% des Steuerwerts), kannst aber Hypothekarzinsen und Unterhaltskosten abziehen.
               </div>
             </div>
           )}
@@ -3052,7 +3052,7 @@ export default function Screen4() {
     Meine Entscheidungen
   </div>
   <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: 'var(--navy-800)', lineHeight: 1.2, marginBottom: 8 }}>
-    Ihre gewählte Vorsorgestrategie im Überblick
+    Deine gewählte Vorsorgestrategie im Überblick
   </div>
 </div>
 
@@ -3078,7 +3078,7 @@ export default function Screen4() {
 
   {/* Result summary */}
   <div style={{ padding: '16px 20px', background: verdictBg, border: `1px solid ${verdictBorder}`, borderRadius: 12, marginBottom: 16 }}>
-    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ergebnis Ihrer Strategie</div>
+    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-500)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ergebnis deiner Strategie</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'var(--ink-400)', marginBottom: 4 }}>Monatl. Einnahmen</div>
@@ -3164,7 +3164,7 @@ export default function Screen4() {
   </div>
   {pdfError && <div style={{ marginTop: 8, fontSize: 13, color: '#dc2626' }}>{pdfError}</div>}
   <div style={{ marginTop: 12, fontSize: 12, color: 'var(--ink-400)', lineHeight: 1.6 }}>
-    ℹ️ WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung. Alle Berechnungen sind Schätzungen basierend auf Ihren Angaben. Bitte konsultieren Sie eine Fachperson für verbindliche Entscheidungen.
+    ℹ️ WealthWise ist ein Informationstool und keine Finanz-, Steuer- oder Rechtsberatung. Alle Berechnungen sind Schätzungen basierend auf deinen Angaben. Bitte konsultiere eine Fachperson für verbindliche Entscheidungen.
   </div>
 </section>
 
@@ -3176,7 +3176,7 @@ export default function Screen4() {
         <div style={{ background: '#f8fafc', border: '1px solid var(--ink-200)', borderRadius: 12, padding: '18px 22px', margin: '8px 0' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--ink-700)', marginBottom: 6 }}>Haftungsausschluss</div>
           <p style={{ fontSize: 12.5, color: 'var(--ink-500)', lineHeight: 1.65, margin: 0 }}>
-            Diese Analyse dient der Orientierung und stellt keine Anlageberatung oder Finanzplanung dar. Die Berechnungen basieren auf vereinfachten Annahmen und den offiziellen Schweizer Vorsorgedaten 2026 (AHV-Rentenskala 44, BVG-Kennzahlen, BFS-Sterbetafeln). Individuelle steuerliche, rechtliche und persönliche Faktoren werden nicht vollständig berücksichtigt. Für verbindliche Entscheidungen konsultieren Sie bitte eine qualifizierte Finanzfachperson.
+            Diese Analyse dient der Orientierung und stellt keine Anlageberatung oder Finanzplanung dar. Die Berechnungen basieren auf vereinfachten Annahmen und den offiziellen Schweizer Vorsorgedaten 2026 (AHV-Rentenskala 44, BVG-Kennzahlen, BFS-Sterbetafeln). Individuelle steuerliche, rechtliche und persönliche Faktoren werden nicht vollständig berücksichtigt. Für verbindliche Entscheidungen konsultiere bitte eine qualifizierte Finanzfachperson.
           </p>
           <div style={{ marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-400)' }}>
             WealthWise – Digitale Vorsorgeplanung Schweiz · Datenquellen: BSV, BFS, Eidg. Finanzdepartement

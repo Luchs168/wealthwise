@@ -301,7 +301,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
 
   // ─── Zusammenfassung / KPI boxes ──────────────────────────────────────────
 
-  section('Zusammenfassung', 'Ihre Vorsorgesituation auf einen Blick')
+  section('Zusammenfassung', 'Deine Vorsorgesituation auf einen Blick')
 
   const kpiW = (CW - 8) / 3
   const kpiH = 32
@@ -750,7 +750,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   // SEITE 4: VORSORGEÜBERSICHT + STEUERANALYSE
   // ═══════════════════════════════════════════════════════════════════════════
   addPage()
-  section('Vorsorgeubersicht', 'Ihre drei Vorsorgesaulen im Detail')
+  section('Vorsorgeubersicht', 'Deine drei Vorsorgesaulen im Detail')
 
   const isCouple = !!(analysis.ahv.person2 && data.person2Name)
 
@@ -970,7 +970,7 @@ export async function exportPDF(data: PdfData): Promise<void> {
   // SEITE 5: MEINE ENTSCHEIDUNGEN + EMPFEHLUNGEN
   // ═══════════════════════════════════════════════════════════════════════════
   addPage()
-  section('Meine Entscheidungen', 'Ihre getroffenen Vorsorgeentscheide')
+  section('Meine Entscheidungen', 'Deine getroffenen Vorsorgeentscheide')
 
   // Decision rows
   const decisionRows: Array<[string, string, string]> = [
@@ -1169,9 +1169,9 @@ export async function exportPDF(data: PdfData): Promise<void> {
   doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
   const disclaimer =
-    'Diese Analyse wurde von WealthWise auf Basis Ihrer personlichen Angaben erstellt und dient ausschliesslich der Orientierung. Sie ersetzt keine professionelle Finanz- oder Vorsorgeberatung durch eine qualifizierte Fachperson (CFP, Vorsorgeberater).\n\n' +
-    'Alle Berechnungen sind Richtwerte auf Basis vereinfachter Annahmen. Anderungen der gesetzlichen Grundlagen, Ihrer personlichen Situation oder der Kapitalmarktentwicklung konnen die Ergebnisse wesentlich beeinflussen.\n\n' +
-    'Fur verbindliche Auskunfte wenden Sie sich an Ihre Pensionskasse, die zustandige Ausgleichskasse (SVA) oder einen zertifizierten Finanzplaner (fpvs.ch).\n\n' +
+    'Diese Analyse wurde von WealthWise auf Basis deiner personlichen Angaben erstellt und dient ausschliesslich der Orientierung. Sie ersetzt keine professionelle Finanz- oder Vorsorgeberatung durch eine qualifizierte Fachperson (CFP, Vorsorgeberater).\n\n' +
+    'Alle Berechnungen sind Richtwerte auf Basis vereinfachter Annahmen. Anderungen der gesetzlichen Grundlagen, deiner personlichen Situation oder der Kapitalmarktentwicklung konnen die Ergebnisse wesentlich beeinflussen.\n\n' +
+    'Fur verbindliche Auskunfte wende dich an deine Pensionskasse, die zustandige Ausgleichskasse (SVA) oder einen zertifizierten Finanzplaner (fpvs.ch).\n\n' +
     'Dieser Prototyp wurde im Rahmen einer Masterarbeit an der Fachhochschule Nordwestschweiz (FHNW), MAS Information Systems Management 2026, entwickelt und dient ausschliesslich zu Demonstrations- und Forschungszwecken.'
   const dLines = doc.splitTextToSize(disclaimer, CW - 12)
   doc.text(dLines, ML + 6, y + 17)
